@@ -326,10 +326,12 @@ en:
             qr: "QR code"
           fields:
             label: "Name"
+            label_zh: "Chinese name (optional)"
             kind: "How it opens"
             href: "Link address"
             qr_image_url: "QR code image URL"
             qr_caption: "Caption under the code"
+            qr_caption_zh: "Chinese caption (optional)"
             image_url: "Icon URL"
             image_hint: "The icon shown in the strip. Without one, only the name is drawn."
             icon_only: "Show the icon alone"
@@ -353,7 +355,9 @@ en:
             other: "This column has %{count} links, which will be removed with it. Continue?"
           fields:
             title: "Heading"
+            title_zh: "Chinese heading (optional)"
             label: "Label"
+            label_zh: "Chinese label (optional)"
             href: "Link address"
             external: "The link leaves the forum"
             position: "Order"

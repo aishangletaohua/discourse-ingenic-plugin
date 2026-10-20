@@ -1282,11 +1282,13 @@ module Admin
     def social_link_params
       params.permit(
         :label,
+        :label_zh,
         :kind,
         :href,
         :image_url,
         :qr_image_url,
         :qr_caption,
+        :qr_caption_zh,
         :icon_only,
         :position,
         :published,
@@ -1294,11 +1296,11 @@ module Admin
     end
 
     def footer_column_params
-      params.permit(:title, :position, :published)
+      params.permit(:title, :title_zh, :position, :published)
     end
 
     def footer_link_params
-      params.permit(:column_id, :label, :href, :external, :position, :published)
+      params.permit(:column_id, :label, :label_zh, :href, :external, :position, :published)
     end
 
     # Writes the uploaded file, if the request carries one, and returns where it
@@ -1484,11 +1486,13 @@ module Admin
       link.attributes.slice(
         "id",
         "label",
+        "label_zh",
         "kind",
         "href",
         "image_url",
         "qr_image_url",
         "qr_caption",
+        "qr_caption_zh",
         "icon_only",
         "position",
         "published",
@@ -1498,12 +1502,21 @@ module Admin
     def footer_column_json(column)
       column
         .attributes
-        .slice("id", "title", "position", "published")
+        .slice("id", "title", "title_zh", "position", "published")
         .merge("links" => column.links.map { |link| footer_link_json(link) })
     end
 
     def footer_link_json(link)
-      link.attributes.slice("id", "column_id", "label", "href", "external", "position", "published")
+      link.attributes.slice(
+        "id",
+        "column_id",
+        "label",
+        "label_zh",
+        "href",
+        "external",
+        "position",
+        "published",
+      )
     end
 
     def download_request_json(request)

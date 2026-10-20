@@ -14,11 +14,13 @@ const QR = "qr";
 
 const BLANK = {
   label: "",
+  label_zh: "",
   kind: LINK,
   href: "",
   image_url: "",
   qr_image_url: "",
   qr_caption: "",
+  qr_caption_zh: "",
   icon_only: false,
   position: 0,
   published: true,
@@ -176,6 +178,11 @@ export default class IngenicSocialLinkManager extends Component {
           </label>
 
           <label>
+            <span>{{i18n "admin.ingenic.social_links.fields.label_zh"}}</span>
+            <input name="label_zh" value={{this.draft.label_zh}} />
+          </label>
+
+          <label>
             <span>{{i18n "admin.ingenic.social_links.fields.kind"}}</span>
             <DNativeSelect
               name="kind"
@@ -199,6 +206,11 @@ export default class IngenicSocialLinkManager extends Component {
             <label>
               <span>{{i18n "admin.ingenic.social_links.fields.qr_caption"}}</span>
               <input name="qr_caption" value={{this.draft.qr_caption}} />
+            </label>
+
+            <label>
+              <span>{{i18n "admin.ingenic.social_links.fields.qr_caption_zh"}}</span>
+              <input name="qr_caption_zh" value={{this.draft.qr_caption_zh}} />
             </label>
           {{else}}
             <label>

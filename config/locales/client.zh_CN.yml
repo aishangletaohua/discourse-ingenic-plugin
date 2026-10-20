@@ -326,10 +326,12 @@ zh_CN:
             qr: "二维码"
           fields:
             label: "名称"
+            label_zh: "中文名称（可选）"
             kind: "打开方式"
             href: "链接地址"
             qr_image_url: "二维码图片链接"
             qr_caption: "二维码下方说明"
+            qr_caption_zh: "二维码中文说明（可选）"
             image_url: "图标链接"
             image_hint: "工具条中显示的图标。未设置时仅显示名称。"
             icon_only: "仅显示图标"
@@ -353,7 +355,9 @@ zh_CN:
             other: "该栏目包含 %{count} 个链接，将随栏目一起删除。是否继续？"
           fields:
             title: "标题"
+            title_zh: "中文标题（可选）"
             label: "名称"
+            label_zh: "中文名称（可选）"
             href: "链接地址"
             external: "链接跳转到论坛外部"
             position: "排序"

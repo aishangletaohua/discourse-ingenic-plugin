@@ -227,11 +227,13 @@ module Ingenic
       IngenicSocialLink.order(:position, :label).map do |link|
         {
           "label" => link.label,
+          "label_zh" => link.label_zh,
           "kind" => link.kind,
           "href" => link.href,
           "image_url" => link.image_url,
           "qr_image_url" => link.qr_image_url,
           "qr_caption" => link.qr_caption,
+          "qr_caption_zh" => link.qr_caption_zh,
           "published" => link.published,
           "position" => link.position,
         }
@@ -242,6 +244,7 @@ module Ingenic
       IngenicFooterColumn.order(:position, :title).map do |column|
         {
           "title" => column.title,
+          "title_zh" => column.title_zh,
           "published" => column.published,
           "position" => column.position,
         }
@@ -253,6 +256,7 @@ module Ingenic
         {
           "column" => link.column.title,
           "label" => link.label,
+          "label_zh" => link.label_zh,
           "href" => link.href,
           "external" => link.external,
           "published" => link.published,
@@ -549,10 +553,12 @@ module Ingenic
     def apply_social_links(rows, report)
       rows.each do |row|
         upsert(report, IngenicSocialLink, { label: row["label"], kind: row["kind"].presence || "link" }) do |link|
+          link.label_zh = row["label_zh"]
           link.href = row["href"]
           link.image_url = row["image_url"]
           link.qr_image_url = row["qr_image_url"]
           link.qr_caption = row["qr_caption"]
+          link.qr_caption_zh = row["qr_caption_zh"]
           link.published = row.fetch("published", true)
           link.position = row["position"].to_i
         end
@@ -562,6 +568,7 @@ module Ingenic
     def apply_footer_columns(rows, report)
       rows.each do |row|
         upsert(report, IngenicFooterColumn, { title: row["title"] }) do |column|
+          column.title_zh = row["title_zh"]
           column.published = row.fetch("published", true)
           column.position = row["position"].to_i
         end
@@ -574,6 +581,7 @@ module Ingenic
         next if column.nil?
 
         upsert(report, IngenicFooterLink, { column_id: column.id, label: row["label"] }) do |link|
+          link.label_zh = row["label_zh"]
           link.href = row["href"]
           link.external = row.fetch("external", false)
           link.published = row.fetch("published", true)

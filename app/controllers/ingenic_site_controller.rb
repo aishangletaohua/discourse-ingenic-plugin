@@ -60,11 +60,16 @@ class IngenicSiteController < ::ApplicationController
       {
         "id" => link.id,
         "label" => link.label,
+        # Both spellings travel to the browser: the page it lands on has already
+        # chosen a language, and the footer should not need a second request to
+        # know which one.
+        "label_zh" => link.label_zh,
         "kind" => link.kind,
         "href" => link.href,
         "image_url" => link.image_url,
         "qr_image_url" => link.qr_image_url,
         "qr_caption" => link.qr_caption,
+        "qr_caption_zh" => link.qr_caption_zh,
         "icon_only" => link.icon_only,
       }
     end
@@ -81,9 +86,16 @@ class IngenicSiteController < ::ApplicationController
       {
         "id" => column.id,
         "title" => column.title,
+        "title_zh" => column.title_zh,
         "links" =>
           column.published_links.map do |link|
-            { "id" => link.id, "label" => link.label, "href" => link.href, "external" => link.external? }
+            {
+              "id" => link.id,
+              "label" => link.label,
+              "label_zh" => link.label_zh,
+              "href" => link.href,
+              "external" => link.external?,
+            }
           end,
       }
     end

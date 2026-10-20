@@ -738,9 +738,17 @@ The **Site content** screen has six tabs:
   partner strip: label, link, built-in icon or image, whether the name is drawn,
   external flag, order and visibility.
 - **Partner platforms** — the footer's "Find us" strip. Each entry is a link or
-  a QR code, with a label, image or QR picture, optional caption and order.
+  a QR code, with a label, image or QR picture, optional caption and order. The
+  Chinese name and caption can be stored beside the English ones.
 - **Footer columns** — headings and their links (label, address, external flag,
-  order, visibility).
+  order, visibility). Columns and links also take an optional Chinese heading or
+  label.
+
+The footer follows the language the forum is being read in: English text is
+required, Chinese is optional, and anything without a Chinese spelling falls
+back to English rather than disappearing. This is why both spellings live on
+the same record — a translator fills in the Chinese fields, and nothing else on
+the screen changes.
 
 The home page block types are: popular sections, promotions, announcements,
 discussions, latest topics, hot topics, downloads, development boards, bounties

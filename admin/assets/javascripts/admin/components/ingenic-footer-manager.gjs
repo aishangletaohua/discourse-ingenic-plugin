@@ -9,11 +9,18 @@ import { i18n } from "discourse-i18n";
 const COLUMN_ENDPOINT = "/admin/plugins/discourse-ingenic/footer-columns";
 const LINK_ENDPOINT = "/admin/plugins/discourse-ingenic/footer-links";
 
-const BLANK_COLUMN = { type: "column", title: "", position: 0, published: true };
+const BLANK_COLUMN = {
+  type: "column",
+  title: "",
+  title_zh: "",
+  position: 0,
+  published: true,
+};
 const BLANK_LINK = {
   type: "link",
   column_id: null,
   label: "",
+  label_zh: "",
   href: "",
   external: false,
   position: 0,
@@ -229,6 +236,11 @@ export default class IngenicFooterManager extends Component {
             </label>
 
             <label>
+              <span>{{i18n "admin.ingenic.footer.fields.label_zh"}}</span>
+              <input name="label_zh" value={{this.draft.label_zh}} />
+            </label>
+
+            <label>
               <span>{{i18n "admin.ingenic.footer.fields.href"}}</span>
               <input name="href" value={{this.draft.href}} required />
             </label>
@@ -241,6 +253,11 @@ export default class IngenicFooterManager extends Component {
             <label>
               <span>{{i18n "admin.ingenic.footer.fields.title"}}</span>
               <input name="title" value={{this.draft.title}} required />
+            </label>
+
+            <label>
+              <span>{{i18n "admin.ingenic.footer.fields.title_zh"}}</span>
+              <input name="title_zh" value={{this.draft.title_zh}} />
             </label>
           {{/if}}
 
