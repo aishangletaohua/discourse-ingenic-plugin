@@ -31,6 +31,20 @@ describe IngenicDownloadCategory do
     expect(IngenicDownloadCategory.new(name: existing.name, locale: "zh_CN")).to be_valid
   end
 
+  # "SDK" and "sdk" are one material type written twice, and a filter that
+  # offers both splits a shelf in half. The second spelling is refused.
+  it "refuses a name that differs only in case" do
+    category(name: "SDK Release")
+
+    expect(IngenicDownloadCategory.new(name: "sdk release", locale: "en")).not_to be_valid
+  end
+
+  it "strips surrounding whitespace before comparing" do
+    category(name: "SDK Bundle")
+
+    expect(IngenicDownloadCategory.new(name: "  sdk bundle ", locale: "en")).not_to be_valid
+  end
+
   it "orders by position and then by name" do
     second = category(position: 1)
     first = category(position: 0)

@@ -18,7 +18,18 @@ class IngenicDownloadCategory < ActiveRecord::Base
            foreign_key: :category_id,
            dependent: :nullify
 
-  validates :name, presence: true, uniqueness: { scope: :locale }
+  normalizes :name, with: ->(name) { name.strip }
+
+  # Case is part of the name, not part of the identity: "SDK" and "sdk" are
+  # one material type written twice, and a filter that offers both splits a
+  # shelf in half. The admin page refuses the second spelling here rather than
+  # letting it become two chips that no visitor can tell apart.
+  validates :name,
+            presence: true,
+            uniqueness: {
+              scope: :locale,
+              case_sensitive: false,
+            }
 
   scope :published, -> { where(published: true) }
   scope :ordered, -> { order(position: :asc, name: :asc) }
