@@ -614,6 +614,14 @@ the screen says so before an upload is attempted; set
 The three access levels are explained in section 6.2. The point price is
 optional and is charged only when the file is actually released.
 
+**Withdrawing a resource is not a delete.** Switching **Published** off stops
+the download centre from offering the file; nothing else is removed. The row
+stays in the Resources list with its description, links, stored file and
+checksum, and the applications, grants and download record that refer to it
+remain in their tabs, so an audit still reads correctly. Switch **Published**
+back on to offer the file again, with the existing grants still in force.
+Nothing in the downloads screen physically deletes a resource.
+
 ### 11.4 Development boards and samples
 
 Add a card, then set:
@@ -630,7 +638,11 @@ Add a card, then set:
   URL**, **Order** and **Published**. **Details** is Markdown and is what the
   dialog shows; links and images can be inserted there.
 
-Withdrawing a card removes it from the public catalogue without deleting it.
+**Withdrawing a card is not a delete.** Switching **Published** off removes the
+card from the public catalogue and leaves everything else in place: the row
+with its text, specifications, image and both links is still in the Boards
+list, and it can be published again at any time. Nothing in the boards screen
+physically deletes a card.
 
 ### 11.5 Points
 

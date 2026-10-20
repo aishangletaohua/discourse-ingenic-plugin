@@ -30,15 +30,23 @@ class IngenicDownloadMailer < ActionMailer::Base
 
   # To the applicant, when the team decides.
   def request_decided(to_address, request)
-    build_email(
-      to_address,
-      template:
-        "ingenic_download_request_#{request.approved? ? "approved" : "rejected"}",
-      recipient_username: request.user.username,
-      resource_name: request.download.name,
-      review_note: request.review_note,
-      downloads_url: "#{Discourse.base_url}/ingenic/downloads",
-    )
+    # Built in the applicant's language, the way core's own mailers are. The
+    # template's headings and the fallback note below have to agree, and a
+    # Chinese sentence under an English heading is worse than either alone.
+    I18n.with_locale(request.user.effective_locale) do
+      build_email(
+        to_address,
+        template:
+          "ingenic_download_request_#{request.approved? ? "approved" : "rejected"}",
+        recipient_username: request.user.username,
+        resource_name: request.download.name,
+        # The template always prints the "Notes from the team" heading, so a
+        # decision made without a note would otherwise leave a label pointing
+        # at nothing.
+        review_note: request.review_note.presence || I18n.t("ingenic_download_request_no_note"),
+        downloads_url: "#{Discourse.base_url}/ingenic/downloads",
+      )
+    end
   end
 
   private

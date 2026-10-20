@@ -930,6 +930,10 @@ module Admin
 
       payload = params[:changes]
       payload = JSON.parse(payload) if payload.is_a?(String)
+      # A JSON body hands back Parameters rows rather than plain Hashes; the
+      # loop below reads both, but the array check must see the array itself.
+      payload = payload.to_unsafe_h if payload.is_a?(ActionController::Parameters)
+      payload = payload.values if payload.is_a?(Hash) && payload.keys.all? { |k| k.to_s.match?(/\A\d+\z/) }
       raise Discourse::InvalidParameters.new(:changes) unless payload.is_a?(Array)
 
       assignable = Group.where(automatic: false).pluck(:id).to_set
@@ -999,7 +1003,13 @@ module Admin
     # page and a console.
     def parse_json_param(key)
       value = params[key]
-      return value if value.is_a?(ActionController::Parameters) || value.is_a?(Hash)
+      # A JSON object body reaches `params` as Parameters, not Hash; a form
+      # encoding of the same matrix arrives as the JSON string the page sends.
+      # Return a real Hash either way, because the callers check for one and a
+      # Parameters object would fail that check and turn a valid request into
+      # a 400.
+      return value.to_unsafe_h if value.is_a?(ActionController::Parameters)
+      return value if value.is_a?(Hash)
       return {} if value.blank?
 
       JSON.parse(value)
@@ -1635,10 +1645,15 @@ module Admin
     end
 
     def board_chip_options
+      # Only the chips this account may file a board under. The server already
+      # refuses a board on any other chip, so offering the full list would just
+      # present choices that fail on save.
+      resolver = ::Ingenic::PermissionResolver.new(current_user)
       IngenicDocProduct
         .chips
         .includes(:parent)
         .ordered
+        .select { |chip| resolver.can_manage_area?(chip, "boards") }
         .map do |chip|
           {
             "id" => chip.id,

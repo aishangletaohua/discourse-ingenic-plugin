@@ -153,6 +153,30 @@ describe Ingenic::PermissionResolver do
       expect(resolver.can_manage?(version)).to eq(false)
     end
 
+    it "reports which screens have anything to manage, for the admin navigation" do
+      IngenicPermission.create!(
+        user: user,
+        resource_type: "IngenicDocProduct",
+        resource_id: family.id,
+        area: "documentation",
+      )
+      resolver = described_class.new(user)
+
+      expect(resolver.can_manage_any_area?("documentation")).to eq(true)
+      expect(resolver.can_manage_any_area?("boards")).to eq(false)
+    end
+
+    it "does not treat a whole-screen grant in another area as this one" do
+      group.add(user)
+      IngenicGroupPermission.create!(group: group, feature: "downloads")
+
+      resolver = described_class.new(user)
+
+      expect(resolver.can_manage_any_area?("downloads")).to eq(true)
+      expect(resolver.can_manage_any_area?("documentation")).to eq(false)
+      expect(resolver.can_manage_any_area?("boards")).to eq(false)
+    end
+
     it "lists only the downloads and boards the grant covers" do
       other_chip =
         IngenicDocProduct.create!(

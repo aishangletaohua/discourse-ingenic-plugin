@@ -119,6 +119,20 @@ module Ingenic
       admin?
     end
 
+    # Whether a screen has anything this account may manage, without requiring
+    # the whole-screen grant. The plugin's admin navigation asks this so a
+    # downloads manager is not offered an empty documentation table: having
+    # *some* grant is not the same as having one in this area.
+    def can_manage_any_area?(area)
+      return true if admin?
+      return false unless @user
+      return true if can_manage_feature?(area)
+
+      IngenicPermission.where(permission: "manage", area: area.to_s)
+        .where("user_id = :user_id OR group_id IN (:group_ids)", user_id: @user.id, group_ids: group_ids)
+        .exists?
+    end
+
     def can_manage_any_content?
       return true if admin?
       return false unless @user

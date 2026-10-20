@@ -308,6 +308,19 @@ after_initialize do
     end
   end
 
+  # The two screens that can also be reached through a grant on a single
+  # product or board. `ingenic_features` answers for whole-screen grants, and
+  # `can_manage_ingenic_content` is true for a downloads manager too, so
+  # neither can say whether this account has anything on the documentation or
+  # boards screen to look after.
+  add_to_serializer(:current_user, :ingenic_scoped_content) do
+    resolver = ::Ingenic::PermissionResolver.new(object)
+    {
+      "documentation" => resolver.can_manage_any_area?("documentation"),
+      "boards" => resolver.can_manage_any_area?("boards"),
+    }
+  end
+
   # The 高分悬赏 on this topic — standing or settled — so the topic page can
   # draw its banner without a second request. One lookup against the index on
   # `topic_id`, and null — rather than absent — for the overwhelming majority of

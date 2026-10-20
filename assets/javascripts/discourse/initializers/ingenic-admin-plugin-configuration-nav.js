@@ -27,6 +27,10 @@ export default {
     }
 
     const features = currentUser.ingenic_features ?? {};
+    // A grant on one product or board is not a whole-screen feature, so the
+    // server reports those two separately. Without them a downloads manager
+    // would be offered an empty documentation screen.
+    const scoped = currentUser.ingenic_scoped_content ?? {};
     const canContent = currentUser.can_manage_ingenic_content;
     const anyFeature = features.documentation || features.boards || features.downloads ||
       features.points || features.site;
@@ -40,7 +44,7 @@ export default {
 
       const entries = [];
 
-      if (currentUser.admin || canContent || features.documentation) {
+      if (currentUser.admin || features.documentation || scoped.documentation) {
         entries.push({
           label: "admin.ingenic.documentation.title",
           route: "adminPlugins.show.documentation",
@@ -48,7 +52,7 @@ export default {
         });
       }
 
-      if (currentUser.admin || canContent || features.boards) {
+      if (currentUser.admin || features.boards || scoped.boards) {
         entries.push({
           label: "admin.ingenic.boards.title",
           route: "adminPlugins.show.boards",

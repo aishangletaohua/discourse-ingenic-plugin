@@ -339,6 +339,39 @@ describe Admin::IngenicController do
       expect(chip["slug"]).to eq("t33")
       expect(chip["series_name"]).to eq("T Series")
     end
+
+    it "offers a boards manager only the chips they may file a board under" do
+      chip = IngenicDocProduct.create!(
+        slug: "t33",
+        name: "T33",
+        kind: IngenicDocProduct::CHIP,
+        parent: product,
+        locale: "en",
+      )
+      other_series = IngenicDocProduct.create!(slug: "c-series", name: "C Series", locale: "en")
+      IngenicDocProduct.create!(
+        slug: "c100",
+        name: "C100",
+        kind: IngenicDocProduct::CHIP,
+        parent: other_series,
+        locale: "en",
+      )
+      manager = Fabricate(:user)
+      IngenicPermission.create!(
+        user: manager,
+        resource_type: "IngenicDocProduct",
+        resource_id: product.id,
+        area: "boards",
+      )
+      sign_in(manager)
+
+      get "/admin/plugins/discourse-ingenic/boards.json"
+
+      expect(response.status).to eq(200)
+      # The other chip is still a real chip, and the server would refuse a board
+      # on it; the picker should not offer a choice that cannot be saved.
+      expect(response.parsed_body["chips"].pluck("id")).to contain_exactly(chip.id)
+    end
   end
 
   describe "PUT /admin/plugins/discourse-ingenic/boards/:id" do

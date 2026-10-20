@@ -132,3 +132,7 @@ en:
 
       Notes from the team:
       %{review_note}
+
+  # Used in place of a review note when the team approved or declined without
+  # writing one, so the mail does not end with an empty heading.
+  ingenic_download_request_no_note: "No note was left."
