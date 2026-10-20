@@ -321,6 +321,8 @@ en:
           edit_title: "Edit platform"
           empty: "No partner platforms have been added yet."
           unpublished: "hidden"
+          uploading: "Uploading the image…"
+          upload_failed: "That image could not be uploaded."
           kinds:
             link: "Link"
             qr: "QR code"
@@ -333,9 +335,11 @@ en:
             qr_caption: "Caption under the code"
             qr_caption_zh: "Chinese caption (optional)"
             image_url: "Icon URL"
-            image_hint: "The icon shown in the strip. Without one, only the name is drawn."
+            upload_image: "Upload an icon"
+            upload_qr_image: "Upload the QR image"
+            image_hint: "Upload an image or paste its URL. Without one, the name is drawn instead."
             icon_only: "Show the icon alone"
-            icon_only_hint: "The name stays as the button's accessible label but is not drawn. Needs an icon URL."
+            icon_only_hint: "The name stays as the button's accessible label but is not drawn."
             position: "Order"
             published: "Shown"
         footer:

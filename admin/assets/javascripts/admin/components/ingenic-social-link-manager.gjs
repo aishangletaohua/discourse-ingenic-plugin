@@ -38,6 +38,7 @@ export default class IngenicSocialLinkManager extends Component {
   @tracked records = this.args.socialLinks ?? [];
   @tracked draft = null;
   @tracked busy = false;
+  @tracked uploading = false;
   @tracked message = null;
   @tracked error = null;
 
@@ -99,6 +100,73 @@ export default class IngenicSocialLinkManager extends Component {
     this.draft[name] = type === "checkbox" ? checked : value;
   }
 
+  // An upload URL comes back with an origin (`//localhost:3000/uploads/…`).
+  // Keep the path for local uploads so the picture survives being viewed on a
+  // different host; leave anything else — a CDN, an external icon — untouched.
+  #localPath(url) {
+    if (!url) {
+      return null;
+    }
+
+    try {
+      const parsed = new URL(url, window.location.origin);
+      return parsed.pathname.startsWith("/uploads/") ? parsed.pathname : url;
+    } catch {
+      return url;
+    }
+  }
+
+  // The strip's entries are usually an icon the team already has on disk, not a
+  // URL somebody has published. The file goes to Discourse's own upload
+  // endpoint, the same one the composer uses, and the URL it returns is what
+  // the record stores. `field` says which of the two pictures was replaced.
+  @action
+  async uploadImage(field, event) {
+    const file = event.target.files?.[0];
+
+    // Clearing the picker lets the same file be chosen twice, and keeps the
+    // input from remembering a path that no longer means anything.
+    event.target.value = "";
+
+    if (!file || this.uploading) {
+      return;
+    }
+
+    this.uploading = true;
+    this.error = null;
+
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      data.append("upload_type", "composer");
+
+      const upload = await ajax("/uploads.json", {
+        type: "POST",
+        data,
+        processData: false,
+        contentType: false,
+      });
+
+      // The upload endpoint answers with both a short URL (`upload://…`, a
+      // composer-side reference) and the real one. This field is drawn as an
+      // image tag, so it needs the real URL — and a path rather than the host
+      // the upload happened to run on, which is what a preview or a second
+      // domain would otherwise break.
+      const url = this.#localPath(upload.url);
+
+      if (url) {
+        this.draft = { ...this.draft, [field]: url };
+      }
+    } catch (uploadError) {
+      this.error =
+        uploadError?.jqXHR?.responseJSON?.errors?.[0] ||
+        uploadError?.message ||
+        i18n("admin.ingenic.social_links.upload_failed");
+    } finally {
+      this.uploading = false;
+    }
+  }
+
   @action
   async save(event) {
     event.preventDefault();
@@ -155,6 +223,9 @@ export default class IngenicSocialLinkManager extends Component {
     <div class="ingenic-admin-panel">
       {{#if this.error}}<p class="ingenic-admin-note ingenic-admin-note--error">{{this.error}}</p>{{/if}}
       {{#if this.message}}<p class="ingenic-admin-note">{{this.message}}</p>{{/if}}
+      {{#if this.uploading}}
+        <p class="ingenic-admin-note">{{i18n "admin.ingenic.social_links.uploading"}}</p>
+      {{/if}}
 
       <div class="ingenic-admin__toolbar">
         <button class="btn btn-primary" type="button" {{on "click" this.startNew}}>
@@ -204,6 +275,16 @@ export default class IngenicSocialLinkManager extends Component {
             </label>
 
             <label>
+              <span>{{i18n "admin.ingenic.social_links.fields.upload_qr_image"}}</span>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={{this.uploading}}
+                {{on "change" (fn this.uploadImage "qr_image_url")}}
+              />
+            </label>
+
+            <label>
               <span>{{i18n "admin.ingenic.social_links.fields.qr_caption"}}</span>
               <input name="qr_caption" value={{this.draft.qr_caption}} />
             </label>
@@ -222,6 +303,16 @@ export default class IngenicSocialLinkManager extends Component {
           <label>
             <span>{{i18n "admin.ingenic.social_links.fields.image_url"}}</span>
             <input name="image_url" value={{this.draft.image_url}} />
+          </label>
+
+          <label>
+            <span>{{i18n "admin.ingenic.social_links.fields.upload_image"}}</span>
+            <input
+              type="file"
+              accept="image/*"
+              disabled={{this.uploading}}
+              {{on "change" (fn this.uploadImage "image_url")}}
+            />
           </label>
 
           <p class="ingenic-admin-form__hint">
@@ -248,7 +339,7 @@ export default class IngenicSocialLinkManager extends Component {
           </label>
 
           <div class="ingenic-admin__toolbar">
-            <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
+            <button class="btn btn-primary" type="submit" disabled={{or this.busy this.uploading}}>
               {{i18n "admin.ingenic.save"}}
             </button>
             <button class="btn" type="button" {{on "click" this.cancel}}>
