@@ -252,10 +252,10 @@ after_initialize do
   end
 
   # The external buttons and the section cards are content, and both are drawn
-  # before anything can be fetched: the header is the first thing on every page
-  # and the cards sit above the fold. They come in the site payload so the
-  # first paint already has them, rather than showing an empty header and
-  # filling it in a moment later.
+  # before anything can be fetched: the footer closes every page and the cards
+  # sit above the fold. They come in the site payload so the first paint
+  # already has them, rather than showing an empty footer and filling it in a
+  # moment later.
   add_to_serializer(:site, :ingenic_header_links, include_condition: -> { SiteSetting.ingenic_enabled }) do
     IngenicHeaderLink.published.ordered.map do |link|
       {

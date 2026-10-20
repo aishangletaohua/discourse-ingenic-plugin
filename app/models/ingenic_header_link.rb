@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# One button in the header, beside the site logo.
+# One external button, drawn in the footer's "Find us" row.
 #
 # Content rather than theme code: the official site, a GitHub organisation and
 # a partner portal are addresses an administrator changes without a release.
