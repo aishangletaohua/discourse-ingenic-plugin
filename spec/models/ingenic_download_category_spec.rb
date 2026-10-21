@@ -34,9 +34,9 @@ describe IngenicDownloadCategory do
   # "SDK" and "sdk" are one material type written twice, and a filter that
   # offers both splits a shelf in half. The second spelling is refused.
   it "refuses a name that differs only in case" do
-    category(name: "SDK Release")
+    category(name: "Toolchain Release")
 
-    expect(IngenicDownloadCategory.new(name: "sdk release", locale: "en")).not_to be_valid
+    expect(IngenicDownloadCategory.new(name: "toolchain release", locale: "en")).not_to be_valid
   end
 
   it "strips surrounding whitespace before comparing" do

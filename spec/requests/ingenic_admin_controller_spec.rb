@@ -644,7 +644,7 @@ describe Admin::IngenicController do
 
   describe "PUT /admin/plugins/discourse-ingenic/download-categories/:id" do
     it "renames a category" do
-      category = IngenicDownloadCategory.create!(name: "SDK Release", locale: "en")
+      category = IngenicDownloadCategory.create!(name: "Toolchain Release", locale: "en")
 
       put "/admin/plugins/discourse-ingenic/download-categories/#{category.id}.json",
           params: { name: "Software development kits" }
@@ -656,7 +656,7 @@ describe Admin::IngenicController do
 
   describe "DELETE /admin/plugins/discourse-ingenic/download-categories/:id" do
     it "leaves the resources filed under it in place, unfiled" do
-      category = IngenicDownloadCategory.create!(name: "SDK Release", locale: "en")
+      category = IngenicDownloadCategory.create!(name: "Toolchain Release", locale: "en")
       download =
         IngenicDownload.create!(
           name: "T33 SDK",
