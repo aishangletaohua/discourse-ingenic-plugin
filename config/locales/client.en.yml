@@ -429,7 +429,7 @@ en:
           rebuild: "Recompute every balance"
           rebuilt: "Checked %{checked} accounts; corrected %{corrected}."
         header_links:
-          intro: "The buttons drawn beside the wordmark and in the footer's partner strip. Point one at the official site, at GitHub, or anywhere else outside the forum; the label is read aloud when the button is drawn as its icon alone."
+          intro: "The buttons drawn in the footer's Find us strip, beside the partner platforms. Point one at the official site, at GitHub, or anywhere else outside the forum; the label is read aloud when the button is drawn as its icon alone."
           add: "Add button"
           new_title: "New button"
           edit_title: "Edit button"

@@ -734,9 +734,9 @@ The **Site content** screen has six tabs:
 - **Promotions** — headline, corner label, description, button, background
   image, locale, show-from/show-until window, order and publication. A slot with
   no dates stays until it is unpublished.
-- **External buttons** — the buttons beside the wordmark and in the footer's
-  partner strip: label, link, built-in icon or image, whether the name is drawn,
-  external flag, order and visibility.
+- **External buttons** — the buttons drawn in the footer's "Find us" strip,
+  beside the partner platforms: label, link, built-in icon or image, whether the
+  name is drawn, external flag, order and visibility.
 - **Partner platforms** — the footer's "Find us" strip. Each entry is a link or
   a QR code, with a label, image or QR picture, optional caption and order. The
   Chinese name and caption can be stored beside the English ones.
