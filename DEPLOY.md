@@ -27,7 +27,7 @@ hooks:
     - exec:
         cd: $home/plugins
         cmd:
-          - git clone https://github.com/aishangletaohua/discourse-ingenic-plugin.git discourse-ingenic
+          - git clone --branch develop https://github.com/aishangletaohua/discourse-ingenic-plugin.git discourse-ingenic
 ```
 
 To update it later, pull before the rebuild:
@@ -118,9 +118,12 @@ The theme has its own repository:
 https://github.com/aishangletaohua/discourse-ingenic-theme.git
 ```
 
+with the branch set to `develop`. (Both repositories keep `main` empty between
+releases, so a branch-less install must not rely on it.)
+
 Installing it this way means later updates are **Admin → Customize → Themes →
 Check for updates**, with no rebuild and no file upload. A zip built from the
-repository can still be uploaded under *From a file* on a server that cannot
+repository can still be uploaded under *From your device* on a server that cannot
 reach GitHub.
 
 Then:

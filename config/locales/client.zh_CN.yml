@@ -433,7 +433,7 @@ zh_CN:
           add: "添加按钮"
           new_title: "新建按钮"
           edit_title: "编辑按钮"
-          empty: "页头和页脚尚未添加外链按钮。"
+          empty: "页脚尚未添加外链按钮。"
           unpublished: "已隐藏"
           icon_only: "仅显示图标"
           fields:

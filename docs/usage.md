@@ -750,9 +750,10 @@ back to English rather than disappearing. This is why both spellings live on
 the same record — a translator fills in the Chinese fields, and nothing else on
 the screen changes.
 
-The home page block types are: popular sections, promotions, announcements,
-discussions, latest topics, hot topics, downloads, development boards, bounties
-and the weekly contributor leaderboard.
+The home page block types are: section cards, promotions, announcements,
+discussions, latest topics, hot topics, popular posts, recent activity from a
+category, downloads, development boards, bounties and the weekly contributor
+leaderboard.
 
 ### 11.9 Site settings
 

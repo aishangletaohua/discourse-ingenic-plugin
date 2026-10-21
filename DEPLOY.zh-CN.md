@@ -27,7 +27,7 @@ hooks:
     - exec:
         cd: $home/plugins
         cmd:
-          - git clone https://github.com/aishangletaohua/discourse-ingenic-plugin.git discourse-ingenic
+          - git clone --branch develop https://github.com/aishangletaohua/discourse-ingenic-plugin.git discourse-ingenic
 ```
 
 以后升级插件时，在重建前先拉取：
@@ -120,9 +120,12 @@ rake ingenic:setup
 https://github.com/aishangletaohua/discourse-ingenic-theme.git
 ```
 
+分支填 `develop`。两个仓库在两次发布之间都保持 `main` 为空，因此不指定分支的安装
+不能依赖它。
+
 这样安装后，主题更新只需要在 **管理后台 → 自定义 → 主题 → 检查更新**，
 不需要重建，也不需要重新上传文件。如果服务器访问不了 GitHub，也可以在
-“从文件安装”里上传仓库打出的 zip 包。
+“From your device（从设备安装）”里上传仓库打出的 zip 包。
 
 然后：
 

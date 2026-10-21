@@ -433,7 +433,7 @@ en:
           add: "Add button"
           new_title: "New button"
           edit_title: "Edit button"
-          empty: "The header and footer have no external buttons yet."
+          empty: "The footer has no external buttons yet."
           unpublished: "hidden"
           icon_only: "icon only"
           fields:

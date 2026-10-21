@@ -30,6 +30,16 @@ login stay exactly as configured in Discourse core.
 
 中文说明：[README.zh-CN.md](README.zh-CN.md).
 
+## Branches
+
+| Branch | Holds |
+| --- | --- |
+| `develop` | The current version — every change lands here, and it is what a forum installs and tracks |
+| `main` | Reserved for formal releases; kept empty between them |
+
+`develop` is the repository's default branch, so a plain clone gets the current
+version. Installation instructions below use it explicitly.
+
 ## Documentation
 
 - [`docs/usage.md`](docs/usage.md) — what the forum does and how to use it, for

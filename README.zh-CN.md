@@ -14,6 +14,15 @@ Ingenic 社区论坛的 Discourse 扩展插件。论坛本身保持 Discourse �
 
 English: [README.md](README.md).
 
+## 分支
+
+| 分支 | 内容 |
+| --- | --- |
+| `develop` | 当前版本——所有改动都提交到这里，论坛安装并跟踪的也是这个分支 |
+| `main` | 留给正式版本，两次发布之间保持为空 |
+
+`develop` 是仓库的默认分支，直接克隆拿到的就是当前版本。下文安装步骤都显式使用它。
+
 ## 文档
 
 - [`docs/usage.zh-CN.md`](docs/usage.zh-CN.md) —— 论坛有哪些功能、会员和管理员怎么用；[English](docs/usage.md)。

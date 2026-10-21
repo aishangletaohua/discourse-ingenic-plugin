@@ -48,8 +48,9 @@ plugins:
     multiline: true
 
   # JSON array controlling which blocks appear on the Ingenic home page and in
-  # what order. Supported types: categories, latest, hot, bounties, promotions,
-  # announcements, discussions, downloads, boards.
+  # what order. Supported types: categories, latest, hot, popular, activity,
+  # announcements, discussions, downloads, boards, bounties, promotions,
+  # leaderboard.
   #
   # This is edited on Admin → Plugins → Ingenic → Site content → Home page,
   # which adds, removes and reorders blocks. "layout" is full, main or side;
