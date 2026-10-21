@@ -165,6 +165,14 @@ export default class IngenicDocManager extends Component {
     return options;
   }
 
+  // The drawer's picker asks for one fixed list, so it is a getter rather than
+  // a method call with an argument in the template: Glimmer invokes such calls
+  // without `this`, and a method that reads `this.args` would throw and render
+  // an empty select.
+  get drawerLanguageOptions() {
+    return this.localeOptions(this.drawerLocale);
+  }
+
   #selectFirst() {
     const firstSeries = this.series[0];
 
@@ -1242,7 +1250,7 @@ export default class IngenicDocManager extends Component {
             <label>
               <span>{{i18n "admin.ingenic.documentation.locale"}}</span>
               <select name="locale" required>
-                {{#each (this.localeOptions this.drawerLocale) as |locale|}}
+                {{#each this.drawerLanguageOptions as |locale|}}
                   <option value={{locale.value}} selected={{eq locale.value this.drawerLocale}}>
                     {{locale.name}}
                   </option>
@@ -1281,7 +1289,7 @@ export default class IngenicDocManager extends Component {
             <label>
               <span>{{i18n "admin.ingenic.documentation.locale"}}</span>
               <select name="locale" required>
-                {{#each (this.localeOptions this.drawerLocale) as |locale|}}
+                {{#each this.drawerLanguageOptions as |locale|}}
                   <option value={{locale.value}} selected={{eq locale.value this.drawerLocale}}>
                     {{locale.name}}
                   </option>
