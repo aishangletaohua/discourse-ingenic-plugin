@@ -35,7 +35,7 @@ login stay exactly as configured in Discourse core.
 | Branch | Holds |
 | --- | --- |
 | `develop` | The current version — every change lands here, and it is what a forum installs and tracks |
-| `main` | Reserved for formal releases; kept empty between them |
+| `main` | Reserved for formal releases; between releases it holds only a short note |
 
 `develop` is the repository's default branch, so a plain clone gets the current
 version. Installation instructions below use it explicitly.

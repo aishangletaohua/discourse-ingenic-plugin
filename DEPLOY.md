@@ -118,8 +118,8 @@ The theme has its own repository:
 https://github.com/aishangletaohua/discourse-ingenic-theme.git
 ```
 
-with the branch set to `develop`. (Both repositories keep `main` empty between
-releases, so a branch-less install must not rely on it.)
+with the branch set to `develop`. (Both repositories keep `main` free of code
+between releases, so a branch-less install must not rely on it.)
 
 Installing it this way means later updates are **Admin → Customize → Themes →
 Check for updates**, with no rebuild and no file upload. A zip built from the

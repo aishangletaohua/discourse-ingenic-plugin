@@ -120,8 +120,8 @@ rake ingenic:setup
 https://github.com/aishangletaohua/discourse-ingenic-theme.git
 ```
 
-分支填 `develop`。两个仓库在两次发布之间都保持 `main` 为空，因此不指定分支的安装
-不能依赖它。
+分支填 `develop`。两个仓库在两次发布之间都只在 `main` 上保留一行说明，因此不指定
+分支的安装不能依赖它。
 
 这样安装后，主题更新只需要在 **管理后台 → 自定义 → 主题 → 检查更新**，
 不需要重建，也不需要重新上传文件。如果服务器访问不了 GitHub，也可以在
