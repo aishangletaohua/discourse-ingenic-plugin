@@ -8,7 +8,7 @@ module Ingenic
     # group trusted with the download screen is trusted with every resource on
     # it, and the listing has to agree.
     FEATURE_FOR_CLASS = {
-      "IngenicDocProduct" => "documentation",
+      "IngenicProduct" => "documentation",
       "IngenicDocVersion" => "documentation",
       "IngenicDocPage" => "documentation",
       "IngenicBoard" => "boards",
@@ -23,7 +23,7 @@ module Ingenic
     # required at plugin activation, before the `after_initialize` block has
     # loaded the models those constants live in.
     AREA_FOR_CLASS = {
-      "IngenicDocProduct" => "documentation",
+      "IngenicProduct" => "documentation",
       "IngenicDocVersion" => "documentation",
       "IngenicDocPage" => "documentation",
       "IngenicBoard" => "boards",
@@ -84,8 +84,8 @@ module Ingenic
         direct_ids = grants_for("IngenicDocVersion", IngenicPermission::DOCUMENTATION).pluck(:resource_id)
         product_ids =
           descendant_ids(
-            IngenicDocProduct,
-            grants_for("IngenicDocProduct", IngenicPermission::DOCUMENTATION).pluck(:resource_id),
+            IngenicProduct,
+            grants_for("IngenicProduct", IngenicPermission::DOCUMENTATION).pluck(:resource_id),
           )
         product_version_ids = IngenicDocVersion.where(product_id: product_ids).pluck(:id)
         klass.where(id: direct_ids + product_version_ids)
@@ -93,8 +93,8 @@ module Ingenic
         direct_ids = grants_for("IngenicDocPage", IngenicPermission::DOCUMENTATION).pluck(:resource_id)
         product_ids =
           descendant_ids(
-            IngenicDocProduct,
-            grants_for("IngenicDocProduct", IngenicPermission::DOCUMENTATION).pluck(:resource_id),
+            IngenicProduct,
+            grants_for("IngenicProduct", IngenicPermission::DOCUMENTATION).pluck(:resource_id),
           )
         product_page_ids =
           IngenicDocPage.where(
@@ -105,8 +105,8 @@ module Ingenic
       else
         product_ids =
           descendant_ids(
-            IngenicDocProduct,
-            grants_for("IngenicDocProduct", IngenicPermission::DOCUMENTATION).pluck(:resource_id),
+            IngenicProduct,
+            grants_for("IngenicProduct", IngenicPermission::DOCUMENTATION).pluck(:resource_id),
           )
         direct_ids = grants_for(klass.name, IngenicPermission::DOCUMENTATION).pluck(:resource_id)
         return klass.none if direct_ids.empty? && product_ids.empty?
@@ -148,28 +148,27 @@ module Ingenic
 
     attr_reader :user
 
-    # Downloads and boards are filed under a chip by a slug or a foreign key,
-    # not by the product tree's own id list. Both listings have to agree with
-    # what `can_manage_area?` would say about one record, or a scoped manager
-    # sees an empty page for a chip they were just granted.
+    # Downloads and boards are filed under a catalogue row by foreign key.
+    # Both listings have to agree with what `can_manage_area?` would say about
+    # one record, or a scoped manager sees an empty page for a chip they were
+    # just granted.
     def visible_downloads
       direct_ids = grants_for("IngenicDownload", IngenicPermission::DOWNLOADS).pluck(:resource_id)
       product_ids =
         descendant_ids(
-          IngenicDocProduct,
-          grants_for("IngenicDocProduct", IngenicPermission::DOWNLOADS).pluck(:resource_id),
+          IngenicProduct,
+          grants_for("IngenicProduct", IngenicPermission::DOWNLOADS).pluck(:resource_id),
         )
-      slugs = IngenicDocProduct.where(id: product_ids).pluck(:slug)
 
-      IngenicDownload.where(id: direct_ids).or(IngenicDownload.where(product_slug: slugs))
+      IngenicDownload.where(id: direct_ids).or(IngenicDownload.where(product_id: product_ids))
     end
 
     def visible_boards
       direct_ids = grants_for("IngenicBoard", IngenicPermission::BOARDS).pluck(:resource_id)
       product_ids =
         descendant_ids(
-          IngenicDocProduct,
-          grants_for("IngenicDocProduct", IngenicPermission::BOARDS).pluck(:resource_id),
+          IngenicProduct,
+          grants_for("IngenicProduct", IngenicPermission::BOARDS).pluck(:resource_id),
         )
 
       IngenicBoard.where(id: direct_ids).or(IngenicBoard.where(product_id: product_ids))
@@ -193,23 +192,22 @@ module Ingenic
 
     def scopes_for(record, area)
       case record
-      when IngenicDocProduct
-        [["IngenicDocProduct", product_ancestors(record).map(&:id)]]
+      when IngenicProduct
+        [["IngenicProduct", product_ancestors(record).map(&:id)]]
       when IngenicDocVersion
-        [["IngenicDocProduct", product_ancestors(record.product).map(&:id)]]
+        [["IngenicProduct", product_ancestors(record.product).map(&:id)]]
       when IngenicDocPage
         [
-          ["IngenicDocProduct", product_ancestors(record.version.product).map(&:id)],
+          ["IngenicProduct", product_ancestors(record.version.product).map(&:id)],
           ["IngenicDocPage", page_ancestors(record).map(&:id)],
         ]
       when IngenicBoard
         scopes = [["IngenicBoard", [record.id]]]
-        scopes << ["IngenicDocProduct", product_ancestors(record.product).map(&:id)] if record.product
+        scopes << ["IngenicProduct", product_ancestors(record.product).map(&:id)] if record.product
         scopes
       when IngenicDownload
         scopes = [["IngenicDownload", [record.id]]]
-        product = IngenicDocProduct.find_by(slug: record.product_slug) if record.product_slug.present?
-        scopes << ["IngenicDocProduct", product_ancestors(product).map(&:id)] if product
+        scopes << ["IngenicProduct", product_ancestors(record.product).map(&:id)] if record.product
         scopes
       else
         [[record.class.name, [record.id]]]
@@ -244,8 +242,8 @@ module Ingenic
 
       model =
         case klass.name
-        when "IngenicDocProduct"
-          IngenicDocProduct
+        when "IngenicProduct"
+          IngenicProduct
         when "IngenicDocPage"
           IngenicDocPage
         else

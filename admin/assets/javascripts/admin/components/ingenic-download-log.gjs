@@ -69,7 +69,7 @@ export default class IngenicDownloadLog extends Component {
         this.byResource = response.by_resource ?? [];
       }
     } catch {
-      this.error = i18n("admin.ingenic.save_failed");
+      this.error = i18n("ingenic.save_failed");
       this.logs = [];
     } finally {
       this.loading = false;
@@ -83,14 +83,14 @@ export default class IngenicDownloadLog extends Component {
       {{/if}}
 
       <p class="ingenic-admin-note">
-        {{i18n "admin.ingenic.logs.total" count=this.total}}
+        {{i18n "ingenic.logs.total" count=this.total}}
       </p>
 
       <div class="ingenic-admin__toolbar">
         <label class="ingenic-admin-inline-field">
-          <span>{{i18n "admin.ingenic.logs.filter"}}</span>
+          <span>{{i18n "ingenic.logs.filter"}}</span>
           <select {{on "change" this.selectResource}}>
-            <option value="">{{i18n "admin.ingenic.logs.all_resources"}}</option>
+            <option value="">{{i18n "ingenic.logs.all_resources"}}</option>
             {{#each this.byResource as |row|}}
               <option value={{row.download_id}}>
                 {{row.name}} ({{row.count}})
@@ -101,16 +101,16 @@ export default class IngenicDownloadLog extends Component {
       </div>
 
       {{#if this.loading}}
-        <p class="ingenic-admin-note">{{i18n "admin.ingenic.logs.loading"}}</p>
+        <p class="ingenic-admin-note">{{i18n "ingenic.logs.loading"}}</p>
       {{else if this.rows.length}}
         <table class="ingenic-admin-table">
           <thead>
             <tr>
-              <th>{{i18n "admin.ingenic.logs.columns.taken_at"}}</th>
-              <th>{{i18n "admin.ingenic.logs.columns.account"}}</th>
-              <th>{{i18n "admin.ingenic.logs.columns.resource"}}</th>
-              <th>{{i18n "admin.ingenic.logs.columns.version"}}</th>
-              <th>{{i18n "admin.ingenic.logs.columns.address"}}</th>
+              <th>{{i18n "ingenic.logs.columns.taken_at"}}</th>
+              <th>{{i18n "ingenic.logs.columns.account"}}</th>
+              <th>{{i18n "ingenic.logs.columns.resource"}}</th>
+              <th>{{i18n "ingenic.logs.columns.version"}}</th>
+              <th>{{i18n "ingenic.logs.columns.address"}}</th>
             </tr>
           </thead>
           <tbody>
@@ -126,7 +126,7 @@ export default class IngenicDownloadLog extends Component {
           </tbody>
         </table>
       {{else}}
-        <p>{{i18n "admin.ingenic.logs.empty"}}</p>
+        <p>{{i18n "ingenic.logs.empty"}}</p>
       {{/if}}
     </div>
   </template>

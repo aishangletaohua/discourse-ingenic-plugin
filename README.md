@@ -349,7 +349,6 @@ copy of the category list.
 | `ingenic_enabled` | Master switch |
 | `ingenic_nav_items` | JSON array — sidebar entries: their icon, target, group (`forum` / `resources` / `member`), order within that group and visibility |
 | `ingenic_homepage_blocks` | JSON array — which homepage blocks render and in what order |
-| `ingenic_default_locale` | Fallback locale for documentation, downloads and boards |
 | `ingenic_docs_discussion_category` | Category used for "Discuss in forum" when a page has no linked topic |
 | `ingenic_download_storage_path` | Where uploaded SDKs and firmware are written. Must be outside `public/` |
 | `ingenic_download_admin_email` | Address that receives an application for a restricted download |
@@ -364,22 +363,35 @@ copy of the category list.
 | `ingenic_high_like_threshold` | Likes across a topic's live posts that earn 高赞 (20 by default) |
 
 The three JSON settings accept the shapes documented inline in
-`config/settings.yml`. The locale setting offers only the languages this
-Discourse can serve, so enabling a language in Discourse makes it selectable
-here without touching the file.
+`config/settings.yml`.
+
+Content languages are not a setting of this plugin. The language list is the
+site's own: `default_locale`, plus every language in
+`content_localization_supported_locales` while content localisation is enabled.
+Enabling a language in Discourse therefore makes it selectable in the content
+manager without touching this repository.
 
 ## Data model
 
 ```
-ingenic_doc_products      series and chips, per locale, one tree with two levels
+ingenic_products          the shared catalogue: series and chips, per language,
+                          one two-level tree. Documentation, boards and
+                          downloads all file their rows against it.
 ingenic_doc_versions      versions of a chip, one flagged `latest`
 ingenic_doc_pages         the pages a version actually changed, with parent_id
                           forming the contents tree
 ingenic_downloads         downloadable resources, their access level and point_cost
+ingenic_download_categories  the shelves the download list is filtered by, per language
 ingenic_developer_profiles  the developer information form, one per account
 ingenic_download_requests   applications, with their review state
 ingenic_download_grants     approvals, per account and per resource
 ingenic_boards            development boards, filed against a chip
+ingenic_header_links      header buttons, per language
+ingenic_section_cards     home-page cards, per language
+ingenic_promotions        promotion slots, per language
+ingenic_social_links      social strip entries, per language
+ingenic_footer_columns    footer link columns, per language
+ingenic_footer_links      the links inside a footer column (language follows the column)
 ingenic_permissions       scoped grants to a user or group
 ingenic_group_permissions a whole management screen, granted to a group
 ingenic_tag_colours       explicit colour-family assignments per tag name
@@ -388,6 +400,14 @@ ingenic_point_entries     the ledger: one append-only row per movement
 ingenic_point_balances    a running total per account, derived from the entries
 ingenic_bounties          one member's offer on one topic, and what became of it
 ```
+
+A product row is one language's entry in the catalogue: an English T33 and a
+Chinese T33 are two products. Versions, pages and boards follow the language of
+the product they belong to rather than carrying a second copy of it, so the two
+can never disagree. A download carries its own `locale`, checked against its
+product's; an algorithm has no product and keeps its language on the row. A
+product may have documentation, boards, downloads, any combination, or none;
+none of the three owns the catalogue.
 
 `ingenic_doc_pages` holds one row per page **per version it changed in**, not
 per version: a version with no row for a slug inherits the nearest earlier
@@ -415,13 +435,17 @@ standing on nothing is not a record of anything. The cascade is paired with a
 `before_destroy` callback on `Topic` that closes the standing offers first, which
 is what keeps it from destroying escrowed points: `Ingenic::Bounties.refund_for_topic!`.
 
-Every content table carries a `locale` column, so additional languages can be
-enabled later without a schema migration. Codes are Discourse's own (`zh_CN`,
-`pt_BR`), because they are compared against `I18n.locale` — the language the
-reader picked in their preferences. A request resolves content in the reader's
-language first and falls back to `ingenic_default_locale` per page, so a
-half-translated version still renders and a page appears once in the tree, not
-once per locale.
+Content rows carry one `locale`, so additional languages can be enabled later
+without a schema migration. Codes are Discourse's own (`zh_CN`, `pt_BR`),
+because they are compared against `I18n.locale` — the language the reader picked
+in their preferences. A request answers in the reader's language only: a page
+or product written in another language is not served as a fallback. A language
+the site does not publish is answered with the site default, and within a
+language there is no second fallback.
+
+Versions and pages do inherit **within** a product's version chain: a page a
+version did not change is read from the nearest earlier version that did. That
+is a version concern, not a language one, and it never crosses products.
 
 ## Adding content
 

@@ -38,7 +38,7 @@ export default class IngenicGroupPermissionMatrix extends Component {
   }
 
   featureLabel(feature) {
-    return i18n(`admin.ingenic.group_permissions.features.${feature}`);
+    return i18n(`ingenic.group_permissions.features.${feature}`);
   }
 
   has(group, feature) {
@@ -68,11 +68,11 @@ export default class IngenicGroupPermissionMatrix extends Component {
         type: "PUT",
         data: { grants: JSON.stringify(grants) },
       });
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (error) {
       this.message =
         error.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     } finally {
       this.busy = false;
     }
@@ -80,7 +80,7 @@ export default class IngenicGroupPermissionMatrix extends Component {
 
   <template>
     <p class="ingenic-admin-form__hint">
-      {{i18n "admin.ingenic.group_permissions.hint"}}
+      {{i18n "ingenic.group_permissions.hint"}}
     </p>
 
     {{#if this.groups.length}}
@@ -88,7 +88,7 @@ export default class IngenicGroupPermissionMatrix extends Component {
         <table class="ingenic-admin-table ingenic-matrix">
           <thead>
             <tr>
-              <th>{{i18n "admin.ingenic.group_permissions.group"}}</th>
+              <th>{{i18n "ingenic.group_permissions.group"}}</th>
               {{#each this.features as |feature|}}
                 <th class="ingenic-matrix__feature">{{this.featureLabel feature}}</th>
               {{/each}}
@@ -100,7 +100,7 @@ export default class IngenicGroupPermissionMatrix extends Component {
                 <td>
                   <strong>{{group.name}}</strong>
                   <div class="ingenic-admin-list__meta">
-                    {{i18n "admin.ingenic.group_permissions.members" count=group.members}}
+                    {{i18n "ingenic.group_permissions.members" count=group.members}}
                   </div>
                 </td>
                 {{#each this.features as |feature|}}
@@ -126,19 +126,19 @@ export default class IngenicGroupPermissionMatrix extends Component {
           disabled={{this.busy}}
           {{on "click" this.save}}
         >
-          {{i18n "admin.ingenic.group_permissions.save"}}
+          {{i18n "ingenic.group_permissions.save"}}
         </button>
         {{#if this.message}}
           <span class="ingenic-admin-note">{{this.message}}</span>
         {{/if}}
       </div>
     {{else}}
-      <p>{{i18n "admin.ingenic.group_permissions.empty"}}</p>
+      <p>{{i18n "ingenic.group_permissions.empty"}}</p>
     {{/if}}
 
     <p class="ingenic-admin-form__hint">
       <a href={{getURL "/admin/groups"}}>
-        {{i18n "admin.ingenic.group_permissions.groups_link"}}
+        {{i18n "ingenic.group_permissions.groups_link"}}
       </a>
     </p>
   </template>

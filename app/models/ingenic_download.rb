@@ -40,17 +40,25 @@ class IngenicDownload < ActiveRecord::Base
   # reclassified instead of refusing to save.
   belongs_to :category, class_name: "IngenicDownloadCategory", optional: true
 
+  # A chip resource points at the same catalogue row its board and its
+  # documentation use. An algorithm runs across parts and has no chip, so the
+  # link stays optional and the family decides whether it is required.
+  belongs_to :product, class_name: "IngenicProduct", optional: true
+
   validates :name, presence: true
   validates :access_level, inclusion: { in: ACCESS_LEVELS }
   validates :family, inclusion: { in: FAMILIES }
+  validates :locale, presence: true
   # A row cannot be both untethered and filed under a part number. Clearing the
-  # slug here makes the family the single source of truth even for a row that
+  # link here makes the family the single source of truth even for a row that
   # was switched from chip to algorithm after it had one.
-  before_validation { self.product_slug = nil if algorithm? }
+  before_validation { self.product = nil if algorithm? }
   # Only a chip resource needs a part number. An algorithm that runs on several
-  # chips is not filed under one, and requiring a slug would either invent a
+  # chips is not filed under one, and requiring a link would either invent a
   # false attachment or leave algorithms out of the catalogue.
-  validates :product_slug, presence: true, if: :chip?
+  validate :chip_has_a_product
+  validate :product_is_a_chip
+  validate :product_locale_matches
   validate :has_somewhere_to_download_from
   # Not signed, for the same reason a point rule is not: a negative price is a
   # charge for arriving, and a member who cannot afford one would be refused a
@@ -59,8 +67,7 @@ class IngenicDownload < ActiveRecord::Base
 
   scope :published, -> { where(published: true) }
   scope :ordered, -> { order(position: :asc, released_on: :desc, name: :asc) }
-  scope :gated, -> { where.not(access_level: LOGIN_ONLY) }
-  scope :in_family, ->(family) { where(family: family) }
+  scope :for_locale, ->(locale) { where(locale: locale) }
 
   def chip?
     family == FAMILY_CHIP
@@ -107,6 +114,29 @@ class IngenicDownload < ActiveRecord::Base
   end
 
   private
+
+  def chip_has_a_product
+    return unless chip?
+    return if product.present?
+
+    errors.add(:product, :blank)
+  end
+
+  def product_is_a_chip
+    return if product.nil? || product.chip?
+
+    errors.add(:product, "must be a chip")
+  end
+
+  # A download is written in the language of the chip it belongs to. Letting the
+  # two differ is how an English file ends up under a Chinese chip and appears
+  # in neither reader's listing.
+  def product_locale_matches
+    return if product.nil? || locale.blank?
+    return if product.locale == locale
+
+    errors.add(:locale, "must match the product's language")
+  end
 
   def has_somewhere_to_download_from
     return if file_url.present? || storage_path.present?

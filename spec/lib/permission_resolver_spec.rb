@@ -9,26 +9,25 @@ describe Ingenic::PermissionResolver do
   # tree the plugin actually builds: a series, the chips beneath it, and the
   # versions and pages that hang off a chip. Only a chip may have a parent —
   # `kind` defaults to `series`, and a series with a parent is refused.
-  fab!(:family) { IngenicDocProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:family) { IngenicProduct.create!(slug: "t-series", name: "T Series") }
   fab!(:child) do
-    IngenicDocProduct.create!(
+    IngenicProduct.create!(
       slug: "t33",
       name: "T33",
-      kind: IngenicDocProduct::CHIP,
-      locale: "en",
+      kind: IngenicProduct::CHIP,
       parent: family,
     )
   end
-  fab!(:other_family) { IngenicDocProduct.create!(slug: "c-series", name: "C Series", locale: "en") }
+  fab!(:other_family) { IngenicProduct.create!(slug: "c-series", name: "C Series") }
   fab!(:version) do
-    IngenicDocVersion.create!(product: child, slug: "latest", label: "Latest", locale: "en")
+    IngenicDocVersion.create!(product: child, slug: "latest", label: "Latest")
   end
   fab!(:page) do
-    IngenicDocPage.create!(version: version, slug: "overview", title: "Overview", locale: "en")
+    IngenicDocPage.create!(version: version, slug: "overview", title: "Overview")
   end
 
   it "inherits product grants through versions and pages" do
-    IngenicPermission.create!(user: user, resource_type: "IngenicDocProduct", resource_id: family.id)
+    IngenicPermission.create!(user: user, resource_type: "IngenicProduct", resource_id: family.id)
     resolver = described_class.new(user)
 
     expect(resolver.can_manage?(child)).to eq(true)
@@ -39,7 +38,7 @@ describe Ingenic::PermissionResolver do
 
   it "supports group grants" do
     group.add(user)
-    IngenicPermission.create!(group: group, resource_type: "IngenicDocProduct", resource_id: family.id)
+    IngenicPermission.create!(group: group, resource_type: "IngenicProduct", resource_id: family.id)
 
     expect(described_class.new(user).can_manage?(child)).to eq(true)
   end
@@ -68,7 +67,7 @@ describe Ingenic::PermissionResolver do
       expect(resolver.can_manage_feature?("documentation")).to eq(true)
       expect(resolver.can_manage?(family)).to eq(true)
       expect(resolver.can_manage?(other_family)).to eq(true)
-      expect(resolver.visible_ids(IngenicDocProduct)).to contain_exactly(family, other_family, child)
+      expect(resolver.visible_ids(IngenicProduct)).to contain_exactly(family, other_family, child)
     end
 
     it "keeps the other screens out of the grant" do
@@ -98,23 +97,22 @@ describe Ingenic::PermissionResolver do
 
   describe "areas" do
     fab!(:board) do
-      IngenicBoard.create!(slug: "t33-board", name: "T33 Board", kind: "board", product: child, locale: "en")
+      IngenicBoard.create!(slug: "t33-board", name: "T33 Board", kind: "board", product: child)
     end
     fab!(:download) do
       IngenicDownload.create!(
         name: "T33 SDK",
         family: IngenicDownload::FAMILY_CHIP,
-        product_slug: child.slug,
+        product: child,
         access_level: IngenicDownload::LOGIN_ONLY,
         file_url: "https://example.com/sdk.zip",
-        locale: "en",
       )
     end
 
     it "keeps a documentation grant out of the chip's boards and downloads" do
       IngenicPermission.create!(
         user: user,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: family.id,
         area: "documentation",
       )
@@ -128,7 +126,7 @@ describe Ingenic::PermissionResolver do
     it "lets a downloads grant reach the resources filed under the chip" do
       IngenicPermission.create!(
         user: user,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: family.id,
         area: "downloads",
       )
@@ -142,7 +140,7 @@ describe Ingenic::PermissionResolver do
     it "lets a boards grant reach the boards filed under the chip" do
       IngenicPermission.create!(
         user: user,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: family.id,
         area: "boards",
       )
@@ -156,7 +154,7 @@ describe Ingenic::PermissionResolver do
     it "reports which screens have anything to manage, for the admin navigation" do
       IngenicPermission.create!(
         user: user,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: family.id,
         area: "documentation",
       )
@@ -179,27 +177,25 @@ describe Ingenic::PermissionResolver do
 
     it "lists only the downloads and boards the grant covers" do
       other_chip =
-        IngenicDocProduct.create!(
+        IngenicProduct.create!(
           slug: "c100",
           name: "C100",
-          kind: IngenicDocProduct::CHIP,
-          locale: "en",
-          parent: other_family,
+          kind: IngenicProduct::CHIP,
+            parent: other_family,
         )
       other_board =
-        IngenicBoard.create!(slug: "c-series-board", name: "C Board", kind: "board", product: other_chip, locale: "en")
+        IngenicBoard.create!(slug: "c-series-board", name: "C Board", kind: "board", product: other_chip)
       other_download =
         IngenicDownload.create!(
           name: "C SDK",
           family: IngenicDownload::FAMILY_CHIP,
-          product_slug: other_chip.slug,
+          product: other_chip,
           access_level: IngenicDownload::LOGIN_ONLY,
           file_url: "https://example.com/c-sdk.zip",
-          locale: "en",
-        )
+          )
       IngenicPermission.create!(
         user: user,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: family.id,
         area: "downloads",
       )

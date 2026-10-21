@@ -4,12 +4,12 @@ import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { fn, mut } from "@ember/helper";
 import { eq, or } from "discourse/truth-helpers";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import DNativeSelect from "discourse/ui-kit/d-native-select";
 import { i18n } from "discourse-i18n";
 
 const ENDPOINT = "/admin/plugins/discourse-ingenic/homepage-blocks";
-const PREFIX = "admin.ingenic.site.homepage";
+const PREFIX = "ingenic.site.homepage";
 
 // The same list the theme knows how to draw. The server refuses anything else,
 // so this is what the picker offers rather than a second source of truth.
@@ -163,7 +163,7 @@ export default class IngenicHomepageManager extends Component {
       this.message = i18n(`${PREFIX}.saved`);
     } catch (failure) {
       const errors = failure?.jqXHR?.responseJSON?.errors;
-      this.error = errors?.join(", ") || i18n("admin.ingenic.save_failed");
+      this.error = errors?.join(", ") || i18n("ingenic.save_failed");
     } finally {
       this.busy = false;
     }
@@ -179,12 +179,12 @@ export default class IngenicHomepageManager extends Component {
       {{/if}}
 
       <p class="ingenic-admin-form__hint">
-        {{i18n "admin.ingenic.site.homepage.intro"}}
+        {{i18n "ingenic.site.homepage.intro"}}
       </p>
 
       {{#if this.usingDefaults}}
         <p class="ingenic-admin-note">
-          {{i18n "admin.ingenic.site.homepage.default_hint"}}
+          {{i18n "ingenic.site.homepage.default_hint"}}
         </p>
       {{/if}}
 
@@ -194,7 +194,7 @@ export default class IngenicHomepageManager extends Component {
             <section class="ingenic-admin-list__row ingenic-admin-block">
               <div class="ingenic-admin-block__fields">
                 <label>
-                  <span>{{i18n "admin.ingenic.site.homepage.fields.type"}}</span>
+                  <span>{{i18n "ingenic.site.homepage.fields.type"}}</span>
                   <DNativeSelect
                     @value={{block.type}}
                     @includeNone={{false}}
@@ -210,23 +210,23 @@ export default class IngenicHomepageManager extends Component {
                 </label>
 
                 <label>
-                  <span>{{i18n "admin.ingenic.site.homepage.fields.title"}}</span>
+                  <span>{{i18n "ingenic.site.homepage.fields.title"}}</span>
                   <input
                     name="title"
                     value={{block.title}}
                     placeholder={{i18n
-                      "admin.ingenic.site.homepage.fields.title_hint"
+                      "ingenic.site.homepage.fields.title_hint"
                     }}
                     {{on "input" (fn this.update index)}}
                   />
                 </label>
 
                 <label>
-                  <span>{{i18n "admin.ingenic.site.homepage.fields.layout"}}</span>
+                  <span>{{i18n "ingenic.site.homepage.fields.layout"}}</span>
                   <DNativeSelect
                     @value={{block.layout}}
                     @nonePlaceholder={{i18n
-                      "admin.ingenic.site.homepage.fields.layout_auto"
+                      "ingenic.site.homepage.fields.layout_auto"
                     }}
                     @onChange={{fn this.pickLayout index}}
                     as |select|
@@ -240,7 +240,7 @@ export default class IngenicHomepageManager extends Component {
                 </label>
 
                 <label>
-                  <span>{{i18n "admin.ingenic.site.homepage.fields.limit"}}</span>
+                  <span>{{i18n "ingenic.site.homepage.fields.limit"}}</span>
                   <input
                     type="number"
                     min="1"
@@ -253,7 +253,7 @@ export default class IngenicHomepageManager extends Component {
 
                 {{#if (eq block.type "categories")}}
                   <label class="ingenic-admin-block__wide">
-                    <span>{{i18n "admin.ingenic.site.homepage.fields.categories"}}</span>
+                    <span>{{i18n "ingenic.site.homepage.fields.categories"}}</span>
                     <input
                       name="categories"
                       value={{block.categories}}
@@ -268,7 +268,7 @@ export default class IngenicHomepageManager extends Component {
                       checked={{block.show_all}}
                       {{on "input" (fn this.update index)}}
                     />
-                    <span>{{i18n "admin.ingenic.site.homepage.fields.show_all"}}</span>
+                    <span>{{i18n "ingenic.site.homepage.fields.show_all"}}</span>
                   </label>
                 {{/if}}
 
@@ -278,7 +278,7 @@ export default class IngenicHomepageManager extends Component {
                   )
                 }}
                   <label>
-                    <span>{{i18n "admin.ingenic.site.homepage.fields.category"}}</span>
+                    <span>{{i18n "ingenic.site.homepage.fields.category"}}</span>
                     <input
                       name="category"
                       value={{block.category}}
@@ -292,7 +292,7 @@ export default class IngenicHomepageManager extends Component {
                 <button
                   class="btn btn-small"
                   type="button"
-                  title={{i18n "admin.ingenic.site.homepage.move_up"}}
+                  title={{i18n "ingenic.site.homepage.move_up"}}
                   {{on "click" (fn this.move index -1)}}
                 >
                   ↑
@@ -300,7 +300,7 @@ export default class IngenicHomepageManager extends Component {
                 <button
                   class="btn btn-small"
                   type="button"
-                  title={{i18n "admin.ingenic.site.homepage.move_down"}}
+                  title={{i18n "ingenic.site.homepage.move_down"}}
                   {{on "click" (fn this.move index 1)}}
                 >
                   ↓
@@ -310,18 +310,18 @@ export default class IngenicHomepageManager extends Component {
                   type="button"
                   {{on "click" (fn this.remove index)}}
                 >
-                  {{i18n "admin.ingenic.site.homepage.remove"}}
+                  {{i18n "ingenic.site.homepage.remove"}}
                 </button>
               </div>
             </section>
           {{else}}
-            <p>{{i18n "admin.ingenic.empty"}}</p>
+            <p>{{i18n "ingenic.empty"}}</p>
           {{/each}}
         </div>
 
         <div class="ingenic-admin__toolbar">
           <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-            {{i18n "admin.ingenic.site.homepage.save"}}
+            {{i18n "ingenic.site.homepage.save"}}
           </button>
         </div>
       </form>
@@ -339,7 +339,7 @@ export default class IngenicHomepageManager extends Component {
         </DNativeSelect>
 
         <button class="btn" type="button" {{on "click" this.add}}>
-          {{i18n "admin.ingenic.site.homepage.add_button"}}
+          {{i18n "ingenic.site.homepage.add_button"}}
         </button>
       </div>
     </div>

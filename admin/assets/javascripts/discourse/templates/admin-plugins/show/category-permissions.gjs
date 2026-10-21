@@ -5,9 +5,9 @@ import { i18n } from "discourse-i18n";
 const CategoryPermissions = <template>
   <div class="admin-detail">
     <DPageSubheader
-      @titleLabel={{i18n "admin.ingenic.category_permissions.title"}}
+      @titleLabel={{i18n "ingenic.category_permissions.title"}}
       @descriptionLabel={{i18n
-        "admin.ingenic.category_permissions.description"
+        "ingenic.category_permissions.description"
       }}
     />
     <IngenicCategoryPermissionMatrix

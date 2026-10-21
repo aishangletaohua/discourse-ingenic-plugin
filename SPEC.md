@@ -302,18 +302,28 @@ extension. Hiding a button in the admin UI is presentation, not the boundary.
 
 ## Multi-language readiness
 
-Every content table has a `locale` column, so a second language needs no schema
-change. Codes are Discourse's own (`zh_CN`, `pt_BR`) because they are compared
-against `I18n.locale`; the fallback setting offers exactly the languages the
-site can serve, so it cannot drift into naming a language no visitor can ask
-for. A hyphenated code such as `zh-CN` would match nothing and is documented as
-wrong in `docs/seeding.md`.
+A product is one row in `ingenic_products` per language. Each row carries its
+own `locale`, and `kind` marks it as a series or a chip; the same chip is a
+separate row under each language. Documentation, boards and downloads reference
+those rows, so a product catalogue — not one module — is the shared anchor. A
+product may have documentation, boards, downloads, any combination, or none: a
+board does not require a documentation entry.
 
-A request resolves the reader's language first and falls back to
-`ingenic_default_locale` per record, so a half-translated version still renders,
-each page appears once in the tree rather than once per locale, a board with
-both locales renders one card rather than two, and a product with no translated
-row at all still opens in the default language.
+The catalogue owns the language of everything filed under it: versions and
+pages inherit their product's `locale`, and a board inherits its chip's.
+Downloads, download categories and site-content rows carry their own `locale`
+column, so a second language needs no schema change. Codes are Discourse's own
+(`zh_CN`, `pt_BR`) because they are compared against `I18n.locale`. The admin
+picks a language first, and every series, version, page, board, download,
+category and site-content row created or edited while that language is selected
+belongs to it. Editing the other language means switching the selector; there
+is no per-record locale picker and no dual-locale field.
+
+Public reads are strict: a request serves only rows of the resolved locale,
+with no cross-language fallback. Within one product, a version that does not
+override a page inherits the page from the previous version of the same
+language. A language therefore never shows another language's text; an
+untranslated page is simply absent until it is written.
 
 Theme strings live in `locales/en.yml` and are looked up through `themePrefix`,
 because Discourse registers theme translations under a theme-specific namespace.

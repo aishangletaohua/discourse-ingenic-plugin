@@ -2,9 +2,8 @@ import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
-import { service } from "@ember/service";
 import { fn } from "@ember/helper";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import DNativeSelect from "discourse/ui-kit/d-native-select";
 import { i18n } from "discourse-i18n";
 
@@ -15,10 +14,8 @@ const ENDPOINT = "/admin/plugins/discourse-ingenic/boards";
 const BLANK = {
   slug: "",
   name: "",
-  locale: "",
   kind: "board",
   product_id: "",
-  chip: "",
   description: "",
   details: "",
   specs: "",
@@ -33,21 +30,15 @@ const BLANK = {
 /**
  * The development board catalogue.
  *
- * A board is filed against a chip in the product tree, which is what gives the
- * public page its series and chip filters. The chip can also be left unset: a
- * board is often listed before its chip has been written up in the docs, and
- * the form then falls back to a chip name typed by hand.
+ * A board is filed against a chip in the shared product catalogue, which is
+ * what gives the public page its series and chip filters. The chip can also be
+ * left unset: a board may be listed before anything else exists for it, and
+ * boards do not depend on documentation.
+ *
+ * The language is not a field here. The screen was opened in one language, the
+ * listing contains that language's boards, and a new board joins them there.
  */
 export default class IngenicBoardManager extends Component {
-  @service siteSettings;
-
-  // A new row is filed in the language this site serves rather than in
-  // English: a row under a locale no reader's interface uses is a row nobody
-  // finds, and nothing reports the mistake.
-  get defaultLocale() {
-    return this.siteSettings.ingenic_default_locale || "";
-  }
-
   @tracked records = this.args.boards ?? [];
   @tracked draft = null;
   @tracked busy = false;
@@ -56,23 +47,6 @@ export default class IngenicBoardManager extends Component {
 
   get chips() {
     return this.args.chips ?? [];
-  }
-
-  // The languages this Discourse serves, sent with the listing. A list rather
-  // than free text because the front end matches this value against the
-  // reader's locale: a spelling no reader's locale equals is a board nobody
-  // finds, and the mistake reports nothing.
-  get localeOptions() {
-    const options = [...(this.args.locales ?? [])];
-    const current = this.draft?.locale;
-
-    // A row filed before a language was switched off still has to show what it
-    // is filed under, or the field would read blank.
-    if (current && !options.some((option) => option.value === current)) {
-      options.unshift({ value: current, name: current });
-    }
-
-    return options.length ? options : [{ value: this.defaultLocale, name: this.defaultLocale }];
   }
 
   get chipLabel() {
@@ -86,14 +60,14 @@ export default class IngenicBoardManager extends Component {
     return (record) =>
       i18n(
         record.kind === "sample"
-          ? "admin.ingenic.boards.fields.kind_sample"
-          : "admin.ingenic.boards.fields.kind_board"
+          ? "ingenic.boards.fields.kind_sample"
+          : "ingenic.boards.fields.kind_board"
       );
   }
 
   @action
   startNew() {
-    this.draft = { ...BLANK, locale: this.defaultLocale };
+    this.draft = { ...BLANK };
     this.message = null;
     this.error = null;
   }
@@ -116,11 +90,6 @@ export default class IngenicBoardManager extends Component {
   // built from, so the two are kept in step. The value still travels as a form
   // field: the select carries a name and the browser reads the choice back out
   // of it when the form is submitted.
-  @action
-  pickLocale(value) {
-    this.draft = { ...this.draft, locale: value || this.defaultLocale };
-  }
-
   @action
   pickKind(value) {
     this.draft = { ...this.draft, kind: value || "board" };
@@ -179,11 +148,11 @@ export default class IngenicBoardManager extends Component {
         ? this.records.map((record) => (record.id === saved.id ? saved : record))
         : [...this.records, saved];
       this.draft = null;
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error =
         failure?.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     } finally {
       this.busy = false;
     }
@@ -202,7 +171,7 @@ export default class IngenicBoardManager extends Component {
     } catch (failure) {
       this.error =
         failure?.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     }
   }
 
@@ -213,7 +182,7 @@ export default class IngenicBoardManager extends Component {
 
       <div class="ingenic-admin__toolbar">
         <button class="btn btn-primary" type="button" {{on "click" this.startNew}}>
-          {{i18n "admin.ingenic.boards.add"}}
+          {{i18n "ingenic.boards.add"}}
         </button>
       </div>
 
@@ -221,42 +190,24 @@ export default class IngenicBoardManager extends Component {
         <form class="ingenic-admin-form" {{on "submit" this.save}} {{on "input" this.field}}>
           <h3>
             {{#if this.draft.id}}
-              {{i18n "admin.ingenic.boards.edit_title"}}
+              {{i18n "ingenic.boards.edit_title"}}
             {{else}}
-              {{i18n "admin.ingenic.boards.new_title"}}
+              {{i18n "ingenic.boards.new_title"}}
             {{/if}}
           </h3>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.name"}}</span>
+            <span>{{i18n "ingenic.boards.fields.name"}}</span>
             <input name="name" value={{this.draft.name}} required />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.slug"}}</span>
+            <span>{{i18n "ingenic.boards.fields.slug"}}</span>
             <input name="slug" value={{this.draft.slug}} required />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.locale"}}</span>
-            {{! The ui-kit select rather than free text: the value is matched
-                against the reader's locale, so a spelling nobody else uses
-                hides the board from everyone. }}
-            <DNativeSelect
-              name="locale"
-              @includeNone={{false}}
-              @value={{this.draft.locale}}
-              @onChange={{this.pickLocale}}
-              as |select|
-            >
-              {{#each this.localeOptions as |option|}}
-                <select.Option @value={{option.value}}>{{option.name}}</select.Option>
-              {{/each}}
-            </DNativeSelect>
-          </label>
-
-          <label>
-            <span>{{i18n "admin.ingenic.boards.fields.kind"}}</span>
+            <span>{{i18n "ingenic.boards.fields.kind"}}</span>
             <DNativeSelect
               name="kind"
               @value={{this.draft.kind}}
@@ -264,16 +215,16 @@ export default class IngenicBoardManager extends Component {
               as |select|
             >
               <select.Option @value="board">
-                {{i18n "admin.ingenic.boards.fields.kind_board"}}
+                {{i18n "ingenic.boards.fields.kind_board"}}
               </select.Option>
               <select.Option @value="sample">
-                {{i18n "admin.ingenic.boards.fields.kind_sample"}}
+                {{i18n "ingenic.boards.fields.kind_sample"}}
               </select.Option>
             </DNativeSelect>
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.chip_from_tree"}}</span>
+            <span>{{i18n "ingenic.boards.fields.chip_from_tree"}}</span>
             {{! A Glimmer-rendered `selected` attribute does not survive
                 re-rendering, which is the bug DNativeSelect exists to work
                 around. The blank option it adds is how a board is left
@@ -293,85 +244,76 @@ export default class IngenicBoardManager extends Component {
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.chip_name"}}</span>
-            <input name="chip" value={{this.draft.chip}} />
-          </label>
-
-          <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.boards.fields.chip_hint"}}
-          </p>
-
-          <label>
-            <span>{{i18n "admin.ingenic.boards.fields.application_url"}}</span>
+            <span>{{i18n "ingenic.boards.fields.application_url"}}</span>
             <input name="application_url" value={{this.draft.application_url}} />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.boards.fields.application_url_hint"}}
+            {{i18n "ingenic.boards.fields.application_url_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.purchase_url"}}</span>
+            <span>{{i18n "ingenic.boards.fields.purchase_url"}}</span>
             <input name="purchase_url" value={{this.draft.purchase_url}} />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.boards.fields.purchase_url_hint"}}
+            {{i18n "ingenic.boards.fields.purchase_url_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.image_url"}}</span>
+            <span>{{i18n "ingenic.boards.fields.image_url"}}</span>
             <input name="image_url" value={{this.draft.image_url}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.boards.fields.position"}}</span>
+            <span>{{i18n "ingenic.boards.fields.position"}}</span>
             <input type="number" name="position" value={{this.draft.position}} />
           </label>
 
           <label class="ingenic-admin-form__wide">
-            <span>{{i18n "admin.ingenic.boards.fields.description"}}</span>
+            <span>{{i18n "ingenic.boards.fields.description"}}</span>
             <textarea name="description">{{this.draft.description}}</textarea>
           </label>
 
           <label class="ingenic-admin-form__wide">
-            <span>{{i18n "admin.ingenic.boards.fields.details"}}</span>
+            <span>{{i18n "ingenic.boards.fields.details"}}</span>
             <textarea name="details" rows="5">{{this.draft.details}}</textarea>
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.boards.fields.details_hint"}}
+            {{i18n "ingenic.boards.fields.details_hint"}}
           </p>
 
           <label class="ingenic-admin-form__wide">
-            <span>{{i18n "admin.ingenic.boards.fields.specs"}}</span>
+            <span>{{i18n "ingenic.boards.fields.specs"}}</span>
             <textarea name="specs">{{this.draft.specs}}</textarea>
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.boards.fields.specs_hint"}}
+            {{i18n "ingenic.boards.fields.specs_hint"}}
           </p>
 
           <label class="checkbox-label">
             <input type="checkbox" name="sold_out" checked={{this.draft.sold_out}} />
-            <span>{{i18n "admin.ingenic.boards.fields.sold_out"}}</span>
+            <span>{{i18n "ingenic.boards.fields.sold_out"}}</span>
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.boards.fields.sold_out_hint"}}
+            {{i18n "ingenic.boards.fields.sold_out_hint"}}
           </p>
 
           <label class="checkbox-label">
             <input type="checkbox" name="published" checked={{this.draft.published}} />
-            <span>{{i18n "admin.ingenic.boards.fields.published"}}</span>
+            <span>{{i18n "ingenic.boards.fields.published"}}</span>
           </label>
 
           <div class="ingenic-admin__toolbar">
             <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-              {{i18n "admin.ingenic.save"}}
+              {{i18n "ingenic.save"}}
             </button>
             <button class="btn" type="button" {{on "click" this.cancel}}>
-              {{i18n "admin.ingenic.cancel"}}
+              {{i18n "ingenic.cancel"}}
             </button>
           </div>
         </form>
@@ -387,15 +329,14 @@ export default class IngenicBoardManager extends Component {
                 · {{this.kindLabel record}}
                 {{#if record.chip_name}}· {{record.chip_name}}{{/if}}
                 {{#if record.series_name}}· {{record.series_name}}{{/if}}
-                · {{record.locale}}
                 {{#unless record.published}}
-                  · {{i18n "admin.ingenic.boards.withdrawn"}}
+                  · {{i18n "ingenic.boards.withdrawn"}}
                 {{/unless}}
               </div>
             </div>
             <div class="ingenic-admin__toolbar">
               <button class="btn" type="button" {{on "click" (fn this.edit record)}}>
-                {{i18n "admin.ingenic.edit"}}
+                {{i18n "ingenic.edit"}}
               </button>
               {{#if record.published}}
                 <button
@@ -403,13 +344,13 @@ export default class IngenicBoardManager extends Component {
                   type="button"
                   {{on "click" (fn this.withdraw record)}}
                 >
-                  {{i18n "admin.ingenic.boards.withdraw"}}
+                  {{i18n "ingenic.boards.withdraw"}}
                 </button>
               {{/if}}
             </div>
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.boards.empty"}}</p>
+          <p>{{i18n "ingenic.boards.empty"}}</p>
         {{/each}}
       </div>
     </div>

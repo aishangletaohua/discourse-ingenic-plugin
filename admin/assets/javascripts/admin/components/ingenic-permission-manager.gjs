@@ -109,7 +109,7 @@ export default class IngenicPermissionManager extends Component {
   // rather than hidden; the tree is where new ones are made.
   get resourceGrants() {
     return this.permissions.filter(
-      (permission) => permission.resource_type !== "IngenicDocProduct"
+      (permission) => permission.resource_type !== "IngenicProduct"
     );
   }
 
@@ -121,13 +121,13 @@ export default class IngenicPermissionManager extends Component {
     return this.permissions.filter(
       (permission) =>
         permission.area === this.area &&
-        permission.resource_type === "IngenicDocProduct" &&
+        permission.resource_type === "IngenicProduct" &&
         predicate(permission)
     );
   }
 
   areaLabel(area) {
-    return i18n(`admin.ingenic.group_permissions.features.${area}`);
+    return i18n(`ingenic.group_permissions.features.${area}`);
   }
 
   principalLabel(principal) {
@@ -210,7 +210,7 @@ export default class IngenicPermissionManager extends Component {
 
     const data = {
       area: this.area,
-      resource_type: "IngenicDocProduct",
+      resource_type: "IngenicProduct",
       resource_id: this.selectedProductId,
       permission: "manage",
     };
@@ -230,11 +230,11 @@ export default class IngenicPermissionManager extends Component {
       this.selectedPrincipal = null;
       this.query = "";
       this.results = { users: [], groups: [] };
-      this.message = i18n("admin.ingenic.permissions.granted");
+      this.message = i18n("ingenic.permissions.granted");
     } catch (error) {
       this.error =
         error.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     } finally {
       this.busy = false;
     }
@@ -253,9 +253,9 @@ export default class IngenicPermissionManager extends Component {
       this.permissions = this.permissions.filter(
         (item) => item.id !== permission.id
       );
-      this.message = i18n("admin.ingenic.permissions.revoked");
+      this.message = i18n("ingenic.permissions.revoked");
     } catch {
-      this.error = i18n("admin.ingenic.save_failed");
+      this.error = i18n("ingenic.save_failed");
     }
   }
 
@@ -264,7 +264,7 @@ export default class IngenicPermissionManager extends Component {
       <div class="ingenic-perm__layout">
         <aside class="ingenic-perm__tree">
           <h3 class="ingenic-perm__tree-title">
-            {{i18n "admin.ingenic.permissions.products"}}
+            {{i18n "ingenic.permissions.products"}}
           </h3>
 
           {{#each this.series as |series|}}
@@ -304,7 +304,7 @@ export default class IngenicPermissionManager extends Component {
 
           {{#unless this.products.length}}
             <p class="ingenic-admin-tree__empty">
-              {{i18n "admin.ingenic.permissions.no_products"}}
+              {{i18n "ingenic.permissions.no_products"}}
             </p>
           {{/unless}}
         </aside>
@@ -315,7 +315,7 @@ export default class IngenicPermissionManager extends Component {
               <h3>{{this.selectedProduct.name}}</h3>
               {{#if this.ancestors.length}}
                 <p class="ingenic-admin-list__meta">
-                  {{i18n "admin.ingenic.permissions.belongs_to"}}
+                  {{i18n "ingenic.permissions.belongs_to"}}
                   {{this.parentName}}
                 </p>
               {{/if}}
@@ -335,12 +335,12 @@ export default class IngenicPermissionManager extends Component {
 
             <div class="ingenic-perm__picker">
               <label class="ingenic-perm__search">
-                <span>{{i18n "admin.ingenic.permissions.pick_principal"}}</span>
+                <span>{{i18n "ingenic.permissions.pick_principal"}}</span>
                 <input
                   type="text"
                   value={{this.query}}
                   placeholder={{i18n
-                    "admin.ingenic.permissions.search_placeholder"
+                    "ingenic.permissions.search_placeholder"
                   }}
                   {{on "input" this.search}}
                 />
@@ -366,7 +366,7 @@ export default class IngenicPermissionManager extends Component {
                       {{on "click" (fn this.chooseGroup group)}}
                     >
                       <strong>{{group.name}}</strong>
-                      <span>{{i18n "admin.ingenic.permissions.group"}}</span>
+                      <span>{{i18n "ingenic.permissions.group"}}</span>
                     </button>
                   {{/each}}
                 </div>
@@ -375,7 +375,7 @@ export default class IngenicPermissionManager extends Component {
               {{#if this.selectedPrincipal}}
                 <div class="ingenic-perm__chosen">
                   <span>
-                    {{i18n "admin.ingenic.permissions.selected"}}
+                    {{i18n "ingenic.permissions.selected"}}
                     <strong>{{this.principalLabel this.selectedPrincipal}}</strong>
                   </span>
                   <button
@@ -384,7 +384,7 @@ export default class IngenicPermissionManager extends Component {
                     disabled={{this.busy}}
                     {{on "click" this.grant}}
                   >
-                    {{i18n "admin.ingenic.permissions.grant"}}
+                    {{i18n "ingenic.permissions.grant"}}
                   </button>
                 </div>
               {{/if}}
@@ -400,7 +400,7 @@ export default class IngenicPermissionManager extends Component {
             {{/if}}
 
             <h4 class="ingenic-perm__section-title">
-              {{i18n "admin.ingenic.permissions.direct"}}
+              {{i18n "ingenic.permissions.direct"}}
             </h4>
             <div class="ingenic-admin-list">
               {{#each this.directGrants as |permission|}}
@@ -416,17 +416,17 @@ export default class IngenicPermissionManager extends Component {
                     class="btn btn-danger"
                     {{on "click" (fn this.revoke permission)}}
                   >
-                    {{i18n "admin.ingenic.revoke"}}
+                    {{i18n "ingenic.revoke"}}
                   </button>
                 </section>
               {{else}}
-                <p>{{i18n "admin.ingenic.permissions.empty_area"}}</p>
+                <p>{{i18n "ingenic.permissions.empty_area"}}</p>
               {{/each}}
             </div>
 
             {{#if this.inheritedGrants.length}}
               <h4 class="ingenic-perm__section-title">
-                {{i18n "admin.ingenic.permissions.inherited"}}
+                {{i18n "ingenic.permissions.inherited"}}
               </h4>
               <div class="ingenic-admin-list">
                 {{#each this.inheritedGrants as |permission|}}
@@ -434,7 +434,7 @@ export default class IngenicPermissionManager extends Component {
                     <div>
                       <strong>{{this.principalLabel permission.principal}}</strong>
                       <div class="ingenic-admin-list__meta">
-                        {{i18n "admin.ingenic.permissions.inherited_from"}}
+                        {{i18n "ingenic.permissions.inherited_from"}}
                         {{permission.inheritedFrom.name}}
                       </div>
                     </div>
@@ -444,7 +444,7 @@ export default class IngenicPermissionManager extends Component {
             {{/if}}
           {{else}}
             <p class="ingenic-admin-tree__empty">
-              {{i18n "admin.ingenic.permissions.pick_product"}}
+              {{i18n "ingenic.permissions.pick_product"}}
             </p>
           {{/if}}
         </section>
@@ -453,7 +453,7 @@ export default class IngenicPermissionManager extends Component {
       {{#if this.resourceGrants.length}}
         <section class="ingenic-perm__other">
           <h4 class="ingenic-perm__section-title">
-            {{i18n "admin.ingenic.permissions.other_grants"}}
+            {{i18n "ingenic.permissions.other_grants"}}
           </h4>
           <div class="ingenic-admin-list">
             {{#each this.resourceGrants as |permission|}}
@@ -470,7 +470,7 @@ export default class IngenicPermissionManager extends Component {
                   class="btn btn-danger"
                   {{on "click" (fn this.revoke permission)}}
                 >
-                  {{i18n "admin.ingenic.revoke"}}
+                  {{i18n "ingenic.revoke"}}
                 </button>
               </section>
             {{/each}}

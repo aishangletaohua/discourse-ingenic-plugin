@@ -8,51 +8,52 @@ module Admin
 
     # Documentation ---------------------------------------------------------
 
+    # The workbench is scoped to the language chosen at the top of the screen.
+    # That choice is the whole of the language model: a product belongs to one
+    # language and is edited in that language, and switching the selector is
+    # how the other language is written. Nothing here moves rows between them.
     def documentation
       render_json_dump(
-        series: visible_series.map { |record| product_json(record, include_children: true) },
-        # The screen can change a row's language, not only create one in the
-        # right one: rows written before the default was fixed are filed under
-        # "en" and are invisible to a reader of the site's own language.
-        locales: locale_options,
-        default_locale: SiteSetting.ingenic_default_locale.presence || SiteSetting.default_locale,
+        series:
+          visible_series
+            .where(locale: content_locale)
+            .map { |record| product_json(record, include_children: true) },
+        locales: ::Ingenic::Locales.options,
+        locale: content_locale,
       )
     end
 
     def product
-      record = IngenicDocProduct.find(params[:id])
+      record = IngenicProduct.find(params[:id])
       authorize_ingenic!(record)
       render_json_dump(product: product_json(record, include_versions: true))
     end
 
     def create_product
-      record = IngenicDocProduct.new(product_params)
-      record.locale = default_documentation_locale(record) if params[:locale].blank?
+      record = IngenicProduct.new(product_params)
+      record.locale = content_locale
       authorize_create!(record.parent, feature: "documentation")
       save_or_error(record) { render_json_dump(product: product_json(record)) }
     end
 
+    # The language is fixed at creation. Moving a series to another language
+    # used to drag every version and page with it, which is exactly the kind of
+    # hidden bulk edit this redesign removes: a translation is written in the
+    # other language deliberately, not by changing one field on the parent.
     def update_product
-      record = IngenicDocProduct.find(params[:id])
-      previous_locale = record.locale
+      record = IngenicProduct.find(params[:id])
+      requested = ::Ingenic::Locales.normalize(params[:locale])
+      if requested.present? && requested != record.locale
+        return render_json_error(I18n.t("ingenic.admin_errors.locale_immutable"), status: 422)
+      end
+
       record.assign_attributes(product_params)
       authorize_ingenic!(record)
-
-      # One transaction: if a descendant cannot move to the target language,
-      # the parent's own move is rolled back too instead of leaving a tree
-      # whose top row is Chinese and whose contents are still English.
-      ActiveRecord::Base.transaction do
-        save_or_error(record) do
-          cascade_locale_change(record, previous_locale)
-          render_json_dump(product: product_json(record, include_versions: true))
-        end
-      end
-    rescue ActiveRecord::RecordNotUnique
-      render_json_error(I18n.t("ingenic.admin_errors.locale_conflict"), status: 422)
+      save_or_error(record) { render_json_dump(product: product_json(record, include_versions: true)) }
     end
 
     def destroy_product
-      record = IngenicDocProduct.find(params[:id])
+      record = IngenicProduct.find(params[:id])
       authorize_ingenic!(record)
       record.destroy!
       head :no_content
@@ -62,7 +63,6 @@ module Admin
 
     def create_version
       record = IngenicDocVersion.new(version_params)
-      record.locale = default_documentation_locale(record) if params[:locale].blank?
       record.position = next_version_position(record) if params[:position].blank?
       authorize_ingenic!(record.product)
       save_or_error(record) { render_json_dump(version: version_json(record)) }
@@ -70,25 +70,9 @@ module Admin
 
     def update_version
       record = IngenicDocVersion.find(params[:id])
-      previous_locale = record.locale
       record.assign_attributes(version_params)
       authorize_ingenic!(record)
-
-      ActiveRecord::Base.transaction do
-        save_or_error(record) do
-          # A page usually carries the version's language; moving the version
-          # without its pages would leave them invisible to a reader of the
-          # language the editor just chose.
-          if record.locale.present? && previous_locale != record.locale
-            IngenicDocPage
-              .where(version_id: record.id, locale: previous_locale)
-              .update_all(locale: record.locale)
-          end
-          render_json_dump(version: version_json(record))
-        end
-      end
-    rescue ActiveRecord::RecordNotUnique
-      render_json_error(I18n.t("ingenic.admin_errors.locale_conflict"), status: 422)
+      save_or_error(record) { render_json_dump(version: version_json(record)) }
     end
 
     def destroy_version
@@ -109,7 +93,7 @@ module Admin
         product: product_json(version.product, include_versions: true),
         version: version_json(version),
         pages:
-          version.page_tree(locale: documentation_locale).map do |page|
+          version.page_tree.map do |page|
             admin_page_json(page)
           end,
       )
@@ -158,7 +142,6 @@ module Admin
 
     def create_page
       record = IngenicDocPage.new(page_params)
-      record.locale = default_documentation_locale(record) if params[:locale].blank?
       record.position = next_page_position(record) if params[:position].blank?
       authorize_ingenic!(record.version)
       save_or_error(record) { render_json_dump(page: page_json(record)) }
@@ -185,8 +168,7 @@ module Admin
       version = IngenicDocVersion.find(params[:version_id])
       authorize_ingenic!(version)
 
-      resolved =
-        version.find_readable_page(params[:slug], locale: documentation_locale)
+      resolved = version.find_readable_page(params[:slug])
       return render_json_error(I18n.t("ingenic.admin_errors.page_not_found"), status: 404) if resolved.nil?
 
       # Already owned by this version: editing it is the same request.
@@ -194,10 +176,6 @@ module Admin
 
       copy = resolved.page.dup
       copy.version_id = version.id
-      # The copy joins the manual being written, so it is filed under that
-      # manual's language. Keeping the source language would leave an English
-      # version holding a row that only the Chinese reading path serves.
-      copy.locale = version.locale if version.locale.present?
       copy.save!
       render_json_dump(page: page_json(copy), inherited_from: nil)
     end
@@ -217,24 +195,28 @@ module Admin
     # Boards ----------------------------------------------------------------
 
     def board_list
-      boards = ::Ingenic::PermissionResolver.new(current_user).visible_ids(IngenicBoard).ordered
+      boards =
+        ::Ingenic::PermissionResolver
+          .new(current_user)
+          .visible_ids(IngenicBoard)
+          .for_locale(content_locale)
+          .includes(product: :parent)
+          .ordered
 
       render_json_dump(
         boards: boards.map { |board| board_json(board) },
         # The chips a board can be filed against, each with the series it sits
         # under, so the picker can offer them without a second request.
         chips: board_chip_options,
-        # The languages this site serves, labelled by their own speakers. A
-        # board filed under a spelling no reader's locale equals is one nobody
-        # finds, and nothing reports the mistake.
-        locales: locale_options,
+        locales: ::Ingenic::Locales.options,
+        locale: content_locale,
       )
     end
 
     def create_board
-      # A board belongs to a chip when it has one, and that chip's boards owner
-      # may add it even without the boards screen. A board with no chip has no
-      # scope to inherit from, so it takes the screen-wide grant.
+      # A board is filed against the shared product catalogue. That row does
+      # not need documentation: boards and manuals are separate publications
+      # of the same product.
       record = IngenicBoard.new(board_params)
       authorize_area_create!(record, "boards")
       save_or_error(record) { render_json_dump(board: board_json(record)) }
@@ -264,7 +246,13 @@ module Admin
     # Downloads -------------------------------------------------------------
 
     def download_list
-      downloads = ::Ingenic::PermissionResolver.new(current_user).visible_ids(IngenicDownload).ordered
+      downloads =
+        ::Ingenic::PermissionResolver
+          .new(current_user)
+          .visible_ids(IngenicDownload)
+          .for_locale(content_locale)
+          .includes(:product)
+          .ordered
       pending = IngenicDownloadRequest.pending.group(:download_id).count
       granted = IngenicDownloadGrant.active.group(:download_id).count
 
@@ -278,7 +266,11 @@ module Admin
         # name its own speakers use: the same list core's language
         # pickers offer, so a value no visitor's locale can equal is not
         # something an administrator can type in by hand.
-        locales: locale_options,
+        locales: ::Ingenic::Locales.options,
+        locale: content_locale,
+        # The chip picker's options in this language. A download is filed
+        # against the same catalogue row its board and its manual use.
+        chips: board_chip_options,
         # Sent with the listing so the editor can offer the classification
         # without a second request. Includes retired entries, because a resource
         # filed under one has to keep showing it until it is reclassified.
@@ -297,6 +289,7 @@ module Admin
     def create_download_category
       authorize_ingenic_feature!("downloads")
       record = IngenicDownloadCategory.new(download_category_params)
+      record.locale = content_locale
       save_or_error(record) { render_json_dump(category: category_json(record)) }
     end
 
@@ -334,6 +327,7 @@ module Admin
       # A chip resource belongs to the person who looks after that chip's
       # downloads; an algorithm has no chip, so it takes the screen-wide grant.
       record = IngenicDownload.new(download_params)
+      record.locale = record.product&.locale.presence || content_locale
       authorize_area_create!(record, "downloads")
       uploaded = apply_upload(record)
 
@@ -361,11 +355,14 @@ module Admin
       record = IngenicDownload.find(params[:id])
       authorize_ingenic!(record)
 
-      previous_slug = record.product_slug
+      previous_product_id = record.product_id
       record.assign_attributes(download_params)
+      # The row speaks the language of the chip it is filed under. An algorithm
+      # has no chip, so it keeps the language the screen is working in.
+      record.locale = record.product&.locale.presence || content_locale
       # Re-filing the resource under another chip needs a grant on that chip
       # too, not only on the one it came from.
-      if record.product_slug != previous_slug
+      if record.product_id != previous_product_id
         authorize_area_create!(record, "downloads")
       end
 
@@ -554,13 +551,23 @@ module Admin
       authorize_ingenic_feature!("site")
 
       render_json_dump(
-        homepage_blocks: DiscourseIngenic::ConfigParser.homepage_blocks,
-        header_links: IngenicHeaderLink.ordered.map { |record| header_link_json(record) },
-        section_cards: IngenicSectionCard.ordered.map { |record| section_card_json(record) },
-        promotions: IngenicPromotion.ordered.map { |record| promotion_json(record) },
-        social_links: IngenicSocialLink.ordered.map { |record| social_link_json(record) },
+        homepage_blocks: DiscourseIngenic::ConfigParser.homepage_blocks(content_locale),
+        header_links:
+          IngenicHeaderLink.where(locale: content_locale).ordered.map { |record| header_link_json(record) },
+        section_cards:
+          IngenicSectionCard.where(locale: content_locale).ordered.map { |record| section_card_json(record) },
+        promotions:
+          IngenicPromotion.where(locale: content_locale).ordered.map { |record| promotion_json(record) },
+        social_links:
+          IngenicSocialLink.where(locale: content_locale).ordered.map { |record| social_link_json(record) },
         footer_columns:
-          IngenicFooterColumn.includes(:links).ordered.map { |record| footer_column_json(record) },
+          IngenicFooterColumn
+            .where(locale: content_locale)
+            .includes(:links)
+            .ordered
+            .map { |record| footer_column_json(record) },
+        locales: ::Ingenic::Locales.options,
+        locale: content_locale,
       )
     end
 
@@ -607,8 +614,17 @@ module Admin
         }
       end
 
-      SiteSetting.ingenic_homepage_blocks = JSON.generate(normalized)
-      render_json_dump(homepage_blocks: DiscourseIngenic::ConfigParser.homepage_blocks)
+      # Only this language's list is replaced. The other language keeps the
+      # layout its editor wrote, even while this screen is saving.
+      stored = DiscourseIngenic::ConfigParser.parse_homepage_setting
+      layout = stored.is_a?(Hash) ? stored.dup : { ::Ingenic::Locales.default => stored }
+      layout[content_locale] = normalized
+      SiteSetting.ingenic_homepage_blocks = JSON.generate(layout)
+
+      render_json_dump(
+        homepage_blocks: DiscourseIngenic::ConfigParser.homepage_blocks(content_locale),
+        locale: content_locale,
+      )
     rescue JSON::ParserError
       render_json_error(I18n.t("ingenic.admin_errors.invalid_homepage_blocks"), status: 422)
     end
@@ -618,6 +634,7 @@ module Admin
     def create_promotion
       authorize_ingenic_feature!("site")
       record = IngenicPromotion.new(promotion_params)
+      record.locale = content_locale
       save_or_error(record) { render_json_dump(promotion: promotion_json(record)) }
     end
 
@@ -643,6 +660,7 @@ module Admin
     def create_header_link
       authorize_ingenic_feature!("site")
       record = IngenicHeaderLink.new(header_link_params)
+      record.locale = content_locale
       save_or_error(record) { render_json_dump(header_link: header_link_json(record)) }
     end
 
@@ -664,6 +682,7 @@ module Admin
     def create_section_card
       authorize_ingenic_feature!("site")
       record = IngenicSectionCard.new(section_card_params)
+      record.locale = content_locale
       save_or_error(record) { render_json_dump(section_card: section_card_json(record)) }
     end
 
@@ -685,6 +704,7 @@ module Admin
     def create_social_link
       authorize_ingenic_feature!("site")
       record = IngenicSocialLink.new(social_link_params)
+      record.locale = content_locale
       save_or_error(record) { render_json_dump(social_link: social_link_json(record)) }
     end
 
@@ -706,6 +726,7 @@ module Admin
     def create_footer_column
       authorize_ingenic_feature!("site")
       record = IngenicFooterColumn.new(footer_column_params)
+      record.locale = content_locale
       save_or_error(record) { render_json_dump(footer_column: footer_column_json(record)) }
     end
 
@@ -756,7 +777,7 @@ module Admin
             .order(:area, :resource_type, :resource_id)
             .map { |permission| permission_json(permission) },
         products:
-          IngenicDocProduct
+          IngenicProduct
             .order(:kind, :position, :name)
             .map do |product|
               {
@@ -784,7 +805,10 @@ module Admin
       users = users.where("username ILIKE :q OR name ILIKE :q", q: pattern) if query.present?
       users = users.order(:username).limit(20)
 
-      groups = Group.all
+      # Only groups the matrix can actually grant to. Offering every automatic
+      # group in this picker produced a grant the matrix would then refuse to
+      # show, which reads as a permission that silently did nothing.
+      groups = IngenicGroupPermission.assignable_groups
       groups = groups.where("name ILIKE ?", pattern) if query.present?
       groups = groups.order(:name).limit(20)
 
@@ -793,14 +817,31 @@ module Admin
           users.map do |user|
             { "id" => user.id, "username" => user.username, "name" => user.name }
           end,
-        groups: groups.map { |group| { "id" => group.id, "name" => group.name } },
+        groups:
+          groups.map do |group|
+            { "id" => group.id, "name" => group.name, "full_name" => group.full_name }
+          end,
       )
     end
 
+    # Granting the same thing twice is not an error the administrator needs to
+    # see: the second click means the grant they wanted is already there, so it
+    # answers with that row. The unique index is still the real guard against
+    # two requests arriving together.
     def create_permission
       authorize_ingenic!(permissions: true)
       record = IngenicPermission.new(permission_params)
+      record.valid?
+
+      existing = duplicate_permission_for(record)
+      return render_json_dump(permission: permission_json(existing)) if existing
+
       save_or_error(record) { render_json_dump(permission: permission_json(record)) }
+    rescue ActiveRecord::RecordNotUnique
+      existing = duplicate_permission_for(record)
+      return render_json_dump(permission: permission_json(existing)) if existing
+
+      raise
     end
 
     def destroy_permission
@@ -874,18 +915,24 @@ module Admin
 
       valid_group_ids = IngenicGroupPermission.assignable_groups.pluck(:id).to_set
 
+      desired = Set.new
+      payload.each do |group_id, features|
+        group_id = group_id.to_i
+        next unless valid_group_ids.include?(group_id)
+
+        Array(features).each do |feature|
+          desired << [group_id, feature.to_s] if IngenicGroupPermission::FEATURES.include?(feature.to_s)
+        end
+      end
+
       IngenicGroupPermission.transaction do
-        IngenicGroupPermission.delete_all
+        existing = IngenicGroupPermission.pluck(:id, :group_id, :feature)
+        keep = existing.select { |_id, group_id, feature| desired.include?([group_id, feature]) }
+        IngenicGroupPermission.where.not(id: keep.map(&:first)).delete_all
 
-        payload.each do |group_id, features|
-          group_id = group_id.to_i
-          next unless valid_group_ids.include?(group_id)
-
-          Array(features).each do |feature|
-            next unless IngenicGroupPermission::FEATURES.include?(feature.to_s)
-
-            IngenicGroupPermission.create!(group_id: group_id, feature: feature.to_s)
-          end
+        have = keep.map { |_id, group_id, feature| [group_id, feature] }.to_set
+        (desired - have).each do |group_id, feature|
+          IngenicGroupPermission.create!(group_id: group_id, feature: feature)
         end
       end
 
@@ -1017,6 +1064,22 @@ module Admin
       raise Discourse::InvalidParameters.new(key)
     end
 
+    # The row a fresh grant would duplicate, if it is already there. The area
+    # usually arrives blank and is filled by the model's default, so the lookup
+    # uses the value `valid?` just settled on rather than the raw parameter.
+    def duplicate_permission_for(record)
+      return nil if record.user_id.blank? && record.group_id.blank?
+
+      IngenicPermission.find_by(
+        user_id: record.user_id,
+        group_id: record.group_id,
+        resource_type: record.resource_type,
+        resource_id: record.resource_id,
+        permission: record.permission,
+        area: record.area,
+      )
+    end
+
     # Saves and renders, or reports why not.
     #
     # Every update action assigns the form to its record before it authorizes,
@@ -1035,55 +1098,20 @@ module Admin
     # series above it, so the series rows are pulled in as containers. Without
     # them the management page would have nothing to hang the chip under.
     def visible_series
-      return IngenicDocProduct.series.ordered if current_user.admin?
+      return IngenicProduct.series.ordered if current_user.admin?
 
-      ids = ::Ingenic::PermissionResolver.new(current_user).visible_ids(IngenicDocProduct).pluck(:id)
-      parent_ids = IngenicDocProduct.where(id: ids).where.not(parent_id: nil).distinct.pluck(:parent_id)
-      IngenicDocProduct.series.where(id: ids + parent_ids).ordered
+      ids = ::Ingenic::PermissionResolver.new(current_user).visible_ids(IngenicProduct).pluck(:id)
+      parent_ids = IngenicProduct.where(id: ids).where.not(parent_id: nil).distinct.pluck(:parent_id)
+      IngenicProduct.series.where(id: ids + parent_ids).ordered
     end
 
-    # A new series is written in the language this site serves documentation
-    # in, and everything below it inherits the language of the row it hangs
-    # under — a chip in its series, a version in its chip, a page in its
-    # version. The screen can change a row's language afterwards, but the
-    # column default is English, and filing a Chinese manual under "en" is not
-    # a visible error: the reader simply gets an empty page.
-    def default_documentation_locale(record)
-      inherited =
-        case record
-        when IngenicDocProduct
-          record.parent&.locale
-        when IngenicDocVersion
-          record.product&.locale
-        when IngenicDocPage
-          record.version&.locale
-        end
-
-      inherited.presence || SiteSetting.ingenic_default_locale.presence || "en"
-    end
-
-    # Moving a series or chip onto another language is how a row filed under
-    # "en" before the default was fixed is repaired. The rows below it are
-    # almost always filed under the same wrong language — a reader filters
-    # pages by locale, not by the chip above them — so leaving them behind
-    # would move the title of an otherwise empty section. Only rows carrying
-    # the old value follow; one deliberately filed under another language is
-    # left where its editor put it.
-    def cascade_locale_change(record, previous_locale)
-      return if record.locale.blank? || previous_locale == record.locale
-
-      chip_ids = record.series? ? record.children.pluck(:id) : [record.id]
-      IngenicDocProduct
-        .where(id: chip_ids, locale: previous_locale)
-        .update_all(locale: record.locale)
-
-      version_ids = IngenicDocVersion.where(product_id: chip_ids).pluck(:id)
-      IngenicDocVersion
-        .where(id: version_ids, locale: previous_locale)
-        .update_all(locale: record.locale)
-      IngenicDocPage
-        .where(version_id: version_ids, locale: previous_locale)
-        .update_all(locale: record.locale)
+    # The language the whole management screen is working in. It is not the
+    # admin's interface language: someone reading the panel in Chinese still has
+    # to edit the English manual, so the selector's value arrives as a parameter
+    # and an unknown or missing one falls back to the site's default language
+    # rather than to `I18n.locale`.
+    def content_locale
+      @content_locale ||= ::Ingenic::Locales.resolve(params[:locale])
     end
 
     # Position decides two things a reader can see: the order of the contents
@@ -1097,14 +1125,15 @@ module Admin
     end
 
     def next_page_position(record)
-      scope =
-        IngenicDocPage.where(version_id: record.version_id, locale: record.locale)
+      scope = IngenicDocPage.where(version_id: record.version_id)
       scope = record.parent_id.present? ? scope.where(parent_id: record.parent_id) : scope.where(parent_id: nil)
       (scope.maximum(:position) || -1) + 1
     end
 
+    # `locale` is not permitted: the language is the screen's, not a field on
+    # the row, and allowing it here would let a stale form move a whole tree.
     def product_params
-      params.permit(:kind, :parent_id, :slug, :name, :description, :locale, :published, :position)
+      params.permit(:kind, :parent_id, :slug, :name, :description, :published, :position)
     end
 
     # No `published`: a version has no such column, and permitting one made a
@@ -1113,11 +1142,11 @@ module Admin
     # `UnknownAttributeError` — a 500 where the version should simply have been
     # created. What a reader may see is decided page by page.
     def version_params
-      params.permit(:product_id, :slug, :label, :locale, :latest, :deprecated, :released_on, :position)
+      params.permit(:product_id, :slug, :label, :latest, :deprecated, :released_on, :position)
     end
 
     def page_params
-      params.permit(:version_id, :parent_id, :kind, :slug, :title, :body, :locale, :topic_url, :published, :position)
+      params.permit(:version_id, :parent_id, :kind, :slug, :title, :body, :topic_url, :published, :position)
     end
 
     def board_params
@@ -1125,9 +1154,7 @@ module Admin
         params.permit(
           :slug,
           :name,
-          :locale,
           :kind,
-          :chip,
           :product_id,
           :description,
           :details,
@@ -1141,58 +1168,20 @@ module Admin
         )
 
       # An empty picker option means "no chip from the tree", which is null
-      # rather than a blank string the foreign key would refuse.
-      permitted[:product_id] = permitted[:product_id].presence
+      # rather than a blank string the foreign key would refuse. Only touched
+      # when the client sent the key: a partial update must not clear a field
+      # it did not mention.
+      permitted[:product_id] = permitted[:product_id].presence if permitted.key?(:product_id)
       permitted
-    end
-
-    # The languages this site actually publishes in, each labelled with the
-    # name its own speakers use. The front end shows a resource to whoever
-    # is reading in that locale, so a resource filed under a language the
-    # site does not serve is one nobody ever sees - and, like a
-    # misspelling, it reports nothing. Discourse carries translations for
-    # forty languages this site does not publish in, so they are not
-    # offered.
-    def locale_options
-      names = LocaleSiteSetting.values.index_by { |option| option[:value].to_s }
-
-      served_locales.map do |code|
-        { value: code, name: names.dig(code, :native_name).presence || code }
-      end
-    end
-
-    # What this site serves, rather than what Discourse has translations
-    # for: the language an anonymous reader gets, the plugin's own default,
-    # and the languages content localisation is switched on for.
-    def served_locales
-      codes = [SiteSetting.default_locale, SiteSetting.ingenic_default_locale]
-      if SiteSetting.content_localization_enabled
-        codes.concat(Array(SiteSetting.content_localization_supported_locales))
-      end
-
-      codes.map { |code| code.to_s.strip }.reject(&:empty?).uniq
-    end
-
-    # The language picked at the top of the documentation workbench. It is not
-    # the admin's UI language, so the tree cannot use I18n.locale: an admin
-    # reading the panel in Chinese still has to edit the English manual. An
-    # unknown or missing value falls back to the request's locale, which is
-    # what the screen used before it had a picker.
-    def documentation_locale
-      requested = params[:locale].to_s
-      return nil if requested.blank?
-
-      served_locales.include?(requested) ? requested : nil
     end
 
     def download_params
       permitted =
         params.permit(
           :family,
-          :product_slug,
+          :product_id,
           :category_id,
           :version,
-          :locale,
           :name,
           :description,
           :platform,
@@ -1207,11 +1196,16 @@ module Admin
           :point_cost,
         )
 
-      # "No category" comes back from the picker as an empty string, or as
-      # the sentinel the ui-kit select uses for its first option. The
-      # foreign key would refuse either, and null means unfiled.
-      category_id = permitted[:category_id].to_s
-      permitted[:category_id] = nil if category_id.empty? || category_id == "__NONE__"
+      # An empty picker option means "not filed under a chip", which is null
+      # rather than a blank string, and "no category" comes back as an empty
+      # string or as the sentinel the ui-kit select uses for its first option.
+      # The foreign keys would refuse either. Both are only touched when the
+      # client sent the key, so a partial update keeps what it did not mention.
+      permitted[:product_id] = permitted[:product_id].presence if permitted.key?(:product_id)
+      if permitted.key?(:category_id)
+        category_id = permitted[:category_id].to_s
+        permitted[:category_id] = nil if category_id.empty? || category_id == "__NONE__"
+      end
       permitted
     end
 
@@ -1226,7 +1220,7 @@ module Admin
     end
 
     def download_category_params
-      params.permit(:name, :locale, :position, :published)
+      params.permit(:name, :position, :published)
     end
 
     def promotion_params
@@ -1239,7 +1233,6 @@ module Admin
           :button_href,
           :button_external,
           :image_url,
-          :locale,
           :position,
           :published,
         )
@@ -1282,13 +1275,11 @@ module Admin
     def social_link_params
       params.permit(
         :label,
-        :label_zh,
         :kind,
         :href,
         :image_url,
         :qr_image_url,
         :qr_caption,
-        :qr_caption_zh,
         :icon_only,
         :position,
         :published,
@@ -1296,11 +1287,11 @@ module Admin
     end
 
     def footer_column_params
-      params.permit(:title, :title_zh, :position, :published)
+      params.permit(:title, :position, :published)
     end
 
     def footer_link_params
-      params.permit(:column_id, :label, :label_zh, :href, :external, :position, :published)
+      params.permit(:column_id, :label, :href, :external, :position, :published)
     end
 
     # Writes the uploaded file, if the request carries one, and returns where it
@@ -1354,7 +1345,7 @@ module Admin
         .slice(
           "id",
           "family",
-          "product_slug",
+          "product_id",
           "category_id",
           "version",
           "locale",
@@ -1379,6 +1370,8 @@ module Admin
           # name can be corrected in the category list without touching every
           # resource filed under it.
           "category_name" => download.category_name,
+          "product_slug" => download.product&.slug,
+          "product_name" => download.product&.name,
           "pending_requests" => pending,
           "active_grants" => granted,
         )
@@ -1392,8 +1385,8 @@ module Admin
     # every category, and a count per category is the classic way to turn a
     # screen that loads instantly into one that does not.
     def download_categories_json
-      counts = IngenicDownload.group(:category_id).count
-      IngenicDownloadCategory.ordered.map do |category|
+      counts = IngenicDownload.for_locale(content_locale).group(:category_id).count
+      IngenicDownloadCategory.where(locale: content_locale).ordered.map do |category|
         category_json(category).merge("download_count" => counts[category.id] || 0)
       end
     end
@@ -1457,6 +1450,7 @@ module Admin
       link.attributes.slice(
         "id",
         "label",
+        "locale",
         "href",
         "icon",
         "image_url",
@@ -1471,6 +1465,7 @@ module Admin
       card.attributes.slice(
         "id",
         "label",
+        "locale",
         "category",
         "href",
         "description",
@@ -1486,23 +1481,22 @@ module Admin
       link.attributes.slice(
         "id",
         "label",
-        "label_zh",
         "kind",
         "href",
         "image_url",
         "qr_image_url",
         "qr_caption",
-        "qr_caption_zh",
         "icon_only",
         "position",
         "published",
+        "locale",
       )
     end
 
     def footer_column_json(column)
       column
         .attributes
-        .slice("id", "title", "title_zh", "position", "published")
+        .slice("id", "title", "position", "published", "locale")
         .merge("links" => column.links.map { |link| footer_link_json(link) })
     end
 
@@ -1511,7 +1505,6 @@ module Admin
         "id",
         "column_id",
         "label",
-        "label_zh",
         "href",
         "external",
         "position",
@@ -1636,13 +1629,15 @@ module Admin
     def version_json(version)
       version
         .attributes
-        .slice("id", "product_id", "slug", "label", "locale", "latest", "deprecated", "released_on", "position", "published")
+        .slice("id", "product_id", "slug", "label", "latest", "deprecated", "released_on", "position", "published")
+        .merge("locale" => version.locale)
     end
 
     def page_json(page)
       page
         .attributes
-        .slice("id", "version_id", "parent_id", "kind", "slug", "title", "body", "locale", "topic_url", "published", "position")
+        .slice("id", "version_id", "parent_id", "kind", "slug", "title", "body", "topic_url", "published", "position")
+        .merge("locale" => page.locale)
     end
 
     # A page as the management page needs it: the stored row plus what the
@@ -1662,8 +1657,9 @@ module Admin
       # refuses a board on any other chip, so offering the full list would just
       # present choices that fail on save.
       resolver = ::Ingenic::PermissionResolver.new(current_user)
-      IngenicDocProduct
+      IngenicProduct
         .chips
+        .where(locale: content_locale)
         .includes(:parent)
         .ordered
         .select { |chip| resolver.can_manage_area?(chip, "boards") }
@@ -1684,9 +1680,7 @@ module Admin
           "id",
           "slug",
           "name",
-          "locale",
           "kind",
-          "chip",
           "product_id",
           "description",
           "details",
@@ -1699,9 +1693,11 @@ module Admin
           "position",
         )
         .merge(
-          # Server-derived rather than read off the row: the tree is what decides
-          # which chip a board shows, and the label column is only the fallback.
+          # Derived through the product catalogue: the board has no chip name
+          # or language of its own, and asking its product is the one answer.
+          "locale" => board.locale,
           "chip_name" => board.chip_name,
+          "product_slug" => board.product&.slug,
           "series_name" => board.series_name,
         )
     end
@@ -1740,7 +1736,7 @@ module Admin
       return I18n.t("ingenic.admin_errors.missing_resource") if resource.nil?
 
       case resource
-      when IngenicDocProduct
+      when IngenicProduct
         resource.chip? ? "#{resource.name} · #{resource.parent&.name}" : resource.name
       when IngenicDocPage
         resource.title

@@ -88,7 +88,7 @@ rake ingenic:seed_categories[permissions]
 开发板目录都读它，所以树建反了的表现是"筛选怎么点都筛不出东西"。
 
 ```ruby
-series = IngenicDocProduct.create!(
+series = IngenicProduct.create!(
   slug: "t-series",
   name: "T Series",
   kind: "series",
@@ -97,7 +97,7 @@ series = IngenicDocProduct.create!(
   position: 0,
 )
 
-chip = IngenicDocProduct.create!(
+chip = IngenicProduct.create!(
   slug: "t32pro",
   name: "T32Pro",
   kind: "chip",
@@ -117,7 +117,6 @@ latest = IngenicDocVersion.create!(
   product: chip,
   slug: "2.1.0",
   label: "2.1.0",
-  locale: "en",
   latest: true,
   released_on: Date.new(2026, 9, 1),
   position: 0,
@@ -127,7 +126,6 @@ previous = IngenicDocVersion.create!(
   product: chip,
   slug: "2.0.0",
   label: "2.0.0",
-  locale: "en",
   released_on: Date.new(2026, 3, 1),
   position: 1,
 )
@@ -136,7 +134,6 @@ overview = IngenicDocPage.create!(
   version: previous,
   slug: "overview",
   title: "Overview",
-  locale: "en",
   position: 0,
   body: <<~MD,
     ## Chip introduction
@@ -154,7 +151,6 @@ IngenicDocPage.create!(
   parent: nil,
   slug: "quick-start",
   title: "Quick Start",
-  locale: "en",
   position: 1,
   body: "How to build and flash your first image.",
 )
@@ -209,7 +205,7 @@ sdk = IngenicDownloadCategory.find_or_create_by!(name: "sdk", locale: "en")
 
 ```ruby
 IngenicDownload.create!(
-  product_slug: "t32pro",
+  product: chip,
   category: sdk,
   version: "2.1.0",
   locale: "en",
@@ -225,11 +221,10 @@ IngenicDownload.create!(
 )
 ```
 
-`product_slug` 填产品树里型号的 slug。如果这个资源是整个系列共用的，填系列的
-slug 也是可以的。
+`product` 填产品树里的型号记录。芯片资料必须挂一个型号，不能挂在系列上。
 
 `family` 是下载目录的顶层归类：`chip`（默认，芯片资料）或 `algorithm`（算法）。
-算法面向多个芯片、不归属某一个型号，因此 `product_slug` 留空：
+算法面向多个芯片、不归属某一个型号，因此 `product` 留空：
 
 ```ruby
 algorithms = IngenicDownloadCategory.find_or_create_by!(name: "algorithm", locale: "en")
@@ -294,16 +289,15 @@ IngenicDownloadGrant.find_by(user: someone, download: resource).revoke!(admin)
 
 ## 开发板
 
-一块开发板属于产品树里的某一个型号，这正是目录能按系列和型号两级筛选的原因。
-这个关联是可选的——开发板可以先列出、之后再挂到型号上——但把开发板挂到"系列"
-而不是"型号"会被拒绝，因为那样它会在该系列的每个型号下都出现一次。
+一块开发板属于产品树里的某一个型号，这正是目录能按系列和型号两级筛选、并决定
+卡片语言的原因。要先建型号：没有型号、或挂到"系列"而不是"型号"的开发板都会被
+拒绝，因为那样它会在该系列的每个型号下都出现一次。
 
 ```ruby
 IngenicBoard.create!(
   slug: "t32pro-evk",
   name: "T32Pro EVK",
   product: chip,
-  locale: "en",
   description: "Evaluation kit for the T32Pro series.",
   details: "参见 [T32Pro 文档](/ingenic/docs/t-series/t32pro)。",
   specs: "2 GB DDR3 · dual Gigabit Ethernet · camera interface",
@@ -408,18 +402,35 @@ resource.update!(point_cost: 50)
 
 ## 增加第二种语言
 
-每一行记录都带 `locale`。要为同一个产品增加中文文档，用 `locale: "zh_CN"` 建
-对应的记录即可。接口会优先按访问者的界面语言匹配，匹配不到再回退到
-`ingenic_default_locale`，所以只翻译了一部分产品也能正常显示。
+第二种语言是第二套产品目录，不是加一列翻译。所有内容从创建那一刻起就属于某一种
+语言：先建产品行，再建它的版本和页面，最后建引用它的开发板和下载。
+
+```ruby
+chinese_series = IngenicProduct.create!(
+  slug: "t-series",
+  name: "T 系列",
+  kind: "series",
+  locale: "zh_CN",
+  position: 0,
+)
+
+chinese_chip = IngenicProduct.create!(
+  slug: "t32pro",
+  name: "T32Pro 中文",
+  kind: "chip",
+  parent: chinese_series,
+  locale: "zh_CN",
+  position: 0,
+)
+```
 
 语言代码必须使用 Discourse 自己的写法——`zh_CN`、`pt_BR`、`zh_TW`，不要写成
 `zh-CN`。这个值会和 `I18n.locale` 比较，也就是访问者在 *偏好设置 → 界面语言*
 中选择的语言，带连字符的代码匹配不上任何东西，那条记录就等于不存在。
 
-页面可以按 slug 逐个翻译。当同一个 slug 同时存在 `en` 和 `zh_CN` 两行时，
-以读者当前语言为准，翻译后的页面在目录中只出现一次；没有翻译的 slug 回退到
-`ingenic_default_locale`。某个产品如果完全没有翻译记录，仍然会以默认语言打开。
+两套目录之间不互相回退。只有英文的页面，在中文读者的目录里就是不出现，直到有人
+写下同 slug 的中文页面；没有中文记录的产品也不会出现在中文选择器里。同一语言
+内部仍然有版本继承：新版本没有重写的页面，继续显示上一版本的内容。
 
-产品、版本、页面、下载资源和开发板都遵循这套规则。产品树本身也是按语言分开的：
-一个型号记录带着它名称所用的语言，因此"翻译过的型号"是同一个父级下的另一行记录，
-而不是第一行记录的翻译字段。
+产品、版本、页面、下载资源、开发板、下载分类和站点内容都遵循这套规则。管理界面
+先选语言，之后创建的一切都属于该语言。

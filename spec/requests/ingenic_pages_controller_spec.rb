@@ -10,10 +10,20 @@ describe "Ingenic pages" do
   before { SiteSetting.ingenic_enabled = true }
 
   fab!(:category) { IngenicDownloadCategory.find_or_create_by!(name: "sdk", locale: "en") }
+  fab!(:series) { IngenicProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:chip) do
+    IngenicProduct.create!(
+      slug: "t32pro",
+      name: "T32Pro",
+      kind: IngenicProduct::CHIP,
+      parent: series,
+      locale: "en",
+    )
+  end
 
   fab!(:download) do
     IngenicDownload.create!(
-      product_slug: "t32pro",
+      product: chip,
       category: category,
       version: "2.1.0",
       locale: "en",
@@ -26,8 +36,7 @@ describe "Ingenic pages" do
     IngenicBoard.create!(
       slug: "halley5",
       name: "Halley5",
-      locale: "en",
-      chip: "T32",
+      product: chip,
       application_url: "https://example.com/apply",
     )
   end

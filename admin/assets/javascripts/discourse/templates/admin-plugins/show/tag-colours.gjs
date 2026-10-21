@@ -5,8 +5,8 @@ import { i18n } from "discourse-i18n";
 const TagColours = <template>
   <div class="admin-detail">
     <DPageSubheader
-      @titleLabel={{i18n "admin.ingenic.tag_colours.title"}}
-      @descriptionLabel={{i18n "admin.ingenic.tag_colours.description"}}
+      @titleLabel={{i18n "ingenic.tag_colours.title"}}
+      @descriptionLabel={{i18n "ingenic.tag_colours.description"}}
     />
     <IngenicTagColourManager
       @tags={{@model.tags}}

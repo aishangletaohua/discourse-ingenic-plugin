@@ -9,32 +9,30 @@ require "rails_helper"
 # the record rather than trusted from the caller.
 describe IngenicPermission do
   fab!(:user) { Fabricate(:user) }
-  fab!(:family) { IngenicDocProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:family) { IngenicProduct.create!(slug: "t-series", name: "T Series") }
   fab!(:product) do
-    IngenicDocProduct.create!(
+    IngenicProduct.create!(
       slug: "t33",
       name: "T33",
-      kind: IngenicDocProduct::CHIP,
-      locale: "en",
+      kind: IngenicProduct::CHIP,
       parent: family,
     )
   end
   fab!(:board) do
-    IngenicBoard.create!(slug: "t33-board", name: "T33 Board", kind: "board", product: product, locale: "en")
+    IngenicBoard.create!(slug: "t33-board", name: "T33 Board", kind: "board", product: product)
   end
   fab!(:download) do
     IngenicDownload.create!(
       name: "T33 SDK",
       family: IngenicDownload::FAMILY_CHIP,
-      product_slug: product.slug,
+      product: product,
       access_level: IngenicDownload::LOGIN_ONLY,
       file_url: "https://example.com/sdk.zip",
-      locale: "en",
     )
   end
 
   it "files a product grant under documentation when the caller names no area" do
-    permission = described_class.create!(user: user, resource_type: "IngenicDocProduct", resource_id: product.id)
+    permission = described_class.create!(user: user, resource_type: "IngenicProduct", resource_id: product.id)
 
     expect(permission.area).to eq("documentation")
   end
@@ -68,7 +66,7 @@ describe IngenicPermission do
     %w[documentation downloads boards].each do |area|
       described_class.create!(
         user: user,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: product.id,
         area: area,
       )
@@ -78,10 +76,10 @@ describe IngenicPermission do
   end
 
   it "refuses the same grant twice in one area" do
-    described_class.create!(user: user, resource_type: "IngenicDocProduct", resource_id: product.id, area: "documentation")
+    described_class.create!(user: user, resource_type: "IngenicProduct", resource_id: product.id, area: "documentation")
 
     expect do
-      described_class.create!(user: user, resource_type: "IngenicDocProduct", resource_id: product.id, area: "documentation")
+      described_class.create!(user: user, resource_type: "IngenicProduct", resource_id: product.id, area: "documentation")
     end.to raise_error(ActiveRecord::RecordNotUnique)
   end
 end

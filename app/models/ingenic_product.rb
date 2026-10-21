@@ -1,20 +1,20 @@
 # frozen_string_literal: true
 
-class IngenicDocProduct < ActiveRecord::Base
-  self.table_name = "ingenic_doc_products"
+class IngenicProduct < ActiveRecord::Base
+  self.table_name = "ingenic_products"
 
   SERIES = "series"
   CHIP = "chip"
   KINDS = [SERIES, CHIP].freeze
 
   belongs_to :parent,
-             class_name: "IngenicDocProduct",
+             class_name: "IngenicProduct",
              foreign_key: :parent_id,
              optional: true
 
   has_many :children,
            -> { order(position: :asc, name: :asc) },
-           class_name: "IngenicDocProduct",
+           class_name: "IngenicProduct",
            foreign_key: :parent_id,
            dependent: :restrict_with_error
 
@@ -24,14 +24,19 @@ class IngenicDocProduct < ActiveRecord::Base
            foreign_key: :product_id,
            dependent: :destroy
 
-  # Boards are catalogued against a chip, but they are not part of the
-  # documentation: retiring a chip from the docs should not take the boards that
-  # mention it off the site or refuse the deletion. The board keeps the chip's
-  # name and loses the link.
+  # Boards and downloads are filed against a chip in the catalogue, but they are
+  # not owned by it: deleting a chip must not take the files or the boards that
+  # mention it away. Restricting the delete makes the administrator move or
+  # retire those rows first.
   has_many :boards,
            class_name: "IngenicBoard",
            foreign_key: :product_id,
-           dependent: :nullify
+           dependent: :restrict_with_error
+
+  has_many :downloads,
+           class_name: "IngenicDownload",
+           foreign_key: :product_id,
+           dependent: :restrict_with_error
 
   validates :slug, presence: true, uniqueness: { scope: :locale }
   validates :name, presence: true
@@ -39,6 +44,7 @@ class IngenicDocProduct < ActiveRecord::Base
   validates :kind, inclusion: { in: KINDS }
   validate :parent_cannot_be_self_or_descendant
   validate :shape_matches_kind
+  validate :parent_locale_matches
 
   scope :published, -> { where(published: true) }
   scope :ordered, -> { order(position: :asc, name: :asc) }
@@ -51,11 +57,6 @@ class IngenicDocProduct < ActiveRecord::Base
 
   def chip?
     kind == CHIP
-  end
-
-  # The chips a reader can pick under this series, in display order.
-  def selectable_chips
-    children.published.ordered
   end
 
   # The version a reader lands on when the URL names none. A version has no
@@ -96,5 +97,15 @@ class IngenicDocProduct < ActiveRecord::Base
     elsif chip? && parent && !parent.series?
       errors.add(:parent_id, "a chip must belong to a series, not another chip")
     end
+  end
+
+  # A chip's series is the same language's series. Linking across languages
+  # used to be possible and made the tree show a Chinese series above an
+  # English chip, which is the shape the language-first editor exists to
+  # prevent.
+  def parent_locale_matches
+    return if parent.nil? || locale.blank? || parent.locale == locale
+
+    errors.add(:parent, "must be in the same language")
   end
 end

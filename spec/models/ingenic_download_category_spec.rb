@@ -9,6 +9,17 @@ require "rails_helper"
 # names, and anything asserting on order says which rows it means: the table it
 # is reading is never empty on an installed site.
 describe IngenicDownloadCategory do
+  fab!(:series) { IngenicProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:chip) do
+    IngenicProduct.create!(
+      slug: "t33",
+      name: "T33",
+      kind: IngenicProduct::CHIP,
+      parent: series,
+      locale: "en",
+    )
+  end
+
   def category(attrs = {})
     IngenicDownloadCategory.create!(
       { name: "sample-#{SecureRandom.hex(4)}", locale: "en" }.merge(attrs),
@@ -60,7 +71,7 @@ describe IngenicDownloadCategory do
     record = category
     IngenicDownload.create!(
       name: "T33 SDK",
-      product_slug: "t33",
+      product: chip,
       category: record,
       locale: "en",
       file_url: "https://example.com/sdk.tgz",
@@ -74,7 +85,7 @@ describe IngenicDownloadCategory do
     download =
       IngenicDownload.create!(
         name: "T33 SDK",
-        product_slug: "t33",
+        product: chip,
         category: record,
         locale: "en",
         file_url: "https://example.com/sdk.tgz",

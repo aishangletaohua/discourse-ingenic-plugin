@@ -266,28 +266,39 @@ class IngenicDownloadsController < ::ApplicationController
     IngenicDownloadLog.record!(user: current_user, download: @download, request: request)
   end
 
-  # Reading locale first, then the site default, with one row per resource: a
-  # translation that exists only in the default locale still shows up, and a
-  # resource that has both does not appear twice.
+  # A resource is filed in exactly one language, and that is the language of
+  # the chip it belongs to. The listing therefore shows the reader's language
+  # and nothing else: no fallback row means a Chinese reader never gets an
+  # English card, and an untranslated catalogue is visibly empty rather than
+  # quietly mixed.
   def downloads
     @downloads ||=
       begin
-        rows =
-          IngenicDownload
-            .published
-            .where(locale: [I18n.locale.to_s, SiteSetting.ingenic_default_locale].uniq)
+        rows = IngenicDownload.published.for_locale(locale)
 
         rows = rows.where(family: params[:family]) if params[:family].present?
-        rows = rows.where(product_slug: params[:product]) if params[:product].present?
-        rows = rows.where(product_slug: series_slugs) if params[:series].present?
+        rows = rows.where(product_id: product_ids_for_params) if product_ids_for_params
         rows = rows.where(category_id: params[:category]) if params[:category].present?
         rows = rows.where(version: params[:version]) if params[:version].present?
         rows = rows.where(platform: params[:platform]) if params[:platform].present?
 
-        rows
-          .ordered
-          .group_by { |row| [row.product_slug, row.category_id, row.version, row.platform, row.name] }
-          .map { |_, group| group.find { |row| row.locale == I18n.locale.to_s } || group.first }
+        rows.ordered
+      end
+  end
+
+  # Both filters address the catalogue rather than the string in the row, so a
+  # chip is found by its slug in this language and a series covers both itself
+  # and every chip under it.
+  def product_ids_for_params
+    return @product_ids_for_params if defined?(@product_ids_for_params)
+
+    @product_ids_for_params =
+      if params[:product].present?
+        product = IngenicProduct.where(locale: locale).find_by(slug: params[:product])
+        product ? [product.id] : []
+      elsif params[:series].present?
+        series = IngenicProduct.series.where(locale: locale).find_by(slug: params[:series])
+        series ? [series.id] + series.children.pluck(:id) : []
       end
   end
 
@@ -318,7 +329,8 @@ class IngenicDownloadsController < ::ApplicationController
       "point_cost" => download.point_cost,
       "unlocked" => unlocked?(download),
       "family" => download.family,
-      "product_slug" => download.product_slug,
+      "product_slug" => download.product&.slug,
+      "product_name" => download.product&.name,
       "category_id" => download.category_id,
       "category_name" => download.category_name,
       "version" => download.version,
@@ -351,7 +363,7 @@ class IngenicDownloadsController < ::ApplicationController
   # page is worse than no filter — it reads as a broken page rather than an
   # unused label.
   def filters
-    all = IngenicDownload.published
+    all = IngenicDownload.published.for_locale(locale)
     {
       # Only the families that actually have a published resource. A tab that
       # always opens on an empty page is the filter version of a dead link.
@@ -366,28 +378,33 @@ class IngenicDownloadsController < ::ApplicationController
 
   def product_tree
     @product_tree ||=
-      {
-        series:
-          IngenicDocProduct.series.published.ordered.map do |record|
-            { "slug" => record.slug, "name" => record.name }
-          end,
-        chips:
-          IngenicDocProduct.chips.published.ordered.map do |record|
-            { "slug" => record.slug, "name" => record.name, "series_slug" => record.parent&.slug }
-          end,
-      }
-  end
-
-  # A series filter matches a resource filed against the series itself and one
-  # filed against any chip under it. Both are reasonable filings — a series-wide
-  # SDK has no single chip to sit under — and an editor who chose one cannot be
-  # expected to know which of the two the page will honour.
-  def series_slugs
-    @series_slugs ||=
       begin
-        series = IngenicDocProduct.series.published.find_by(slug: params[:series])
-        slugs = series ? IngenicDocProduct.chips.published.where(parent_id: series.id).pluck(:slug) : []
-        ([params[:series]] + slugs).uniq
+        # Only the part of the catalogue that has something to download. A
+        # series offered here with no resource under it is the same dead end
+        # the families filter avoids.
+        used_ids =
+          IngenicDownload.published.for_locale(locale).where.not(product_id: nil).distinct.pluck(
+            :product_id,
+          )
+        chips =
+          IngenicProduct.chips
+            .published
+            .where(locale: locale, id: used_ids)
+            .order(position: :asc, name: :asc)
+            .to_a
+        series = chips.filter_map(&:parent).select(&:published?).uniq
+        chips = chips.select { |chip| series.include?(chip.parent) }
+
+        {
+          series:
+            series
+              .sort_by { |record| [record.position.to_i, record.name.to_s] }
+              .map { |record| { "slug" => record.slug, "name" => record.name } },
+          chips:
+            chips.map do |chip|
+              { "slug" => chip.slug, "name" => chip.name, "series_slug" => chip.parent.slug }
+            end,
+        }
       end
   end
 
@@ -395,9 +412,13 @@ class IngenicDownloadsController < ::ApplicationController
   # this: a chip has its own list of material types, and offering every type on
   # the site for a chip that has none of them is how a filter produces an empty
   # page that looks like a bug. The usage map is small — one row per published
-  # resource — and building it here saves the theme a second request.
+  # resource in this language — and building it here saves the theme a second
+  # request.
   def used_categories
-    usage = IngenicDownload.published.pluck(:category_id, :product_slug, :family)
+    usage =
+      IngenicDownload.published.for_locale(locale).includes(:product).map do |row|
+        [row.category_id, row.product&.slug, row.family]
+      end
     grouped = usage.group_by(&:first)
     ids = grouped.keys.compact
 
@@ -411,6 +432,10 @@ class IngenicDownloadsController < ::ApplicationController
         "families" => rows.filter_map { |row| row[2] }.uniq,
       }
     end
+  end
+
+  def locale
+    @locale ||= Ingenic::Locales.reading
   end
 
   def form_json

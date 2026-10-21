@@ -54,7 +54,7 @@ export default class IngenicDownloadQueue extends Component {
     } catch (failure) {
       this.error =
         failure?.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     } finally {
       this.busyId = null;
     }
@@ -65,7 +65,7 @@ export default class IngenicDownloadQueue extends Component {
       {{#if this.error}}<p class="ingenic-admin-note ingenic-admin-note--error">{{this.error}}</p>{{/if}}
 
       <p class="ingenic-admin-note">
-        {{i18n "admin.ingenic.downloads.queue_pending" count=this.pendingCount}}
+        {{i18n "ingenic.downloads.queue_pending" count=this.pendingCount}}
       </p>
 
       <div class="ingenic-admin-list">
@@ -76,7 +76,7 @@ export default class IngenicDownloadQueue extends Component {
                 {{#if request.username}}
                   {{request.username}}
                 {{else}}
-                  {{i18n "admin.ingenic.deleted_member"}}
+                  {{i18n "ingenic.deleted_member"}}
                 {{/if}}
               </strong>
               <span class="ingenic-admin-list__badge">{{request.status}}</span>
@@ -91,7 +91,7 @@ export default class IngenicDownloadQueue extends Component {
               {{/if}}
               {{#if request.review_note}}
                 <div class="ingenic-admin-list__meta">
-                  {{i18n "admin.ingenic.downloads.review_note"}}: {{request.review_note}}
+                  {{i18n "ingenic.downloads.review_note"}}: {{request.review_note}}
                 </div>
               {{/if}}
             </div>
@@ -99,11 +99,11 @@ export default class IngenicDownloadQueue extends Component {
             {{#if (eq request.status "pending")}}
               <form class="ingenic-admin-form ingenic-admin-form--inline">
                 <label>
-                  <span>{{i18n "admin.ingenic.downloads.note"}}</span>
+                  <span>{{i18n "ingenic.downloads.note"}}</span>
                   <input name="note" />
                 </label>
                 <label>
-                  <span>{{i18n "admin.ingenic.downloads.expires_at"}}</span>
+                  <span>{{i18n "ingenic.downloads.expires_at"}}</span>
                   <input type="date" name="expires_at" />
                 </label>
                 <div class="ingenic-admin__toolbar">
@@ -113,7 +113,7 @@ export default class IngenicDownloadQueue extends Component {
                     disabled={{eq this.busyId request.id}}
                     {{on "click" (fn this.decide request "approve")}}
                   >
-                    {{i18n "admin.ingenic.downloads.approve"}}
+                    {{i18n "ingenic.downloads.approve"}}
                   </button>
                   <button
                     class="btn btn-danger"
@@ -121,14 +121,14 @@ export default class IngenicDownloadQueue extends Component {
                     disabled={{eq this.busyId request.id}}
                     {{on "click" (fn this.decide request "reject")}}
                   >
-                    {{i18n "admin.ingenic.downloads.reject"}}
+                    {{i18n "ingenic.downloads.reject"}}
                   </button>
                 </div>
               </form>
             {{/if}}
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.downloads.no_requests"}}</p>
+          <p>{{i18n "ingenic.downloads.no_requests"}}</p>
         {{/each}}
       </div>
     </div>

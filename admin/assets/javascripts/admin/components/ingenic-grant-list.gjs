@@ -33,7 +33,7 @@ export default class IngenicGrantList extends Component {
     } catch (failure) {
       this.error =
         failure?.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     }
   }
 
@@ -49,15 +49,15 @@ export default class IngenicGrantList extends Component {
                 {{#if grant.username}}
                   {{grant.username}}
                 {{else}}
-                  {{i18n "admin.ingenic.deleted_member"}}
+                  {{i18n "ingenic.deleted_member"}}
                 {{/if}}
               </strong>
               <div class="ingenic-admin-list__meta">
                 {{grant.download_name}} ·
                 {{#if grant.active}}
-                  {{i18n "admin.ingenic.downloads.grant_active"}}
+                  {{i18n "ingenic.downloads.grant_active"}}
                 {{else}}
-                  {{i18n "admin.ingenic.downloads.grant_revoked"}}
+                  {{i18n "ingenic.downloads.grant_revoked"}}
                 {{/if}}
                 {{#if grant.expires_at}}· {{grant.expires_at}}{{/if}}
               </div>
@@ -72,13 +72,13 @@ export default class IngenicGrantList extends Component {
                   type="button"
                   {{on "click" (fn this.revoke grant)}}
                 >
-                  {{i18n "admin.ingenic.revoke"}}
+                  {{i18n "ingenic.revoke"}}
                 </button>
               </div>
             {{/if}}
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.downloads.no_grants"}}</p>
+          <p>{{i18n "ingenic.downloads.no_grants"}}</p>
         {{/each}}
       </div>
     </div>

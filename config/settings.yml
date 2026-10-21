@@ -73,19 +73,6 @@ plugins:
     type: string
     multiline: true
 
-  # Language that documentation falls back to when a page has not been
-  # translated in the reader's language. The choices are the locales this
-  # Discourse can actually serve, so enabling a language in Discourse makes it
-  # selectable here without touching this file — and it cannot drift into
-  # offering a language no visitor can ask for.
-  #
-  # Codes are Discourse's own (zh_CN, pt_BR): content rows must use the same
-  # spelling, because that is what I18n.locale compares against.
-  ingenic_default_locale:
-    default: "en"
-    client: true
-    enum: "LocaleSiteSetting"
-
   # Where the "Discuss in forum" link on a documentation page points when a page
   # has no linked topic yet.
   ingenic_docs_discussion_category:

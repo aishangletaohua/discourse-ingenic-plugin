@@ -4,13 +4,13 @@ require "rails_helper"
 
 describe Ingenic::DocumentationResolver do
   fab!(:series) do
-    IngenicDocProduct.create!(slug: "t-series", name: "T Series", kind: "series", locale: "en")
+    IngenicProduct.create!(slug: "t-series", name: "T Series", kind: "series")
   end
   fab!(:chip) do
-    IngenicDocProduct.create!(slug: "t33", name: "T33", kind: "chip", parent: series, locale: "en")
+    IngenicProduct.create!(slug: "t33", name: "T33", kind: "chip", parent: series)
   end
-  fab!(:v1) { IngenicDocVersion.create!(product: chip, slug: "1.0", label: "1.0", locale: "en", position: 0) }
-  fab!(:v2) { IngenicDocVersion.create!(product: chip, slug: "1.1", label: "1.1", locale: "en", position: 1) }
+  fab!(:v1) { IngenicDocVersion.create!(product: chip, slug: "1.0", label: "1.0", position: 0) }
+  fab!(:v2) { IngenicDocVersion.create!(product: chip, slug: "1.1", label: "1.1", position: 1) }
 
   def page(version, slug, title: slug, parent: nil, position: 0)
     IngenicDocPage.create!(
@@ -18,7 +18,6 @@ describe Ingenic::DocumentationResolver do
       slug: slug,
       title: title,
       body: "#{slug} body",
-      locale: "en",
       parent: parent,
       position: position,
     )
@@ -92,8 +91,7 @@ describe Ingenic::DocumentationResolver do
           slug: "guide",
           title: "Guide",
           kind: "folder",
-          locale: "en",
-        )
+          )
       page(v1, "setup", parent: folder)
 
       expect(v2.published_pages.map(&:slug)).to eq(%w[guide setup])
@@ -108,8 +106,7 @@ describe Ingenic::DocumentationResolver do
           slug: "guide",
           title: "Guide",
           kind: "folder",
-          locale: "en",
-        )
+          )
       page(v1, "setup", parent: folder, position: 0)
       page(v1, "flash", position: 1)
 
@@ -126,8 +123,7 @@ describe Ingenic::DocumentationResolver do
           title: "Guide",
           kind: "folder",
           body: "never read",
-          locale: "en",
-        )
+          )
 
       expect(folder.reload.body).to be_nil
     end
@@ -139,8 +135,7 @@ describe Ingenic::DocumentationResolver do
           slug: "guide",
           title: "Guide",
           kind: "folder",
-          locale: "en",
-        )
+          )
       subfolder =
         IngenicDocPage.create!(
           version: v1,
@@ -148,8 +143,7 @@ describe Ingenic::DocumentationResolver do
           title: "Advanced",
           kind: "folder",
           parent: folder,
-          locale: "en",
-        )
+          )
       page(v1, "setup", parent: folder)
       page(v1, "tuning", parent: subfolder)
 

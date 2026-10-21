@@ -1,9 +1,11 @@
 import DiscourseRoute from "discourse/routes/discourse";
-import { ajax } from "discourse/lib/ajax";
+import { service } from "@ember/service";
 
 export default class AdminPluginsShowSite extends DiscourseRoute {
+  @service ingenicContentLocale;
+
   model() {
-    // One request: the three lists are short, and they are drawn on one screen.
-    return ajax("/admin/plugins/discourse-ingenic/site");
+    // One request: the lists are short, and they are drawn on one screen.
+    return this.ingenicContentLocale.load("/admin/plugins/discourse-ingenic/site");
   }
 }

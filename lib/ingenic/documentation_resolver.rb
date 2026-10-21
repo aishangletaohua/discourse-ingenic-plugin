@@ -11,6 +11,10 @@ module Ingenic
   #
   # Version order is the `position` column, lowest first, so moving a version
   # changes what inherits from what. Ties fall back to insertion order.
+  #
+  # There is no language dimension here. The resolver works on one product, and
+  # a product is already one language's row in the catalogue; its versions and
+  # pages cannot be written in another.
   class DocumentationResolver
     def initialize(product)
       @product = product
@@ -19,8 +23,6 @@ module Ingenic
     # Every version of the product, oldest first. There is no `published` flag on
     # a version to filter by — what a reader may see is decided page by page, and
     # a version with no pages of its own is not empty, it is the one before it.
-    # Asking for a scope that does not exist raised `NoMethodError` on the first
-    # request that resolved any documentation at all.
     def versions
       @versions ||= product.versions.to_a.sort_by { |version| [version.position, version.id] }
     end
@@ -36,21 +38,14 @@ module Ingenic
     #
     # `published_only: false` is for the management page, which has to show
     # drafts that a reader would not see.
-    #
-    # `locale` is the language the caller is looking at. Readers omit it and
-    # get their own locale; the management screen passes the language chosen at
-    # the top of the workbench, because the admin's UI language and the manual
-    # being edited are two different things. Without it, choosing English in a
-    # Chinese admin panel resolved the tree in Chinese and the English pages
-    # disappeared.
-    def effective_pages(version, published_only: true, locale: nil)
-      build_tree(effective_rows(version, published_only: published_only, locale: locale))
+    def effective_pages(version, published_only: true)
+      build_tree(effective_rows(version, published_only: published_only))
     end
 
     # Folders never resolve as a page: an address that names one is a broken
     # link, not an empty document.
-    def find_page(version, slug, locale: nil)
-      effective_pages(version, locale: locale).find do |resolved|
+    def find_page(version, slug)
+      effective_pages(version).find do |resolved|
         resolved.slug == slug && !resolved.folder?
       end
     end
@@ -58,8 +53,8 @@ module Ingenic
     # Previous and next in the flattened reading order, so the theme can render
     # footer navigation without rebuilding the tree. Folders are skipped: a
     # reader stepping forward should land on an article.
-    def navigation_for(version, page, locale: nil)
-      flat = effective_pages(version, locale: locale).reject(&:folder?)
+    def navigation_for(version, page)
+      flat = effective_pages(version).reject(&:folder?)
       index = flat.index { |resolved| resolved.slug == page.slug }
 
       {
@@ -75,11 +70,11 @@ module Ingenic
     # Newest definition of each slug wins, so walking the chain oldest-first and
     # overwriting gives the inherited value for anything the target version left
     # alone.
-    def effective_rows(version, published_only:, locale:)
+    def effective_rows(version, published_only:)
       chain = chain_for(version)
       pages_by_version =
         chain.index_with do |source|
-          readable_pages(source, published_only: published_only, locale: locale)
+          readable_pages(source, published_only: published_only)
         end
       rows_by_id = pages_by_version.values.flatten.index_by(&:id)
       target_id = version.id
@@ -150,17 +145,10 @@ module Ingenic
       (rows_by_id[page.parent_id] || page.parent)&.slug
     end
 
-    # The reading language wins over the site default, and a slug appears once
-    # even when both languages define it. An explicit locale (the management
-    # screen) replaces the request's locale; a blank one falls back to it.
-    def readable_pages(version, published_only:, locale: nil)
-      reading = locale.to_s.presence || I18n.locale.to_s
-      fallback = SiteSetting.ingenic_default_locale
-
-      scope = version.pages.where(locale: [reading, fallback].uniq)
+    def readable_pages(version, published_only:)
+      scope = version.pages
       scope = scope.where(published: true) if published_only
-
-      scope.to_a.sort_by { |page| page.locale == reading ? 0 : 1 }.uniq(&:slug)
+      scope.to_a.sort_by { |page| [page.position, page.id] }
     end
 
     # A depth-ordered flat list is enough to render the tree, and it keeps the
@@ -175,10 +163,9 @@ module Ingenic
       walk(children_by_parent, nil, 0, ordered, seen)
 
       # A page whose parent is missing from the resolved set is not reachable
-      # from the root — the parent may exist only in the other language.
-      # Showing the page at the top level beats dropping it silently.
-      # Unpublished parents never reach this point: their whole subtree was
-      # pruned in effective_rows.
+      # from the root — the parent may have been deleted. Showing the page at
+      # the top level beats dropping it silently. Unpublished parents never
+      # reach this point: their whole subtree was pruned in effective_rows.
       rows.each_value do |resolved|
         next if seen[resolved.slug]
 

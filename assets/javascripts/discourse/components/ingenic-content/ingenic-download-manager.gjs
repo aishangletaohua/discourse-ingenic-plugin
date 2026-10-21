@@ -2,9 +2,8 @@ import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
-import { service } from "@ember/service";
 import { fn, get } from "@ember/helper";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import DNativeSelect from "discourse/ui-kit/d-native-select";
 import { i18n } from "discourse-i18n";
 
@@ -14,10 +13,9 @@ const ENDPOINT = "/admin/plugins/discourse-ingenic/downloads";
 // the ones that cannot leak a file by accident.
 const BLANK = {
   family: "chip",
-  product_slug: "",
+  product_id: "",
   category_id: "",
   version: "",
-  locale: "",
   name: "",
   description: "",
   platform: "",
@@ -42,8 +40,6 @@ const BLANK = {
  * arrives, so the form does not have to arbitrate between them.
  */
 export default class IngenicDownloadManager extends Component {
-  @service siteSettings;
-
   @tracked records = this.args.downloads ?? [];
   @tracked draft = null;
   @tracked busy = false;
@@ -67,9 +63,9 @@ export default class IngenicDownloadManager extends Component {
 
   get accessLevelKeys() {
     return {
-      public_login: "admin.ingenic.downloads.access.public_login",
-      login_form: "admin.ingenic.downloads.access.login_form",
-      login_form_request: "admin.ingenic.downloads.access.login_form_request",
+      public_login: "ingenic.downloads.access.public_login",
+      login_form: "ingenic.downloads.access.login_form",
+      login_form_request: "ingenic.downloads.access.login_form_request",
     };
   }
 
@@ -84,27 +80,16 @@ export default class IngenicDownloadManager extends Component {
     return this.draft?.family === "algorithm";
   }
 
-  // The languages this Discourse serves, sent with the listing. A list
-  // rather than free text because the front end matches this value against
-  // the reader's locale: a spelling no reader's locale equals is a resource
-  // no reader can find, and the mistake reports nothing.
-  get localeOptions() {
-    const options = [...(this.args.locales ?? [])];
-    const current = this.draft?.locale;
-
-    // A row filed before a language was switched off still has to show
-    // what it is filed under, or the field would read blank.
-    if (current && !options.some((option) => option.value === current)) {
-      options.unshift({ value: current, name: current });
-    }
-
-    return options.length ? options : [{ value: this.defaultLocale, name: this.defaultLocale }];
+  // The chips this account may file a resource under, in the screen's language.
+  // A resource takes its language from the chip; an algorithm, which has no
+  // chip, stays in the language the screen is working in.
+  get chips() {
+    return this.args.chips ?? [];
   }
 
-  // New content is filed in the language this site serves rather than in
-  // English: the readers are the ones who have to find it.
-  get defaultLocale() {
-    return this.siteSettings.ingenic_default_locale || "";
+  get chipLabel() {
+    return (chip) =>
+      chip.series_name ? `${chip.series_name} › ${chip.name}` : chip.name;
   }
 
   // An uploaded file carries its own digest; the legacy column is what a
@@ -128,7 +113,7 @@ export default class IngenicDownloadManager extends Component {
 
   @action
   startNew() {
-    this.draft = { ...BLANK, locale: this.defaultLocale };
+    this.draft = { ...BLANK };
     this.chosenFile = null;
     this.message = null;
     this.error = null;
@@ -139,7 +124,7 @@ export default class IngenicDownloadManager extends Component {
     this.draft = {
       ...record,
       file_url: record.file_url ?? "",
-      locale: record.locale || this.defaultLocale,
+      product_id: record.product_id ?? "",
     };
     this.chosenFile = null;
     this.message = null;
@@ -162,10 +147,15 @@ export default class IngenicDownloadManager extends Component {
     this.draft = {
       ...this.draft,
       family: value,
-      // Switching an existing chip resource to an algorithm drops the part
-      // number rather than leaving a stale one behind the hidden field.
-      product_slug: value === "algorithm" ? "" : this.draft.product_slug,
+      // Switching an existing chip resource to an algorithm drops the chip
+      // rather than leaving a stale one behind a field that is not drawn.
+      product_id: value === "algorithm" ? "" : this.draft.product_id,
     };
+  }
+
+  @action
+  pickChip(value) {
+    this.draft = { ...this.draft, product_id: value ?? "" };
   }
 
   @action
@@ -176,11 +166,6 @@ export default class IngenicDownloadManager extends Component {
   @action
   pickAccessLevel(value) {
     this.draft = { ...this.draft, access_level: value };
-  }
-
-  @action
-  pickLocale(value) {
-    this.draft = { ...this.draft, locale: value };
   }
 
   // A chosen file is not a draft value: it is the browser's FileList on
@@ -238,7 +223,7 @@ export default class IngenicDownloadManager extends Component {
         : [...this.records, saved];
       this.draft = null;
       this.chosenFile = null;
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     } finally {
@@ -263,16 +248,16 @@ export default class IngenicDownloadManager extends Component {
 
   #errorMessage(failure) {
     const errors = failure?.jqXHR?.responseJSON?.errors;
-    return errors?.join(", ") || i18n("admin.ingenic.save_failed");
+    return errors?.join(", ") || i18n("ingenic.save_failed");
   }
 
   <template>
     <div class="ingenic-admin-panel">
       {{#if @storageWritable}}
-        <p class="ingenic-admin-note">{{i18n "admin.ingenic.downloads.storage_ok"}}</p>
+        <p class="ingenic-admin-note">{{i18n "ingenic.downloads.storage_ok"}}</p>
       {{else}}
         <p class="ingenic-admin-note ingenic-admin-note--error">
-          {{i18n "admin.ingenic.downloads.storage_unavailable"}}
+          {{i18n "ingenic.downloads.storage_unavailable"}}
         </p>
       {{/if}}
 
@@ -281,7 +266,7 @@ export default class IngenicDownloadManager extends Component {
 
       <div class="ingenic-admin__toolbar">
         <button class="btn btn-primary" type="button" {{on "click" this.startNew}}>
-          {{i18n "admin.ingenic.downloads.add"}}
+          {{i18n "ingenic.downloads.add"}}
         </button>
       </div>
 
@@ -289,19 +274,19 @@ export default class IngenicDownloadManager extends Component {
         <form class="ingenic-admin-form" {{on "submit" this.save}} {{on "input" this.field}}>
           <h3>
             {{#if this.draft.id}}
-              {{i18n "admin.ingenic.downloads.edit_title"}}
+              {{i18n "ingenic.downloads.edit_title"}}
             {{else}}
-              {{i18n "admin.ingenic.downloads.new_title"}}
+              {{i18n "ingenic.downloads.new_title"}}
             {{/if}}
           </h3>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.name"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.name"}}</span>
             <input name="name" value={{this.draft.name}} required />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.family"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.family"}}</span>
             <DNativeSelect
               name="family"
               @includeNone={{false}}
@@ -309,27 +294,38 @@ export default class IngenicDownloadManager extends Component {
               @onChange={{this.pickFamily}}
               as |select|
             >
-              <select.Option @value="chip">{{i18n "admin.ingenic.downloads.families.chip"}}</select.Option>
-              <select.Option @value="algorithm">{{i18n "admin.ingenic.downloads.families.algorithm"}}</select.Option>
+              <select.Option @value="chip">{{i18n "ingenic.downloads.families.chip"}}</select.Option>
+              <select.Option @value="algorithm">{{i18n "ingenic.downloads.families.algorithm"}}</select.Option>
             </DNativeSelect>
           </label>
 
           {{#unless this.isAlgorithm}}
             <label>
-              <span>{{i18n "admin.ingenic.downloads.fields.product_slug"}}</span>
-              <input name="product_slug" value={{this.draft.product_slug}} required />
+              <span>{{i18n "ingenic.downloads.fields.chip_from_tree"}}</span>
+              <DNativeSelect
+                name="product_id"
+                @value={{this.draft.product_id}}
+                @onChange={{this.pickChip}}
+                as |select|
+              >
+                {{#each this.chips as |chip|}}
+                  <select.Option @value={{chip.id}}>
+                    {{this.chipLabel chip}}
+                  </select.Option>
+                {{/each}}
+              </DNativeSelect>
             </label>
           {{/unless}}
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.kind"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.kind"}}</span>
             {{! The ui-kit select rather than a bare <select>: a Glimmer-rendered
                 `selected` attribute does not survive re-rendering, which is the
                 bug DNativeSelect exists to work around. }}
             <DNativeSelect
               name="category_id"
               @includeNone={{true}}
-              @nonePlaceholder={{i18n "admin.ingenic.downloads.fields.no_category"}}
+              @nonePlaceholder={{i18n "ingenic.downloads.fields.no_category"}}
               @value={{this.draft.category_id}}
               @onChange={{this.pickCategory}}
               as |select|
@@ -341,40 +337,22 @@ export default class IngenicDownloadManager extends Component {
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.version"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.version"}}</span>
             <input name="version" value={{this.draft.version}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.platform"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.platform"}}</span>
             <input name="platform" value={{this.draft.platform}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.architecture"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.architecture"}}</span>
             <input name="architecture" value={{this.draft.architecture}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.locale"}}</span>
-            {{! The ui-kit select rather than free text: the value is
-                matched against the reader's locale, so a spelling nobody
-                else uses hides the resource from everyone. }}
-            <DNativeSelect
-              name="locale"
-              @includeNone={{false}}
-              @value={{this.draft.locale}}
-              @onChange={{this.pickLocale}}
-              as |select|
-            >
-              {{#each this.localeOptions as |option|}}
-                <select.Option @value={{option.value}}>{{option.name}}</select.Option>
-              {{/each}}
-            </DNativeSelect>
-          </label>
-
-          <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.access_level"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.access_level"}}</span>
             <DNativeSelect
               name="access_level"
               @includeNone={{false}}
@@ -395,16 +373,16 @@ export default class IngenicDownloadManager extends Component {
           {{/if}}
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.point_cost"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.point_cost"}}</span>
             <input type="number" name="point_cost" min="0" value={{this.draft.point_cost}} />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.downloads.fields.point_cost_hint"}}
+            {{i18n "ingenic.downloads.fields.point_cost_hint"}}
           </p>
 
           <label class="ingenic-admin-upload">
-            <span>{{i18n "admin.ingenic.downloads.fields.file"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.file"}}</span>
             {{! The control is kept for what it does - a click anywhere
                 in this label opens the picker - and taken out of the
                 layout: a browser prints its own caption beside a file
@@ -416,69 +394,69 @@ export default class IngenicDownloadManager extends Component {
               {{on "change" this.pickFile}}
             />
             <span class="ingenic-admin-upload__button">
-              {{i18n "admin.ingenic.downloads.fields.choose_file"}}
+              {{i18n "ingenic.downloads.fields.choose_file"}}
             </span>
           </label>
 
           {{#if this.chosenFile}}
             <p class="ingenic-admin-form__hint">
-              {{i18n "admin.ingenic.downloads.fields.replacing_file" file=this.chosenFile}}
+              {{i18n "ingenic.downloads.fields.replacing_file" file=this.chosenFile}}
             </p>
           {{else if this.storedFileLabel}}
             <p class="ingenic-admin-form__hint">
-              {{i18n "admin.ingenic.downloads.fields.stored_file" file=this.storedFileLabel}}
+              {{i18n "ingenic.downloads.fields.stored_file" file=this.storedFileLabel}}
             </p>
           {{/if}}
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.downloads.fields.file_hint"}}
+            {{i18n "ingenic.downloads.fields.file_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.file_url"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.file_url"}}</span>
             <input name="file_url" value={{this.draft.file_url}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.file_size"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.file_size"}}</span>
             <input name="file_size" value={{this.draft.file_size}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.sha256"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.sha256"}}</span>
             <input name="sha256" value={{this.checksum}} />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.downloads.fields.sha256_hint"}}
+            {{i18n "ingenic.downloads.fields.sha256_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.released_on"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.released_on"}}</span>
             <input type="date" name="released_on" value={{this.draft.released_on}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.position"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.position"}}</span>
             <input type="number" name="position" value={{this.draft.position}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.downloads.fields.description"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.description"}}</span>
             <textarea name="description">{{this.draft.description}}</textarea>
           </label>
 
           <label class="checkbox-label">
             <input type="checkbox" name="published" checked={{this.draft.published}} />
-            <span>{{i18n "admin.ingenic.downloads.fields.published"}}</span>
+            <span>{{i18n "ingenic.downloads.fields.published"}}</span>
           </label>
 
           <div class="ingenic-admin__toolbar">
             <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-              {{i18n "admin.ingenic.save"}}
+              {{i18n "ingenic.save"}}
             </button>
             <button class="btn" type="button" {{on "click" this.cancel}}>
-              {{i18n "admin.ingenic.cancel"}}
+              {{i18n "ingenic.cancel"}}
             </button>
           </div>
         </form>
@@ -490,29 +468,29 @@ export default class IngenicDownloadManager extends Component {
             <div>
               <strong>{{record.name}}</strong>
               <div class="ingenic-admin-list__meta">
-                {{record.product_slug}}
+                {{record.product_name}}
                 {{#if record.category_name}}· {{record.category_name}}{{/if}}
                 {{#if record.version}}· {{record.version}}{{/if}}
                 · {{i18n (get this.accessLevelKeys record.access_level)}}
                 {{#if record.point_cost}}
-                  · {{i18n "admin.ingenic.downloads.costs_points" points=record.point_cost}}
+                  · {{i18n "ingenic.downloads.costs_points" points=record.point_cost}}
                 {{/if}}
                 {{#if record.stored}}
-                  · {{i18n "admin.ingenic.downloads.stored"}}
+                  · {{i18n "ingenic.downloads.stored"}}
                 {{/if}}
                 {{#unless record.published}}
-                  · {{i18n "admin.ingenic.downloads.withdrawn"}}
+                  · {{i18n "ingenic.downloads.withdrawn"}}
                 {{/unless}}
               </div>
               <div class="ingenic-admin-list__meta">
-                {{i18n "admin.ingenic.downloads.pending_count" count=record.pending_requests}}
+                {{i18n "ingenic.downloads.pending_count" count=record.pending_requests}}
                 ·
-                {{i18n "admin.ingenic.downloads.grant_count" count=record.active_grants}}
+                {{i18n "ingenic.downloads.grant_count" count=record.active_grants}}
               </div>
             </div>
             <div class="ingenic-admin__toolbar">
               <button class="btn" type="button" {{on "click" (fn this.edit record)}}>
-                {{i18n "admin.ingenic.edit"}}
+                {{i18n "ingenic.edit"}}
               </button>
               {{#if record.published}}
                 <button
@@ -520,13 +498,13 @@ export default class IngenicDownloadManager extends Component {
                   type="button"
                   {{on "click" (fn this.withdraw record)}}
                 >
-                  {{i18n "admin.ingenic.downloads.withdraw"}}
+                  {{i18n "ingenic.downloads.withdraw"}}
                 </button>
               {{/if}}
             </div>
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.downloads.empty"}}</p>
+          <p>{{i18n "ingenic.downloads.empty"}}</p>
         {{/each}}
       </div>
     </div>

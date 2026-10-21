@@ -34,8 +34,14 @@ class IngenicSiteController < ::ApplicationController
   # Only what is on now. A promotion carries a window so a campaign can take
   # itself down, and the same list is what the admin screen previews — which is
   # why the window is evaluated here rather than left to the browser's clock.
+  # Every row here carries its own language, and the reader gets exactly theirs.
+  # One endpoint serves the homepage and the footer, so the choice is made once.
+  def locale
+    @locale ||= Ingenic::Locales.reading
+  end
+
   def promotions_json
-    IngenicPromotion.live.ordered.map do |promotion|
+    IngenicPromotion.live.where(locale: locale).ordered.map do |promotion|
       {
         "id" => promotion.id,
         "corner_label" => promotion.corner_label,
@@ -56,20 +62,15 @@ class IngenicSiteController < ::ApplicationController
   end
 
   def social_links_json
-    IngenicSocialLink.published.ordered.map do |link|
+    IngenicSocialLink.published.where(locale: locale).ordered.map do |link|
       {
         "id" => link.id,
         "label" => link.label,
-        # Both spellings travel to the browser: the page it lands on has already
-        # chosen a language, and the footer should not need a second request to
-        # know which one.
-        "label_zh" => link.label_zh,
         "kind" => link.kind,
         "href" => link.href,
         "image_url" => link.image_url,
         "qr_image_url" => link.qr_image_url,
         "qr_caption" => link.qr_caption,
-        "qr_caption_zh" => link.qr_caption_zh,
         "icon_only" => link.icon_only,
       }
     end
@@ -82,17 +83,15 @@ class IngenicSiteController < ::ApplicationController
   # Only published links come with them: hiding one link is not the same as
   # retiring the column it sits in.
   def footer_columns_json
-    IngenicFooterColumn.published.includes(:published_links).ordered.map do |column|
+    IngenicFooterColumn.published.where(locale: locale).includes(:published_links).ordered.map do |column|
       {
         "id" => column.id,
         "title" => column.title,
-        "title_zh" => column.title_zh,
         "links" =>
           column.published_links.map do |link|
             {
               "id" => link.id,
               "label" => link.label,
-              "label_zh" => link.label_zh,
               "href" => link.href,
               "external" => link.external?,
             }

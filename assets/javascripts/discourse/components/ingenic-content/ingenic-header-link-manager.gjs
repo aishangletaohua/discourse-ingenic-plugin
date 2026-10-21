@@ -3,7 +3,7 @@ import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { fn } from "@ember/helper";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import { i18n } from "discourse-i18n";
 
 const ENDPOINT = "/admin/plugins/discourse-ingenic/header-links";
@@ -95,7 +95,7 @@ export default class IngenicHeaderLinkManager extends Component {
         ? this.records.map((record) => (record.id === saved.id ? saved : record))
         : [...this.records, saved];
       this.draft = null;
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     } finally {
@@ -118,19 +118,19 @@ export default class IngenicHeaderLinkManager extends Component {
 
   #errorMessage(failure) {
     const errors = failure?.jqXHR?.responseJSON?.errors;
-    return errors?.join(", ") || i18n("admin.ingenic.save_failed");
+    return errors?.join(", ") || i18n("ingenic.save_failed");
   }
 
   <template>
     <div class="ingenic-admin-panel">
-      <p class="ingenic-admin-note">{{i18n "admin.ingenic.header_links.intro"}}</p>
+      <p class="ingenic-admin-note">{{i18n "ingenic.header_links.intro"}}</p>
 
       {{#if this.error}}<p class="ingenic-admin-note ingenic-admin-note--error">{{this.error}}</p>{{/if}}
       {{#if this.message}}<p class="ingenic-admin-note">{{this.message}}</p>{{/if}}
 
       <div class="ingenic-admin__toolbar">
         <button class="btn btn-primary" type="button" {{on "click" this.startNew}}>
-          {{i18n "admin.ingenic.header_links.add"}}
+          {{i18n "ingenic.header_links.add"}}
         </button>
       </div>
 
@@ -138,66 +138,66 @@ export default class IngenicHeaderLinkManager extends Component {
         <form class="ingenic-admin-form" {{on "submit" this.save}} {{on "input" this.field}}>
           <h3>
             {{#if this.draft.id}}
-              {{i18n "admin.ingenic.header_links.edit_title"}}
+              {{i18n "ingenic.header_links.edit_title"}}
             {{else}}
-              {{i18n "admin.ingenic.header_links.new_title"}}
+              {{i18n "ingenic.header_links.new_title"}}
             {{/if}}
           </h3>
 
           <label>
-            <span>{{i18n "admin.ingenic.header_links.fields.label"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.label"}}</span>
             <input name="label" value={{this.draft.label}} required />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.header_links.fields.href"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.href"}}</span>
             <input name="href" value={{this.draft.href}} required placeholder="https://..." />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.header_links.fields.icon"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.icon"}}</span>
             <input name="icon" value={{this.draft.icon}} placeholder="code-branch" />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.header_links.fields.icon_hint"}}
+            {{i18n "ingenic.header_links.fields.icon_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.header_links.fields.image_url"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.image_url"}}</span>
             <input name="image_url" value={{this.draft.image_url}} />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.header_links.fields.image_hint"}}
+            {{i18n "ingenic.header_links.fields.image_hint"}}
           </p>
 
           <label class="checkbox-label">
             <input type="checkbox" name="show_label" checked={{this.draft.show_label}} />
-            <span>{{i18n "admin.ingenic.header_links.fields.show_label"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.show_label"}}</span>
           </label>
 
           <label class="checkbox-label">
             <input type="checkbox" name="external" checked={{this.draft.external}} />
-            <span>{{i18n "admin.ingenic.header_links.fields.external"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.external"}}</span>
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.header_links.fields.position"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.position"}}</span>
             <input type="number" name="position" value={{this.draft.position}} />
           </label>
 
           <label class="checkbox-label">
             <input type="checkbox" name="published" checked={{this.draft.published}} />
-            <span>{{i18n "admin.ingenic.header_links.fields.published"}}</span>
+            <span>{{i18n "ingenic.header_links.fields.published"}}</span>
           </label>
 
           <div class="ingenic-admin__toolbar">
             <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-              {{i18n "admin.ingenic.save"}}
+              {{i18n "ingenic.save"}}
             </button>
             <button class="btn" type="button" {{on "click" this.cancel}}>
-              {{i18n "admin.ingenic.cancel"}}
+              {{i18n "ingenic.cancel"}}
             </button>
           </div>
         </form>
@@ -212,23 +212,23 @@ export default class IngenicHeaderLinkManager extends Component {
                 {{record.href}}
                 {{#if record.icon}}· {{record.icon}}{{/if}}
                 {{#if record.position}}· {{record.position}}{{/if}}
-                {{#unless record.show_label}}· {{i18n "admin.ingenic.header_links.icon_only"}}{{/unless}}
+                {{#unless record.show_label}}· {{i18n "ingenic.header_links.icon_only"}}{{/unless}}
                 {{#unless record.published}}
-                  · {{i18n "admin.ingenic.header_links.unpublished"}}
+                  · {{i18n "ingenic.header_links.unpublished"}}
                 {{/unless}}
               </div>
             </div>
             <div class="ingenic-admin__toolbar">
               <button class="btn" type="button" {{on "click" (fn this.edit record)}}>
-                {{i18n "admin.ingenic.edit"}}
+                {{i18n "ingenic.edit"}}
               </button>
               <button class="btn btn-danger" type="button" {{on "click" (fn this.remove record)}}>
-                {{i18n "admin.ingenic.delete"}}
+                {{i18n "ingenic.delete"}}
               </button>
             </div>
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.header_links.empty"}}</p>
+          <p>{{i18n "ingenic.header_links.empty"}}</p>
         {{/each}}
       </div>
     </div>

@@ -93,7 +93,7 @@ module Ingenic
     # ---------------------------------------------------------------- reading
 
     def doc_products
-      IngenicDocProduct.order(:position, :slug, :locale).map do |product|
+      IngenicProduct.order(:position, :slug, :locale).map do |product|
         {
           "slug" => product.slug,
           "locale" => product.locale,
@@ -114,7 +114,6 @@ module Ingenic
           "product_slug" => version.product.slug,
           "product_locale" => version.product.locale,
           "slug" => version.slug,
-          "locale" => version.locale,
           "label" => version.label,
           "latest" => version.latest,
           "deprecated" => version.deprecated,
@@ -130,9 +129,7 @@ module Ingenic
           "product_slug" => page.version.product.slug,
           "product_locale" => page.version.product.locale,
           "version_slug" => page.version.slug,
-          "version_locale" => page.version.locale,
           "slug" => page.slug,
-          "locale" => page.locale,
           "kind" => page.kind,
           "title" => page.title,
           "body" => page.body,
@@ -156,10 +153,11 @@ module Ingenic
     end
 
     def downloads
-      IngenicDownload.includes(:category).order(:position, :name).map do |download|
+      IngenicDownload.includes(:category, :product).order(:position, :name).map do |download|
         {
           "name" => download.name,
-          "product_slug" => download.product_slug,
+          "product_slug" => download.product&.slug,
+          "product_locale" => download.product&.locale,
           "category" => download.category&.name,
           "version" => download.version,
           "locale" => download.locale,
@@ -182,13 +180,12 @@ module Ingenic
     end
 
     def boards
-      IngenicBoard.includes(:product).order(:position, :slug, :locale).map do |board|
+      IngenicBoard.includes(product: :parent).order(:position, :slug).map do |board|
         {
           "slug" => board.slug,
           "locale" => board.locale,
           "name" => board.name,
           "kind" => board.kind,
-          "chip" => board.chip,
           "description" => board.description,
           "details" => board.details,
           "specs" => board.specs,
@@ -224,16 +221,15 @@ module Ingenic
     end
 
     def social_links
-      IngenicSocialLink.order(:position, :label).map do |link|
+      IngenicSocialLink.order(:locale, :position, :label).map do |link|
         {
           "label" => link.label,
-          "label_zh" => link.label_zh,
+          "locale" => link.locale,
           "kind" => link.kind,
           "href" => link.href,
           "image_url" => link.image_url,
           "qr_image_url" => link.qr_image_url,
           "qr_caption" => link.qr_caption,
-          "qr_caption_zh" => link.qr_caption_zh,
           "published" => link.published,
           "position" => link.position,
         }
@@ -241,10 +237,10 @@ module Ingenic
     end
 
     def footer_columns
-      IngenicFooterColumn.order(:position, :title).map do |column|
+      IngenicFooterColumn.order(:locale, :position, :title).map do |column|
         {
           "title" => column.title,
-          "title_zh" => column.title_zh,
+          "locale" => column.locale,
           "published" => column.published,
           "position" => column.position,
         }
@@ -255,8 +251,8 @@ module Ingenic
       IngenicFooterLink.includes(:column).order(:position, :label).map do |link|
         {
           "column" => link.column.title,
+          "column_locale" => link.column.locale,
           "label" => link.label,
-          "label_zh" => link.label_zh,
           "href" => link.href,
           "external" => link.external,
           "published" => link.published,
@@ -314,8 +310,8 @@ module Ingenic
 
     def resource_of(permission)
       case permission.resource_type
-      when "IngenicDocProduct"
-        product = IngenicDocProduct.find_by(id: permission.resource_id)
+      when "IngenicProduct"
+        product = IngenicProduct.find_by(id: permission.resource_id)
         product && { "slug" => product.slug, "locale" => product.locale }
       when "IngenicDocPage"
         page = IngenicDocPage.includes(version: :product).find_by(id: permission.resource_id)
@@ -324,9 +320,7 @@ module Ingenic
             "product_slug" => page.version.product.slug,
             "product_locale" => page.version.product.locale,
             "version_slug" => page.version.slug,
-            "version_locale" => page.version.locale,
             "slug" => page.slug,
-            "locale" => page.locale,
           }
       when "IngenicBoard"
         board = IngenicBoard.find_by(id: permission.resource_id)
@@ -380,6 +374,11 @@ module Ingenic
     def apply_settings(settings)
       return { "updated" => 0, "not_found" => 0, "errors" => 0 } if settings.empty?
 
+      # Files written before the language moved onto each content row carry the
+      # plugin's own fallback-language setting. It no longer exists, and
+      # Discourse's importer would count it as an error on every run.
+      settings = settings.except("ingenic_default_locale")
+
       # Discourse's own importer already knows how to write a setting of each
       # type, refuses keys it does not recognise, and logs what it changed.
       _log, counts = SiteSettingsTask.import(settings.to_yaml)
@@ -396,14 +395,14 @@ module Ingenic
         .each do |row|
           parent =
             row["parent_slug"].presence &&
-              IngenicDocProduct.find_by(
+              IngenicProduct.find_by(
                 slug: row["parent_slug"],
                 locale: row["parent_locale"].presence || locale_of(row),
               )
 
-          upsert(report, IngenicDocProduct, { slug: row["slug"], locale: locale_of(row) }) do |product|
+          upsert(report, IngenicProduct, { slug: row["slug"], locale: locale_of(row) }) do |product|
             product.name = row["name"]
-            product.kind = row["kind"].presence || (parent ? IngenicDocProduct::CHIP : IngenicDocProduct::SERIES)
+            product.kind = row["kind"].presence || (parent ? IngenicProduct::CHIP : IngenicProduct::SERIES)
             product.parent = parent
             product.description = row["description"]
             product.published = row.fetch("published", true)
@@ -420,7 +419,7 @@ module Ingenic
         upsert(
           report,
           IngenicDocVersion,
-          { product_id: product.id, slug: row["slug"], locale: locale_of(row) },
+          { product_id: product.id, slug: row["slug"] },
         ) do |version|
           version.label = row["label"]
           version.latest = row.fetch("latest", false)
@@ -436,7 +435,7 @@ module Ingenic
         version = version_for(row)
         next if version.nil?
 
-        upsert(report, IngenicDocPage, { version_id: version.id, slug: row["slug"], locale: locale_of(row) }) do |page|
+        upsert(report, IngenicDocPage, { version_id: version.id, slug: row["slug"] }) do |page|
           # Files written before folders existed carry no `kind`; every row in
           # them is an article.
           page.kind = row["kind"].presence || "page"
@@ -456,9 +455,8 @@ module Ingenic
         version = version_for(row)
         next if version.nil?
 
-        page = IngenicDocPage.find_by(version_id: version.id, slug: row["slug"], locale: locale_of(row))
-        parent =
-          IngenicDocPage.find_by(version_id: version.id, slug: row["parent_slug"], locale: locale_of(row))
+        page = IngenicDocPage.find_by(version_id: version.id, slug: row["slug"])
+        parent = IngenicDocPage.find_by(version_id: version.id, slug: row["parent_slug"])
         page.update!(parent: parent) if page && parent && page.parent_id != parent.id
       end
     end
@@ -478,6 +476,7 @@ module Ingenic
     # into one row.
     def apply_downloads(rows, report)
       rows.each do |row|
+        product = product_for(row)
         category =
           row["category"].presence &&
             IngenicDownloadCategory.find_by(name: row["category"], locale: locale_of(row))
@@ -486,10 +485,10 @@ module Ingenic
           report,
           IngenicDownload,
           {
-            product_slug: row["product_slug"],
+            product_id: product&.id,
             category_id: category&.id,
             version: row["version"],
-            locale: locale_of(row),
+            locale: product&.locale || locale_of(row),
             name: row["name"],
           },
         ) do |download|
@@ -514,11 +513,13 @@ module Ingenic
     def apply_boards(rows, report)
       rows.each do |row|
         product = product_for(row)
+        # A board is filed against the catalogue; a file naming a product this
+        # forum does not have cannot be imported into a valid row.
+        next if product.nil?
 
-        upsert(report, IngenicBoard, { slug: row["slug"], locale: locale_of(row) }) do |board|
+        upsert(report, IngenicBoard, { slug: row["slug"], product_id: product.id }) do |board|
           board.name = row["name"]
           board.kind = row.fetch("kind", "board")
-          board.chip = row["chip"]
           board.description = row["description"]
           board.details = row["details"]
           board.specs = row["specs"]
@@ -526,7 +527,6 @@ module Ingenic
           board.application_url = row["application_url"]
           board.purchase_url = row["purchase_url"]
           board.sold_out = row.fetch("sold_out", false)
-          board.product = product
           board.published = row.fetch("published", true)
           board.position = row["position"].to_i
         end
@@ -552,13 +552,15 @@ module Ingenic
 
     def apply_social_links(rows, report)
       rows.each do |row|
-        upsert(report, IngenicSocialLink, { label: row["label"], kind: row["kind"].presence || "link" }) do |link|
-          link.label_zh = row["label_zh"]
+        upsert(
+          report,
+          IngenicSocialLink,
+          { label: row["label"], kind: row["kind"].presence || "link", locale: locale_of(row) },
+        ) do |link|
           link.href = row["href"]
           link.image_url = row["image_url"]
           link.qr_image_url = row["qr_image_url"]
           link.qr_caption = row["qr_caption"]
-          link.qr_caption_zh = row["qr_caption_zh"]
           link.published = row.fetch("published", true)
           link.position = row["position"].to_i
         end
@@ -567,8 +569,7 @@ module Ingenic
 
     def apply_footer_columns(rows, report)
       rows.each do |row|
-        upsert(report, IngenicFooterColumn, { title: row["title"] }) do |column|
-          column.title_zh = row["title_zh"]
+        upsert(report, IngenicFooterColumn, { title: row["title"], locale: locale_of(row) }) do |column|
           column.published = row.fetch("published", true)
           column.position = row["position"].to_i
         end
@@ -577,11 +578,11 @@ module Ingenic
 
     def apply_footer_links(rows, report)
       rows.each do |row|
-        column = IngenicFooterColumn.find_by(title: row["column"])
+        locale = row["column_locale"].presence || locale_of(row)
+        column = IngenicFooterColumn.find_by(title: row["column"], locale: locale)
         next if column.nil?
 
         upsert(report, IngenicFooterLink, { column_id: column.id, label: row["label"] }) do |link|
-          link.label_zh = row["label_zh"]
           link.href = row["href"]
           link.external = row.fetch("external", false)
           link.published = row.fetch("published", true)
@@ -640,26 +641,23 @@ module Ingenic
 
     def find_resource(resource_type, resource)
       case resource_type
-      when "IngenicDocProduct"
-        IngenicDocProduct.find_by(slug: resource["slug"], locale: locale_of(resource))
+      when "IngenicProduct"
+        IngenicProduct.find_by(slug: resource["slug"], locale: locale_of(resource))
       when "IngenicBoard"
-        IngenicBoard.find_by(slug: resource["slug"], locale: locale_of(resource))
+        IngenicBoard.joins(:product).find_by(
+          slug: resource["slug"],
+          ingenic_products: { locale: locale_of(resource) },
+        )
       when "IngenicDocPage"
         version =
           IngenicDocVersion.joins(:product).find_by(
             slug: resource["version_slug"],
-            locale: locale_of(resource, "version_locale"),
-            ingenic_doc_products: {
+            ingenic_products: {
               slug: resource["product_slug"],
               locale: locale_of(resource, "product_locale"),
             },
           )
-        version &&
-          IngenicDocPage.find_by(
-            version_id: version.id,
-            slug: resource["slug"],
-            locale: locale_of(resource),
-          )
+        version && IngenicDocPage.find_by(version_id: version.id, slug: resource["slug"])
       end
     end
 
@@ -672,7 +670,7 @@ module Ingenic
       counts = {}
 
       {
-        "doc_products" => IngenicDocProduct,
+        "doc_products" => IngenicProduct,
         "doc_versions" => IngenicDocVersion,
         "doc_pages" => IngenicDocPage,
         "download_categories" => IngenicDownloadCategory,
@@ -714,11 +712,11 @@ module Ingenic
     end
 
     def locale_of(row, key = "locale")
-      row[key].presence || SiteSetting.ingenic_default_locale.presence || "en"
+      row[key].presence || Ingenic::Locales.default
     end
 
     def product_for(row)
-      IngenicDocProduct.find_by(
+      IngenicProduct.find_by(
         slug: row["product_slug"],
         locale: row["product_locale"].presence || locale_of(row),
       )
@@ -728,11 +726,7 @@ module Ingenic
       product = product_for(row)
       return nil if product.nil?
 
-      IngenicDocVersion.find_by(
-        product_id: product.id,
-        slug: row["version_slug"],
-        locale: row["version_locale"].presence || locale_of(row),
-      )
+      IngenicDocVersion.find_by(product_id: product.id, slug: row["version_slug"])
     end
   end
 end

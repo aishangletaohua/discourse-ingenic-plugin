@@ -15,18 +15,18 @@ describe Ingenic::ConfigExport do
 
   def build_a_tree
     series =
-      IngenicDocProduct.create!(
+      IngenicProduct.create!(
         slug: "t-series",
         name: "T Series",
-        kind: IngenicDocProduct::SERIES,
+        kind: IngenicProduct::SERIES,
         locale: "en",
         position: 1,
       )
     chip =
-      IngenicDocProduct.create!(
+      IngenicProduct.create!(
         slug: "t33",
         name: "T33",
-        kind: IngenicDocProduct::CHIP,
+        kind: IngenicProduct::CHIP,
         parent: series,
         locale: "en",
         position: 2,
@@ -36,7 +36,6 @@ describe Ingenic::ConfigExport do
         product: chip,
         slug: "v1.0",
         label: "v1.0",
-        locale: "en",
         latest: true,
         released_on: Date.new(2026, 1, 5),
       )
@@ -46,30 +45,26 @@ describe Ingenic::ConfigExport do
         slug: "intro",
         title: "Introduction",
         body: "# Hello",
-        locale: "en",
       )
     IngenicDocPage.create!(
       version: version,
       slug: "pinout",
       title: "Pinout",
       parent: intro,
-      locale: "en",
       position: 2,
     )
 
     IngenicBoard.create!(
       slug: "t33-evb",
       name: "T33 EVB",
-      chip: "T33",
       product: chip,
-      locale: "en",
       application_url: "/t/t33-evb-application",
       purchase_url: "https://example.com/buy",
     )
 
     IngenicPermission.create!(
       user: user,
-      resource_type: "IngenicDocProduct",
+      resource_type: "IngenicProduct",
       resource_id: chip.id,
       permission: "manage",
     )
@@ -85,7 +80,7 @@ describe Ingenic::ConfigExport do
     IngenicDocVersion.delete_all
     IngenicBoard.delete_all
     IngenicPermission.delete_all
-    IngenicDocProduct.delete_all
+    IngenicProduct.delete_all
     IngenicPromotion.delete_all
     IngenicSocialLink.delete_all
     IngenicFooterLink.delete_all
@@ -95,23 +90,25 @@ describe Ingenic::ConfigExport do
 
   describe "the settings half" do
     it "carries the settings an admin changed" do
-      SiteSetting.ingenic_default_locale = "zh_CN"
+      SiteSetting.ingenic_download_admin_email = "team@example.com"
 
       settings = payload_of_this_forum["site_settings"]
 
-      expect(settings["ingenic_default_locale"]).to eq("zh_CN")
+      expect(settings["ingenic_download_admin_email"]).to eq("team@example.com")
     end
 
     it "carries this plugin's settings and nothing else" do
-      SiteSetting.ingenic_default_locale = "zh_CN"
+      SiteSetting.ingenic_download_admin_email = "team@example.com"
 
       expect(payload_of_this_forum["site_settings"].keys).to all(start_with("ingenic_"))
     end
 
     it "leaves out a setting still sitting on its default" do
-      SiteSetting.ingenic_default_locale = "en"
+      SiteSetting.ingenic_download_admin_email = ""
 
-      expect(payload_of_this_forum["site_settings"]).not_to have_key("ingenic_default_locale")
+      expect(payload_of_this_forum["site_settings"]).not_to have_key(
+        "ingenic_download_admin_email",
+      )
     end
   end
 
@@ -123,8 +120,8 @@ describe Ingenic::ConfigExport do
 
       report = described_class.import(path)
 
-      series = IngenicDocProduct.find_by(slug: "t-series")
-      chip = IngenicDocProduct.find_by(slug: "t33")
+      series = IngenicProduct.find_by(slug: "t-series")
+      chip = IngenicProduct.find_by(slug: "t33")
       expect(series).to be_series
       expect(chip).to be_chip
       expect(chip.parent).to eq(series)
@@ -149,8 +146,8 @@ describe Ingenic::ConfigExport do
       described_class.import(path)
 
       permission = IngenicPermission.find_by(user: user)
-      expect(permission.resource_type).to eq("IngenicDocProduct")
-      expect(permission.resource_id).to eq(IngenicDocProduct.find_by(slug: "t33").id)
+      expect(permission.resource_type).to eq("IngenicProduct")
+      expect(permission.resource_id).to eq(IngenicProduct.find_by(slug: "t33").id)
     end
 
     it "has nothing to do the second time" do
@@ -167,16 +164,16 @@ describe Ingenic::ConfigExport do
     it "leaves a row the file does not mention where it is" do
       build_a_tree
       described_class.export(path)
-      IngenicDocProduct.create!(
+      IngenicProduct.create!(
         slug: "m-series",
         name: "M Series",
-        kind: IngenicDocProduct::SERIES,
+        kind: IngenicProduct::SERIES,
         locale: "en",
       )
 
       report = described_class.import(path)
 
-      expect(IngenicDocProduct.find_by(slug: "m-series")).to be_present
+      expect(IngenicProduct.find_by(slug: "m-series")).to be_present
       expect(report["untouched"]).to include("doc_products" => 1)
     end
 
@@ -187,7 +184,7 @@ describe Ingenic::ConfigExport do
 
       report = described_class.import(path, dry_run: true)
 
-      expect(IngenicDocProduct.count).to eq(0)
+      expect(IngenicProduct.count).to eq(0)
       expect(IngenicDocVersion.count).to eq(0)
       expect(report.dig("doc_products", "created")).to eq(2)
     end
@@ -195,12 +192,12 @@ describe Ingenic::ConfigExport do
     it "counts the rows it touched rather than the rows it read" do
       build_a_tree
       described_class.export(path)
-      IngenicDocProduct.find_by(slug: "t33").update!(name: "T33 (revised)")
+      IngenicProduct.find_by(slug: "t33").update!(name: "T33 (revised)")
 
       report = described_class.import(path)
 
       expect(report["doc_products"]).to eq("created" => 0, "updated" => 1)
-      expect(IngenicDocProduct.find_by(slug: "t33").name).to eq("T33")
+      expect(IngenicProduct.find_by(slug: "t33").name).to eq("T33")
     end
   end
 

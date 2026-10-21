@@ -96,7 +96,7 @@ export default class IngenicCategoryPermissionMatrix extends Component {
     this.matrix[this.key(categoryId, groupId)] ?? "none";
 
   levelLabel = (level) =>
-    i18n(`admin.ingenic.category_permissions.levels.${level}`);
+    i18n(`ingenic.category_permissions.levels.${level}`);
 
   swatchStyle = (category) => `background: #${category.color || "999999"}`;
 
@@ -136,11 +136,11 @@ export default class IngenicCategoryPermissionMatrix extends Component {
         type: "PUT",
         data: { changes: JSON.stringify(changes) },
       });
-      this.message = i18n("admin.ingenic.category_permissions.saved");
+      this.message = i18n("ingenic.category_permissions.saved");
     } catch (error) {
       this.error =
         error.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     } finally {
       this.busy = false;
     }
@@ -148,7 +148,7 @@ export default class IngenicCategoryPermissionMatrix extends Component {
 
   <template>
     <p class="ingenic-admin-form__hint">
-      {{i18n "admin.ingenic.category_permissions.hint"}}
+      {{i18n "ingenic.category_permissions.hint"}}
     </p>
 
     {{#if this.groups.length}}
@@ -156,7 +156,7 @@ export default class IngenicCategoryPermissionMatrix extends Component {
         <table class="ingenic-admin-table ingenic-category-matrix">
           <thead>
             <tr>
-              <th>{{i18n "admin.ingenic.category_permissions.section"}}</th>
+              <th>{{i18n "ingenic.category_permissions.section"}}</th>
               {{#each this.groups as |group|}}
                 <th class="ingenic-category-matrix__group">{{group.name}}</th>
               {{/each}}
@@ -201,7 +201,7 @@ export default class IngenicCategoryPermissionMatrix extends Component {
           disabled={{this.busy}}
           {{on "click" this.save}}
         >
-          {{i18n "admin.ingenic.category_permissions.save"}}
+          {{i18n "ingenic.category_permissions.save"}}
         </button>
       </div>
 
@@ -214,7 +214,7 @@ export default class IngenicCategoryPermissionMatrix extends Component {
         </p>
       {{/if}}
     {{else}}
-      <p>{{i18n "admin.ingenic.category_permissions.no_groups"}}</p>
+      <p>{{i18n "ingenic.category_permissions.no_groups"}}</p>
     {{/if}}
   </template>
 }

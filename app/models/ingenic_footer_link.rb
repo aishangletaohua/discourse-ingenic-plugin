@@ -6,6 +6,10 @@ class IngenicFooterLink < ActiveRecord::Base
 
   belongs_to :column, class_name: "IngenicFooterColumn"
 
+  # A link is written in the language of the column it sits in; asking the
+  # column is the single answer.
+  delegate :locale, to: :column, allow_nil: true
+
   validates :label, presence: true
   validates :href, presence: true
 

@@ -77,7 +77,7 @@ cd /var/discourse
 ./launcher enter app
 rails c
 SiteSetting.ingenic_enabled          # 应为 true
-IngenicDocProduct.count              # 尚未录入内容时应为 0
+IngenicProduct.count              # 尚未录入内容时应为 0
 ```
 
 接着应用本论坛固定的站点默认值：
@@ -154,7 +154,6 @@ https://github.com/aishangletaohua/discourse-ingenic-theme.git
 | 设置 | 建议值 |
 |---|---|
 | `ingenic_enabled` | 开启 |
-| `ingenic_default_locale` | 文档主要使用的语言 |
 | `ingenic_docs_discussion_category` | 文档讨论所属分类的 slug |
 | `ingenic_download_storage_path` | 大容量卷上的目录，必须位于 `public/` 之外；留空则使用 `<app>/ingenic-downloads` |
 | `ingenic_download_admin_email` | 接收下载申请通知的邮箱 |
@@ -590,9 +589,10 @@ rails c
 错误：zh-CN、pt-BR
 ```
 
-访问者的界面语言优先匹配；如果某个页面没有对应翻译，则使用
-`ingenic_default_locale`。因此可以先翻译一部分页面，不需要一次性完成全部内容。
-同一个页面 slug 在目录中只显示一次，不会因为存在中英文两条记录而重复显示。
+语言列表来自站点本身：`default_locale`，加上内容本地化启用时
+`content_localization_supported_locales` 里的每一种语言。后台先选语言，再在该
+语言下创建产品和内容；另一种语言是另一套独立记录。公开页面只显示读者当前语言的
+内容，不做跨语言回退，所以可以按语言逐步补充，不需要一次性翻译全部内容。
 
 ### 哪些能在后台改，哪些固定在代码里
 

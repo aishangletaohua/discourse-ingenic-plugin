@@ -28,7 +28,7 @@ export default class IngenicTagColourManager extends Component {
   }
 
   familyLabel(family) {
-    return i18n(`admin.ingenic.tag_colours.families.${family}`);
+    return i18n(`ingenic.tag_colours.families.${family}`);
   }
 
   @action
@@ -52,25 +52,25 @@ export default class IngenicTagColourManager extends Component {
         type: "PUT",
         data: { colours: JSON.stringify(colours) },
       });
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (error) {
       this.message =
         error.jqXHR?.responseJSON?.errors?.join(", ") ||
-        i18n("admin.ingenic.save_failed");
+        i18n("ingenic.save_failed");
     } finally {
       this.busy = false;
     }
   }
 
   <template>
-    <p class="ingenic-admin-form__hint">{{i18n "admin.ingenic.tag_colours.hint"}}</p>
+    <p class="ingenic-admin-form__hint">{{i18n "ingenic.tag_colours.hint"}}</p>
 
     {{#if this.tags.length}}
       <table class="ingenic-admin-table ingenic-tag-colours">
         <thead>
           <tr>
-            <th>{{i18n "admin.ingenic.tag_colours.tag"}}</th>
-            <th>{{i18n "admin.ingenic.tag_colours.family"}}</th>
+            <th>{{i18n "ingenic.tag_colours.tag"}}</th>
+            <th>{{i18n "ingenic.tag_colours.family"}}</th>
           </tr>
         </thead>
         <tbody>
@@ -102,14 +102,14 @@ export default class IngenicTagColourManager extends Component {
           disabled={{this.busy}}
           {{on "click" this.save}}
         >
-          {{i18n "admin.ingenic.tag_colours.save"}}
+          {{i18n "ingenic.tag_colours.save"}}
         </button>
         {{#if this.message}}
           <span class="ingenic-admin-note">{{this.message}}</span>
         {{/if}}
       </div>
     {{else}}
-      <p>{{i18n "admin.ingenic.tag_colours.empty"}}</p>
+      <p>{{i18n "ingenic.tag_colours.empty"}}</p>
     {{/if}}
   </template>
 }

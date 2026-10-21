@@ -7,8 +7,8 @@ export default class AdminPluginsShowPoints extends Component {
   <template>
     <div class="admin-detail">
       <DPageSubheader
-        @titleLabel={{i18n "admin.ingenic.points.title"}}
-        @descriptionLabel={{i18n "admin.ingenic.points.description"}}
+        @titleLabel={{i18n "ingenic.points.title"}}
+        @descriptionLabel={{i18n "ingenic.points.description"}}
       />
 
       <IngenicPointsManager

@@ -4,11 +4,12 @@ import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { fn } from "@ember/helper";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
-import IngenicDownloadManager from "../../../../admin/components/ingenic-download-manager";
+import IngenicDownloadManager from "../../../components/ingenic-content/ingenic-download-manager";
 import IngenicDownloadQueue from "../../../../admin/components/ingenic-download-queue";
 import IngenicGrantList from "../../../../admin/components/ingenic-grant-list";
-import IngenicCategoryManager from "../../../../admin/components/ingenic-category-manager";
+import IngenicCategoryManager from "../../../components/ingenic-content/ingenic-category-manager";
 import IngenicDownloadLog from "../../../../admin/components/ingenic-download-log";
+import IngenicContentLocaleBar from "../../../components/ingenic-content-locale-bar";
 import { i18n } from "discourse-i18n";
 
 /**
@@ -71,9 +72,11 @@ export default class AdminPluginsShowDownloads extends Component {
   <template>
     <div class="admin-detail">
       <DPageSubheader
-        @titleLabel={{i18n "admin.ingenic.downloads.title"}}
-        @descriptionLabel={{i18n "admin.ingenic.downloads.description"}}
+        @titleLabel={{i18n "ingenic.downloads.title"}}
+        @descriptionLabel={{i18n "ingenic.downloads.description"}}
       />
+
+      <IngenicContentLocaleBar />
 
       <div class="ingenic-admin__tabs">
         <button
@@ -81,7 +84,7 @@ export default class AdminPluginsShowDownloads extends Component {
           type="button"
           {{on "click" (fn this.show "resources")}}
         >
-          {{i18n "admin.ingenic.downloads.tab_resources"}}
+          {{i18n "ingenic.downloads.tab_resources"}}
         </button>
         {{#if this.canReview}}
           <button
@@ -89,14 +92,14 @@ export default class AdminPluginsShowDownloads extends Component {
             type="button"
             {{on "click" (fn this.show "requests")}}
           >
-            {{i18n "admin.ingenic.downloads.tab_requests"}}
+            {{i18n "ingenic.downloads.tab_requests"}}
           </button>
           <button
             class="btn {{if this.isGrants 'btn-primary'}}"
             type="button"
             {{on "click" (fn this.show "grants")}}
           >
-            {{i18n "admin.ingenic.downloads.tab_grants"}}
+            {{i18n "ingenic.downloads.tab_grants"}}
           </button>
           {{#if this.canReadLog}}
             <button
@@ -104,7 +107,7 @@ export default class AdminPluginsShowDownloads extends Component {
               type="button"
               {{on "click" (fn this.show "log")}}
             >
-              {{i18n "admin.ingenic.downloads.tab_log"}}
+              {{i18n "ingenic.downloads.tab_log"}}
             </button>
           {{/if}}
         {{/if}}
@@ -113,7 +116,7 @@ export default class AdminPluginsShowDownloads extends Component {
           type="button"
           {{on "click" (fn this.show "categories")}}
         >
-          {{i18n "admin.ingenic.downloads.tab_categories"}}
+          {{i18n "ingenic.downloads.tab_categories"}}
         </button>
       </div>
 
@@ -130,7 +133,7 @@ export default class AdminPluginsShowDownloads extends Component {
           @downloads={{this.args.model.resources.downloads}}
           @categories={{this.args.model.resources.categories}}
           @accessLevels={{this.args.model.resources.access_levels}}
-          @locales={{this.args.model.resources.locales}}
+          @chips={{this.args.model.resources.chips}}
           @storageWritable={{this.args.model.resources.storage_writable}}
         />
       {{/if}}

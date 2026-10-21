@@ -3,7 +3,7 @@ import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { fn } from "@ember/helper";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import { i18n } from "discourse-i18n";
 
 const COLUMN_ENDPOINT = "/admin/plugins/discourse-ingenic/footer-columns";
@@ -12,7 +12,6 @@ const LINK_ENDPOINT = "/admin/plugins/discourse-ingenic/footer-links";
 const BLANK_COLUMN = {
   type: "column",
   title: "",
-  title_zh: "",
   position: 0,
   published: true,
 };
@@ -20,7 +19,6 @@ const BLANK_LINK = {
   type: "link",
   column_id: null,
   label: "",
-  label_zh: "",
   href: "",
   external: false,
   position: 0,
@@ -145,7 +143,7 @@ export default class IngenicFooterManager extends Component {
       }
 
       this.draft = null;
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     } finally {
@@ -191,13 +189,13 @@ export default class IngenicFooterManager extends Component {
   // has just spent a minute typing six of them should be told before they are.
   #confirmRemoval(count) {
     return window.confirm(
-      i18n("admin.ingenic.footer.delete_confirm", { count })
+      i18n("ingenic.footer.delete_confirm", { count })
     );
   }
 
   #errorMessage(failure) {
     const errors = failure?.jqXHR?.responseJSON?.errors;
-    return errors?.join(", ") || i18n("admin.ingenic.save_failed");
+    return errors?.join(", ") || i18n("ingenic.save_failed");
   }
 
   <template>
@@ -207,7 +205,7 @@ export default class IngenicFooterManager extends Component {
 
       <div class="ingenic-admin__toolbar">
         <button class="btn btn-primary" type="button" {{on "click" this.addColumn}}>
-          {{i18n "admin.ingenic.footer.add_column"}}
+          {{i18n "ingenic.footer.add_column"}}
         </button>
       </div>
 
@@ -216,14 +214,14 @@ export default class IngenicFooterManager extends Component {
           <h3>
             {{#if this.isLink}}
               {{#if this.draft.id}}
-                {{i18n "admin.ingenic.footer.edit_link"}}
+                {{i18n "ingenic.footer.edit_link"}}
               {{else}}
-                {{i18n "admin.ingenic.footer.new_link"}}
+                {{i18n "ingenic.footer.new_link"}}
               {{/if}}
             {{else if this.draft.id}}
-              {{i18n "admin.ingenic.footer.edit_column"}}
+              {{i18n "ingenic.footer.edit_column"}}
             {{else}}
-              {{i18n "admin.ingenic.footer.new_column"}}
+              {{i18n "ingenic.footer.new_column"}}
             {{/if}}
           </h3>
 
@@ -231,52 +229,42 @@ export default class IngenicFooterManager extends Component {
             <input type="hidden" name="column_id" value={{this.draft.column_id}} />
 
             <label>
-              <span>{{i18n "admin.ingenic.footer.fields.label"}}</span>
+              <span>{{i18n "ingenic.footer.fields.label"}}</span>
               <input name="label" value={{this.draft.label}} required />
             </label>
 
             <label>
-              <span>{{i18n "admin.ingenic.footer.fields.label_zh"}}</span>
-              <input name="label_zh" value={{this.draft.label_zh}} />
-            </label>
-
-            <label>
-              <span>{{i18n "admin.ingenic.footer.fields.href"}}</span>
+              <span>{{i18n "ingenic.footer.fields.href"}}</span>
               <input name="href" value={{this.draft.href}} required />
             </label>
 
             <label class="checkbox-label">
               <input type="checkbox" name="external" checked={{this.draft.external}} />
-              <span>{{i18n "admin.ingenic.footer.fields.external"}}</span>
+              <span>{{i18n "ingenic.footer.fields.external"}}</span>
             </label>
           {{else}}
             <label>
-              <span>{{i18n "admin.ingenic.footer.fields.title"}}</span>
+              <span>{{i18n "ingenic.footer.fields.title"}}</span>
               <input name="title" value={{this.draft.title}} required />
-            </label>
-
-            <label>
-              <span>{{i18n "admin.ingenic.footer.fields.title_zh"}}</span>
-              <input name="title_zh" value={{this.draft.title_zh}} />
             </label>
           {{/if}}
 
           <label>
-            <span>{{i18n "admin.ingenic.footer.fields.position"}}</span>
+            <span>{{i18n "ingenic.footer.fields.position"}}</span>
             <input type="number" name="position" value={{this.draft.position}} />
           </label>
 
           <label class="checkbox-label">
             <input type="checkbox" name="published" checked={{this.draft.published}} />
-            <span>{{i18n "admin.ingenic.footer.fields.published"}}</span>
+            <span>{{i18n "ingenic.footer.fields.published"}}</span>
           </label>
 
           <div class="ingenic-admin__toolbar">
             <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-              {{i18n "admin.ingenic.save"}}
+              {{i18n "ingenic.save"}}
             </button>
             <button class="btn" type="button" {{on "click" this.cancel}}>
-              {{i18n "admin.ingenic.cancel"}}
+              {{i18n "ingenic.cancel"}}
             </button>
           </div>
         </form>
@@ -288,9 +276,9 @@ export default class IngenicFooterManager extends Component {
             <div>
               <strong>{{column.title}}</strong>
               <div class="ingenic-admin-list__meta">
-                {{i18n "admin.ingenic.footer.link_count" count=column.links.length}}
+                {{i18n "ingenic.footer.link_count" count=column.links.length}}
                 {{#unless column.published}}
-                  · {{i18n "admin.ingenic.footer.unpublished"}}
+                  · {{i18n "ingenic.footer.unpublished"}}
                 {{/unless}}
               </div>
 
@@ -302,20 +290,20 @@ export default class IngenicFooterManager extends Component {
                       <span class="ingenic-admin-list__meta">{{link.href}}</span>
                       {{#unless link.published}}
                         <span class="ingenic-admin-list__meta">
-                          · {{i18n "admin.ingenic.footer.unpublished"}}
+                          · {{i18n "ingenic.footer.unpublished"}}
                         </span>
                       {{/unless}}
                     </span>
                     <span class="ingenic-admin__toolbar">
                       <button class="btn btn-small" type="button" {{on "click" (fn this.editLink link)}}>
-                        {{i18n "admin.ingenic.edit"}}
+                        {{i18n "ingenic.edit"}}
                       </button>
                       <button
                         class="btn btn-small btn-danger"
                         type="button"
                         {{on "click" (fn this.removeLink column link)}}
                       >
-                        {{i18n "admin.ingenic.delete"}}
+                        {{i18n "ingenic.delete"}}
                       </button>
                     </span>
                   </li>
@@ -325,18 +313,18 @@ export default class IngenicFooterManager extends Component {
 
             <div class="ingenic-admin__toolbar">
               <button class="btn" type="button" {{on "click" (fn this.addLink column)}}>
-                {{i18n "admin.ingenic.footer.add_link"}}
+                {{i18n "ingenic.footer.add_link"}}
               </button>
               <button class="btn" type="button" {{on "click" (fn this.editColumn column)}}>
-                {{i18n "admin.ingenic.edit"}}
+                {{i18n "ingenic.edit"}}
               </button>
               <button class="btn btn-danger" type="button" {{on "click" (fn this.removeColumn column)}}>
-                {{i18n "admin.ingenic.delete"}}
+                {{i18n "ingenic.delete"}}
               </button>
             </div>
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.footer.empty"}}</p>
+          <p>{{i18n "ingenic.footer.empty"}}</p>
         {{/each}}
       </div>
     </div>

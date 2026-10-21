@@ -5,7 +5,6 @@ class IngenicBoardSerializer < ActiveModel::Serializer
              :slug,
              :name,
              :kind,
-             :chip,
              :chip_name,
              :product_slug,
              :series_slug,

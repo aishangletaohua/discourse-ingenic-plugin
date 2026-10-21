@@ -3,7 +3,6 @@ en:
     ingenic_enabled: "Enable the Ingenic community extension (documentation versioning, downloads, development boards)."
     ingenic_nav_items: "Left navigation items as a JSON array. Controls label, icon, target, order and visibility."
     ingenic_homepage_blocks: "Homepage blocks as a JSON array. Controls which blocks render and in what order. Types: categories (the forum's sections as a grid, with an entry to all of them), latest (the newest discussions), hot (the busiest this week), popular (most liked in a recent window), activity (the official announcements, newest first), bounties (the richest standing 高分悬赏, drawn only while there are some), announcements, discussions, downloads, boards, promotions. Admin → Plugins → Ingenic → Site content edits this list; left empty, the home page draws the default layout on its own."
-    ingenic_default_locale: "Locale used when documentation has no entry in the reader's language. Only languages this site can serve are offered; content rows must use the same code (zh_CN, not zh-CN)."
     ingenic_docs_discussion_category: "Category slug used for the 'Discuss in forum' link when a documentation page has no linked topic."
     ingenic_download_storage_path: "Directory holding uploaded SDK and firmware files. Empty uses <app>/ingenic-downloads. Must be outside public/."
     ingenic_download_admin_email: "Address notified when a developer applies for an access-restricted download."
@@ -35,7 +34,7 @@ en:
       invalid_homepage_blocks: "ingenic_homepage_blocks is not valid JSON: %{message}"
     admin_errors:
       has_children: "This record has child records and cannot be deleted."
-      locale_conflict: "A record with the same slug already exists in the target language; nothing was saved."
+      locale_immutable: "The content language of a product cannot be changed. Create it under the other language instead."
       page_not_found: "That page does not exist in this version or any version it inherits from."
       storage_unavailable: "Uploaded files cannot be written. Check the download storage path."
       user_not_found: "No such account."

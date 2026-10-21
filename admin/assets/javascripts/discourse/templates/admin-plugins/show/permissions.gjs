@@ -5,8 +5,8 @@ import { i18n } from "discourse-i18n";
 const Permissions = <template>
   <div class="admin-detail">
     <DPageSubheader
-      @titleLabel={{i18n "admin.ingenic.permissions.title"}}
-      @descriptionLabel={{i18n "admin.ingenic.permissions.description"}}
+      @titleLabel={{i18n "ingenic.permissions.title"}}
+      @descriptionLabel={{i18n "ingenic.permissions.description"}}
     />
     <IngenicPermissionManager
       @permissions={{@model.permissions}}

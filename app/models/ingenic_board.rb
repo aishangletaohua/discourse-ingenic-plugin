@@ -7,6 +7,11 @@
 # here is presentation. They are one model because they are one catalogue to a
 # visitor — the first filter chooses which of the two — and because everything
 # except `kind` is written the same way for both.
+#
+# A board is filed against a chip in the shared product catalogue. That is not
+# the documentation: a chip may exist here only because a board needs it, and a
+# board may exist for a chip nobody has written a page about. Because the
+# catalogue row owns the language, the board does not carry one.
 class IngenicBoard < ActiveRecord::Base
   self.table_name = "ingenic_boards"
 
@@ -15,12 +20,11 @@ class IngenicBoard < ActiveRecord::Base
   # "board", which is also what every row created before this column was.
   KINDS = %w[board sample].freeze
 
-  belongs_to :product,
-             class_name: "IngenicDocProduct",
-             foreign_key: :product_id,
-             optional: true
+  belongs_to :product, class_name: "IngenicProduct", foreign_key: :product_id
 
-  validates :slug, presence: true, uniqueness: { scope: :locale }
+  delegate :locale, to: :product, allow_nil: true
+
+  validates :slug, presence: true, uniqueness: { scope: :product_id }
   validates :name, presence: true
   validates :kind, presence: true, inclusion: { in: KINDS }
   # Neither link is required: the card always draws both buttons and grays the
@@ -29,31 +33,21 @@ class IngenicBoard < ActiveRecord::Base
   validate :product_is_a_chip
   validate :purchase_link_is_usable
 
-  # Setting the link is what says which chip a board is for, so the label
-  # follows it rather than being a second thing to keep correct by hand. The
-  # column stays because a board can be listed before its chip exists in the
-  # tree, and because it keeps a board's chip readable without a join.
-  before_validation :take_chip_name_from_product
-
   scope :published, -> { where(published: true) }
   scope :ordered, -> { order(position: :asc, name: :asc) }
   scope :for_kind, ->(kind) { where(kind: kind) }
+  scope :for_locale, ->(locale) { joins(:product).where(ingenic_products: { locale: locale }) }
 
-  # Both filters read the product tree rather than a chip name typed onto the
-  # board, so a series is a board whose chip's parent is that series.
-  def self.for_series(slug)
-    chips = IngenicDocProduct.series.where(slug: slug).select(:id)
-    joins(:product).where(ingenic_doc_products: { parent_id: chips })
-  end
-
+  # The chip filter reads the product tree rather than a chip name typed onto
+  # the board.
   def self.for_chip(slug)
-    joins(:product).where(ingenic_doc_products: { slug: slug })
+    joins(:product).where(ingenic_products: { slug: slug })
   end
 
-  # What the card prints under the name. The tree wins when the board is linked
-  # to it, because a rename there is meant to show up here.
+  # What the card prints under the name. The catalogue wins, because a rename
+  # there is meant to show up here.
   def chip_name
-    product&.name.presence || chip
+    product&.name
   end
 
   def series
@@ -71,20 +65,15 @@ class IngenicBoard < ActiveRecord::Base
   # caught on save is one the admin can still fix, rather than a dead button.
   def purchase_link_is_usable
     return if purchase_url.blank?
-
     return if purchase_url.start_with?("/") || purchase_url.match?(%r{\Ahttps?://}i)
 
     errors.add(:purchase_url, "must be a site path or an http(s) address")
   end
 
-  def take_chip_name_from_product
-    self.chip = product.name if product.present?
-  end
-
   # Only a chip: a board is for a specific part, and a board filed against a
   # series would appear under every chip in it.
   def product_is_a_chip
-    return if product.nil?
+    return errors.add(:product, :blank) if product.nil?
     return errors.add(:product, "must be a chip") unless product.chip?
   end
 end

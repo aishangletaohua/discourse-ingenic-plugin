@@ -5,12 +5,12 @@ import { on } from "@ember/modifier";
 import { fn } from "@ember/helper";
 import didInsert from "@ember/render-modifiers/modifiers/did-insert";
 import { eq } from "discourse/truth-helpers";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import { i18n } from "discourse-i18n";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
 
 const BASE = "/admin/plugins/discourse-ingenic";
-const TOOLBAR_KEY = "admin.ingenic.documentation.workbench.toolbar";
+const TOOLBAR_KEY = "ingenic.documentation.workbench.toolbar";
 
 /**
  * Editor for a single page.
@@ -165,7 +165,7 @@ export default class IngenicDocPageForm extends Component {
       this.preview = {
         id: this.args.page.id,
         html: `<p class="ingenic-doc-editor__preview-error">${i18n(
-          "admin.ingenic.documentation.workbench.preview_failed"
+          "ingenic.documentation.workbench.preview_failed"
         )}</p>`,
       };
     } finally {
@@ -479,13 +479,13 @@ export default class IngenicDocPageForm extends Component {
               type="button"
               class="ingenic-doc-editor__tab {{if (eq this.tab 'edit') 'is-active'}}"
               {{on "click" this.showEdit}}
-            >{{i18n "admin.ingenic.documentation.workbench.edit_tab"}}</button>
+            >{{i18n "ingenic.documentation.workbench.edit_tab"}}</button>
             <button
               type="button"
               class="ingenic-doc-editor__tab {{if (eq this.tab 'preview') 'is-active'}}"
               disabled={{this.previewBusy}}
               {{on "click" this.showPreview}}
-            >{{i18n "admin.ingenic.documentation.workbench.preview_tab"}}</button>
+            >{{i18n "ingenic.documentation.workbench.preview_tab"}}</button>
           </div>
         {{/unless}}
 
@@ -498,11 +498,11 @@ export default class IngenicDocPageForm extends Component {
             disabled={{@busy}}
             {{on "change" this.updatePublished}}
           />
-          <span>{{i18n "admin.ingenic.documentation.published"}}</span>
+          <span>{{i18n "ingenic.documentation.published"}}</span>
         </label>
 
         <button type="button" class="btn btn-primary btn-small" disabled={{this.saveDisabled}} {{on "click" this.save}}>
-          {{i18n "admin.ingenic.save"}}
+          {{i18n "ingenic.save"}}
         </button>
 
         {{#unless @page.inherited}}
@@ -511,7 +511,7 @@ export default class IngenicDocPageForm extends Component {
             class="btn btn-danger btn-small"
             disabled={{@busy}}
             {{on "click" (fn @onDestroy @page)}}
-          >{{i18n "admin.ingenic.documentation.delete_page"}}</button>
+          >{{i18n "ingenic.documentation.delete_page"}}</button>
         {{/unless}}
       </div>
 
@@ -519,7 +519,7 @@ export default class IngenicDocPageForm extends Component {
         <div class="ingenic-doc-editor__preview">
           {{#if this.previewBusy}}
             <p class="ingenic-admin-note">
-              {{i18n "admin.ingenic.documentation.workbench.preview_loading"}}
+              {{i18n "ingenic.documentation.workbench.preview_loading"}}
             </p>
           {{else}}
             {{{this.previewHtml}}}
@@ -527,73 +527,73 @@ export default class IngenicDocPageForm extends Component {
         </div>
       {{else if this.folder}}
         <p class="ingenic-admin-form__notice">
-          {{i18n "admin.ingenic.documentation.folder_hint"}}
+          {{i18n "ingenic.documentation.folder_hint"}}
         </p>
       {{else}}
         <div class="ingenic-doc-editor__tools">
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.bold"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.bold"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.bold"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.bold"}}
             {{on "click" (fn this.format "bold")}}
           >{{dIcon "bold"}}</button>
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.italic"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.italic"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.italic"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.italic"}}
             {{on "click" (fn this.format "italic")}}
           >{{dIcon "italic"}}</button>
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.heading"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.heading"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.heading"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.heading"}}
             {{on "click" (fn this.format "heading")}}
           >{{dIcon "heading"}}</button>
           <span class="ingenic-doc-editor__tool-divider" aria-hidden="true"></span>
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.quote"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.quote"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.quote"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.quote"}}
             {{on "click" (fn this.format "quote")}}
           >{{dIcon "quote-right"}}</button>
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.list"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.list"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.list"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.list"}}
             {{on "click" (fn this.format "list")}}
           >{{dIcon "list-ul"}}</button>
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.code"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.code"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.code"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.code"}}
             {{on "click" (fn this.format "code")}}
           >{{dIcon "code"}}</button>
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.link"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.link"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.link"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.link"}}
             {{on "click" (fn this.format "link")}}
           >{{dIcon "link"}}</button>
           <span class="ingenic-doc-editor__tool-divider" aria-hidden="true"></span>
           <button
             type="button"
             class="ingenic-doc-editor__tool"
-            title={{i18n "admin.ingenic.documentation.workbench.toolbar.image"}}
-            aria-label={{i18n "admin.ingenic.documentation.workbench.toolbar.image"}}
+            title={{i18n "ingenic.documentation.workbench.toolbar.image"}}
+            aria-label={{i18n "ingenic.documentation.workbench.toolbar.image"}}
             disabled={{this.uploading}}
             {{on "click" this.pickImage}}
           >{{dIcon "image"}}</button>
 
           {{#if this.uploading}}
             <span class="ingenic-doc-editor__tool-status">
-              {{i18n "admin.ingenic.documentation.workbench.toolbar.uploading"}}
+              {{i18n "ingenic.documentation.workbench.toolbar.uploading"}}
             </span>
           {{/if}}
         </div>
@@ -610,7 +610,7 @@ export default class IngenicDocPageForm extends Component {
         <textarea
           class="ingenic-doc-editor__body"
           value={{this.body}}
-          placeholder={{i18n "admin.ingenic.documentation.workbench.body_placeholder"}}
+          placeholder={{i18n "ingenic.documentation.workbench.body_placeholder"}}
           {{didInsert this.registerBody}}
           {{on "input" this.updateBody}}
           {{on "paste" this.pasteImage}}

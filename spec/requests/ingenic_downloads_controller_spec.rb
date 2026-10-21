@@ -7,6 +7,16 @@ describe IngenicDownloadsController do
   fab!(:user) { Fabricate(:user) }
   fab!(:admin) { Fabricate(:admin) }
   fab!(:category) { IngenicDownloadCategory.find_or_create_by!(name: "sdk", locale: "en") }
+  fab!(:series) { IngenicProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:chip) do
+    IngenicProduct.create!(
+      slug: "t33",
+      name: "T33",
+      kind: IngenicProduct::CHIP,
+      parent: series,
+      locale: "en",
+    )
+  end
 
   before { SiteSetting.ingenic_download_admin_email = "team@example.com" }
 
@@ -14,7 +24,7 @@ describe IngenicDownloadsController do
     IngenicDownload.create!(
       {
         name: name,
-        product_slug: "t33",
+        product: chip,
         category: category,
         locale: "en",
         access_level: level,
@@ -50,7 +60,7 @@ describe IngenicDownloadsController do
 
     it "keeps the algorithm library parallel to the chip resources" do
       algorithms = IngenicDownloadCategory.find_or_create_by!(name: "algorithm", locale: "en")
-      resource(IngenicDownload::LOGIN_ONLY, name: "Encoder", family: "algorithm", product_slug: nil, category: algorithms)
+      resource(IngenicDownload::LOGIN_ONLY, name: "Encoder", family: "algorithm", product: nil, category: algorithms)
       resource(IngenicDownload::LOGIN_ONLY, name: "Chip SDK")
 
       get "/ingenic/downloads.json?family=algorithm"
@@ -104,22 +114,22 @@ describe IngenicDownloadsController do
     # tree rather than from the slugs on the resources, so a chip is offered
     # under its name and not as the string that happens to be in the row.
     describe "the product filters" do
-      fab!(:series) do
-        IngenicDocProduct.create!(slug: "t-series", name: "T Series", locale: "en")
+      fab!(:other_series) do
+        IngenicProduct.create!(slug: "c-series", name: "C Series", locale: "en")
       end
 
-      fab!(:chip) do
-        IngenicDocProduct.create!(
-          slug: "t33",
-          name: "T33",
-          kind: IngenicDocProduct::CHIP,
-          parent: series,
+      fab!(:other_chip) do
+        IngenicProduct.create!(
+          slug: "c100",
+          name: "C100",
+          kind: IngenicProduct::CHIP,
+          parent: other_series,
           locale: "en",
         )
       end
 
       it "offers the series, and each chip under the series it belongs to" do
-        chip
+        resource(IngenicDownload::LOGIN_ONLY, name: "Chip SDK")
 
         get "/ingenic/downloads.json"
 
@@ -131,32 +141,17 @@ describe IngenicDownloadsController do
       end
 
       it "matches a resource filed against a chip when its series is chosen" do
-        chip
-        resource(IngenicDownload::LOGIN_ONLY, name: "Chip SDK", product_slug: "t33")
-        resource(IngenicDownload::LOGIN_ONLY, name: "Other SDK", product_slug: "c-series")
+        resource(IngenicDownload::LOGIN_ONLY, name: "Chip SDK", product: chip)
+        resource(IngenicDownload::LOGIN_ONLY, name: "Other SDK", product: other_chip)
 
         get "/ingenic/downloads.json?series=t-series"
 
         expect(response.parsed_body["downloads"].map { |row| row["name"] }).to eq(["Chip SDK"])
       end
 
-      # A series-wide SDK has no single chip to be filed under, and an editor who
-      # filed it that way cannot be expected to know the page would not honour it.
-      it "matches a resource filed against the series itself" do
-        chip
-        resource(IngenicDownload::LOGIN_ONLY, name: "Series-wide SDK", product_slug: "t-series")
-
-        get "/ingenic/downloads.json?series=t-series"
-
-        expect(response.parsed_body["downloads"].map { |row| row["name"] }).to eq(
-          ["Series-wide SDK"],
-        )
-      end
-
       it "still narrows by a named chip" do
-        chip
-        resource(IngenicDownload::LOGIN_ONLY, name: "Chip SDK", product_slug: "t33")
-        resource(IngenicDownload::LOGIN_ONLY, name: "Other SDK", product_slug: "c-series")
+        resource(IngenicDownload::LOGIN_ONLY, name: "Chip SDK", product: chip)
+        resource(IngenicDownload::LOGIN_ONLY, name: "Other SDK", product: other_chip)
 
         get "/ingenic/downloads.json?product=t33"
 

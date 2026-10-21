@@ -97,7 +97,7 @@ download centre's series and chip filters and the board catalogue all read it,
 so a tree built the wrong way round shows up as filters that find nothing.
 
 ```ruby
-series = IngenicDocProduct.create!(
+series = IngenicProduct.create!(
   slug: "t-series",
   name: "T Series",
   kind: "series",
@@ -106,7 +106,7 @@ series = IngenicDocProduct.create!(
   position: 0,
 )
 
-chip = IngenicDocProduct.create!(
+chip = IngenicProduct.create!(
   slug: "t32pro",
   name: "T32Pro",
   kind: "chip",
@@ -126,7 +126,6 @@ latest = IngenicDocVersion.create!(
   product: chip,
   slug: "2.1.0",
   label: "2.1.0",
-  locale: "en",
   latest: true,
   released_on: Date.new(2026, 9, 1),
   position: 0,
@@ -136,7 +135,6 @@ previous = IngenicDocVersion.create!(
   product: chip,
   slug: "2.0.0",
   label: "2.0.0",
-  locale: "en",
   released_on: Date.new(2026, 3, 1),
   position: 1,
 )
@@ -145,7 +143,6 @@ overview = IngenicDocPage.create!(
   version: previous,
   slug: "overview",
   title: "Overview",
-  locale: "en",
   position: 0,
   body: <<~MD,
     ## Chip introduction
@@ -163,7 +160,6 @@ IngenicDocPage.create!(
   parent: nil,
   slug: "quick-start",
   title: "Quick Start",
-  locale: "en",
   position: 1,
   body: "How to build and flash your first image.",
 )
@@ -220,7 +216,7 @@ it. For a file held elsewhere:
 
 ```ruby
 IngenicDownload.create!(
-  product_slug: "t32pro",
+  product: chip,
   category: sdk,
   version: "2.1.0",
   locale: "en",
@@ -236,12 +232,12 @@ IngenicDownload.create!(
 )
 ```
 
-`product_slug` is the chip's slug from the tree, so a resource filed against a
-series-wide product should use the series' slug instead.
+`product` is the chip row from the tree. A chip resource must name one; a
+resource is not filed against a series.
 
 `family` is the catalogue's top-level line: `chip` (the default) or
 `algorithm`. An algorithm is offered across chips and is not filed under one,
-so it leaves `product_slug` empty:
+so it leaves `product` empty:
 
 ```ruby
 algorithms = IngenicDownloadCategory.find_or_create_by!(name: "algorithm", locale: "en")
@@ -313,16 +309,14 @@ and the record of who downloaded what is on **Ingenic → Downloads → Log**.
 ## Development boards
 
 A board belongs to one chip in the tree, which is what lets the catalogue filter
-by series as well as by chip. The link is optional — a board can be listed
-before its chip exists — but a board linked to a series rather than a chip is
-refused, because it would then appear under every chip in that series.
+by series as well as by chip and gives the card its language. Create the chip
+first: a board with no product, or with a series instead of a chip, is refused.
 
 ```ruby
 IngenicBoard.create!(
   slug: "t32pro-evk",
   name: "T32Pro EVK",
   product: chip,
-  locale: "en",
   description: "Evaluation kit for the T32Pro series.",
   details: "See the [T32Pro documentation](/ingenic/docs/t-series/t32pro).",
   specs: "2 GB DDR3 · dual Gigabit Ethernet · camera interface",
@@ -438,23 +432,40 @@ the shipped one wholesale.
 
 ## Adding a second language
 
-Every row carries `locale`. To add Chinese documentation for the same product,
-create rows with `locale: "zh_CN"`. Requests resolve content using the visitor
-locale first and fall back to `ingenic_default_locale`, so a partially
-translated product still renders.
+A second language is a second catalogue, not a translation column. Everything
+is filed under one language from the moment it is created: a product row, then
+its versions and pages, then the boards and downloads that point at it.
+
+```ruby
+chinese_series = IngenicProduct.create!(
+  slug: "t-series",
+  name: "T 系列",
+  kind: "series",
+  locale: "zh_CN",
+  position: 0,
+)
+
+chinese_chip = IngenicProduct.create!(
+  slug: "t32pro",
+  name: "T32Pro 中文",
+  kind: "chip",
+  parent: chinese_series,
+  locale: "zh_CN",
+  position: 0,
+)
+```
 
 Use Discourse's own spelling for the code — `zh_CN`, `pt_BR`, `zh_TW`, never
 `zh-CN`. It is compared against `I18n.locale`, which is the language the visitor
 picked under *Preferences → Interface language*, and a hyphenated code matches
 nothing, so the row would be invisible.
 
-A page can be translated one slug at a time. Where both `en` and `zh_CN` rows
-exist for the same slug, the reader's language wins and the translated page
-appears once in the tree; slugs with no translation fall back to
-`ingenic_default_locale`. A product with no translated row at all still opens
-in the default language.
+The two catalogues do not fall back to each other. A page written only in
+English is absent from the Chinese reader's tree until a Chinese page with that
+slug is written; a chip with no Chinese row does not appear in the Chinese
+picker. Within one language, version inheritance still applies: a new version
+that does not rewrite a page shows the version before it.
 
-Products, versions, pages, resources and boards all work this way. The product
-tree itself is per-locale too: a chip row carries the language of its name, so a
-translated chip is a second row under the same parent rather than a translation
-of the first.
+Products, versions, pages, resources, boards, download categories and site
+content all work this way. The management screens pick a language first, and
+create everything under it.

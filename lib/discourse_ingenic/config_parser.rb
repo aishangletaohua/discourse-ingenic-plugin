@@ -74,9 +74,54 @@ module DiscourseIngenic
 
     HOMEPAGE_LAYOUTS = %w[full main side].freeze
 
-    def homepage_blocks
-      parse_list(SiteSetting.ingenic_homepage_blocks)
-        .select { |item| item["enabled"] != false }
+    # The layout is per language: an English reader and a Chinese reader get
+    # the list written for them, and neither sees the other's titles. The
+    # setting is a map of locale to block list; a plain array is the legacy
+    # shape and is read as the default language's layout, so an existing site
+    # keeps rendering while its administrator fills in the second language.
+    def homepage_blocks(locale = nil)
+      raw = parse_homepage_setting
+      list =
+        if raw.is_a?(Hash)
+          raw[locale.to_s] || raw[Ingenic::Locales.default] || []
+        else
+          locale.nil? || locale.to_s == Ingenic::Locales.default ? raw : []
+        end
+
+      normalize_homepage_blocks(list)
+    end
+
+    # Every language's layout, for the admin screen and the export task.
+    def homepage_blocks_by_locale
+      raw = parse_homepage_setting
+
+      Ingenic::Locales.supported.index_with do |code|
+        list =
+          if raw.is_a?(Hash)
+            raw[code] || []
+          elsif code == Ingenic::Locales.default
+            raw
+          else
+            []
+          end
+        normalize_homepage_blocks(list)
+      end
+    end
+
+    def parse_homepage_setting
+      raw = SiteSetting.ingenic_homepage_blocks
+      return [] if raw.blank?
+
+      parsed = JSON.parse(raw)
+      parsed.is_a?(Hash) || parsed.is_a?(Array) ? parsed : []
+    rescue JSON::ParserError => e
+      Rails.logger.warn("[discourse-ingenic] #{e.message}")
+      []
+    end
+
+    def normalize_homepage_blocks(list)
+      Array(list)
+        .select { |item| item.is_a?(Hash) && item["enabled"] != false }
         .map
         .with_index do |item, index|
           layout = item["layout"].to_s

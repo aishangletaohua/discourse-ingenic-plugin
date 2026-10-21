@@ -1,18 +1,16 @@
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
-import IngenicDocManager from "../../../../admin/components/ingenic-doc-manager";
+import IngenicDocManager from "../../../components/ingenic-content/ingenic-doc-manager";
+import IngenicContentLocaleBar from "../../../components/ingenic-content-locale-bar";
 import { i18n } from "discourse-i18n";
 
 const Documentation = <template>
   <div class="admin-detail">
     <DPageSubheader
-      @titleLabel={{i18n "admin.ingenic.documentation.title"}}
-      @descriptionLabel={{i18n "admin.ingenic.documentation.description"}}
+      @titleLabel={{i18n "ingenic.documentation.title"}}
+      @descriptionLabel={{i18n "ingenic.documentation.description"}}
     />
-    <IngenicDocManager
-      @series={{@model.series}}
-      @locales={{@model.locales}}
-      @defaultLocale={{@model.default_locale}}
-    />
+    <IngenicContentLocaleBar />
+    <IngenicDocManager @series={{@model.series}} />
   </div>
 </template>;
 

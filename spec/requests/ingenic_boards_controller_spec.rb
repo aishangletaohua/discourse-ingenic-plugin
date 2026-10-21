@@ -6,20 +6,20 @@ describe IngenicBoardsController do
   before { SiteSetting.ingenic_enabled = true }
 
   fab!(:series) do
-    IngenicDocProduct.create!(
+    IngenicProduct.create!(
       slug: "t-series",
       name: "T Series",
-      kind: IngenicDocProduct::SERIES,
+      kind: IngenicProduct::SERIES,
       locale: "en",
       position: 0,
     )
   end
 
   fab!(:chip) do
-    IngenicDocProduct.create!(
+    IngenicProduct.create!(
       slug: "t33",
       name: "T33",
-      kind: IngenicDocProduct::CHIP,
+      kind: IngenicProduct::CHIP,
       parent: series,
       locale: "en",
       position: 0,
@@ -27,20 +27,20 @@ describe IngenicBoardsController do
   end
 
   fab!(:other_series) do
-    IngenicDocProduct.create!(
+    IngenicProduct.create!(
       slug: "c-series",
       name: "C Series",
-      kind: IngenicDocProduct::SERIES,
+      kind: IngenicProduct::SERIES,
       locale: "en",
       position: 1,
     )
   end
 
   fab!(:other_chip) do
-    IngenicDocProduct.create!(
+    IngenicProduct.create!(
       slug: "c100",
       name: "C100",
-      kind: IngenicDocProduct::CHIP,
+      kind: IngenicProduct::CHIP,
       parent: other_series,
       locale: "en",
       position: 0,
@@ -52,7 +52,7 @@ describe IngenicBoardsController do
       {
         slug: "halley5",
         name: "Halley5",
-        locale: "en",
+        product: chip,
         application_url: "https://example.com/apply",
       }.merge(attrs),
     )
@@ -141,15 +141,37 @@ describe IngenicBoardsController do
       expect(response.parsed_body["boards"]).to be_empty
     end
 
-    it "shows one card for a board that has both locales, preferring the reader's" do
-      SiteSetting.ingenic_default_locale = "zh_CN"
-      board(product: chip, locale: "en", name: "Halley5")
-      board(product: chip, locale: "zh_CN", name: "Halley5 中文")
+    # The board's language is its chip's language, so each language has its own
+    # catalogue rather than two rows of the same card.
+    it "shows only the board filed under the reader's language" do
+      board(product: chip, name: "Halley5")
+      chinese_series =
+        IngenicProduct.create!(
+          slug: "t-series",
+          name: "T 系列",
+          kind: IngenicProduct::SERIES,
+          locale: "zh_CN",
+        )
+      chinese_chip =
+        IngenicProduct.create!(
+          slug: "t33",
+          name: "T33 中文",
+          kind: IngenicProduct::CHIP,
+          parent: chinese_series,
+          locale: "zh_CN",
+        )
+      board(product: chinese_chip, name: "Halley5 中文", slug: "halley5-cn")
 
       get "/ingenic/boards.json"
 
       expect(response.parsed_body["boards"].length).to eq(1)
       expect(response.parsed_body["boards"].first["name"]).to eq("Halley5")
+
+      SiteSetting.default_locale = "zh_CN"
+
+      get "/ingenic/boards.json"
+
+      expect(response.parsed_body["boards"].map { |row| row["name"] }).to eq(["Halley5 中文"])
     end
   end
 end

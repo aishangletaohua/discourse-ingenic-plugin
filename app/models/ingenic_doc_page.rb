@@ -18,7 +18,12 @@ class IngenicDocPage < ActiveRecord::Base
            foreign_key: :parent_id,
            dependent: :destroy
 
-  validates :slug, presence: true, uniqueness: { scope: [:version_id, :locale] }
+  # A page is written in its version's language, which is its product's. The
+  # method is kept so serializers and callers can ask without walking the
+  # chain themselves; there is no second value to keep in sync.
+  delegate :locale, to: :version, allow_nil: true
+
+  validates :slug, presence: true, uniqueness: { scope: :version_id }
   validates :title, presence: true
   validates :kind, presence: true, inclusion: { in: KINDS }
 

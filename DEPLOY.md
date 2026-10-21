@@ -73,7 +73,7 @@ Confirm the plugin loaded:
 ./launcher enter app
 rails c
 SiteSetting.ingenic_enabled          # => true
-IngenicDocProduct.count              # => 0, no content yet
+IngenicProduct.count              # => 0, no content yet
 ```
 
 Then apply the site defaults this forum always wants:
@@ -154,7 +154,6 @@ The theme is not a component and does not need one.
 | Setting | Suggested value |
 | --- | --- |
 | `ingenic_enabled` | on |
-| `ingenic_default_locale` | the language most of your documentation is written in |
 | `ingenic_docs_discussion_category` | slug of the category that documentation discussions belong in |
 | `ingenic_download_storage_path` | a directory on a large volume, outside `public/`; empty means `<app>/ingenic-downloads` |
 | `ingenic_download_admin_email` | the address that should receive download applications |

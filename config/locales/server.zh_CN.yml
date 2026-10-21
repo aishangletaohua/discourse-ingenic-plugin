@@ -3,7 +3,6 @@ zh_CN:
     ingenic_enabled: "启用君正社区扩展（文档版本管理、下载中心、开发板商店）。"
     ingenic_nav_items: "左侧导航项，使用 JSON 数组。可设置标签、图标、链接目标、排序和可见性。"
     ingenic_homepage_blocks: "首页区块，使用 JSON 数组。可设置显示哪些区块及其顺序。类型：categories（论坛版块网格，并带全部版块入口）、latest（最新讨论）、hot（本周热门）、popular（近期最受点赞）、activity（官方活动与说明，按时间倒序）、bounties（积分最高的进行中悬赏，无悬赏时不显示）、announcements、discussions、downloads、boards、promotions。可在「管理 → 插件 → Ingenic → 站点内容」中编辑；留空则首页使用默认布局。"
-    ingenic_default_locale: "当文档没有读者所用语言的版本时使用的语言。此处仅提供本站支持的语言；内容记录必须使用相同的代码（zh_CN，而非 zh-CN）。"
     ingenic_docs_discussion_category: "当文档页面没有关联主题时，「在论坛中讨论」链接所使用的分类标识。"
     ingenic_download_storage_path: "存放已上传 SDK 和固件文件的目录。留空则使用 <app>/ingenic-downloads。必须位于 public/ 之外。"
     ingenic_download_admin_email: "开发者申请受访问限制的下载时接收通知的邮箱地址。"
@@ -35,7 +34,7 @@ zh_CN:
       invalid_homepage_blocks: "ingenic_homepage_blocks 不是有效的 JSON：%{message}"
     admin_errors:
       has_children: "该记录包含子记录，无法删除。"
-      locale_conflict: "目标语言下已经有相同标识的记录，本次修改未保存。"
+      locale_immutable: "产品所属的语言不能更改。请在另一语言下新建。"
       page_not_found: "该页面在此版本及其继承的任何版本中都不存在。"
       storage_unavailable: "无法写入上传的文件。请检查下载存储路径。"
       user_not_found: "账号不存在。"

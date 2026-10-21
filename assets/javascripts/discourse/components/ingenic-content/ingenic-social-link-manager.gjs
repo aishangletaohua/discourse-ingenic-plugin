@@ -3,7 +3,7 @@ import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { fn, get } from "@ember/helper";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import DNativeSelect from "discourse/ui-kit/d-native-select";
 import { i18n } from "discourse-i18n";
 
@@ -14,13 +14,11 @@ const QR = "qr";
 
 const BLANK = {
   label: "",
-  label_zh: "",
   kind: LINK,
   href: "",
   image_url: "",
   qr_image_url: "",
   qr_caption: "",
-  qr_caption_zh: "",
   icon_only: false,
   position: 0,
   published: true,
@@ -48,8 +46,8 @@ export default class IngenicSocialLinkManager extends Component {
 
   get kindKeys() {
     return {
-      link: "admin.ingenic.social_links.kinds.link",
-      qr: "admin.ingenic.social_links.kinds.qr",
+      link: "ingenic.social_links.kinds.link",
+      qr: "ingenic.social_links.kinds.qr",
     };
   }
 
@@ -161,7 +159,7 @@ export default class IngenicSocialLinkManager extends Component {
       this.error =
         uploadError?.jqXHR?.responseJSON?.errors?.[0] ||
         uploadError?.message ||
-        i18n("admin.ingenic.social_links.upload_failed");
+        i18n("ingenic.social_links.upload_failed");
     } finally {
       this.uploading = false;
     }
@@ -193,7 +191,7 @@ export default class IngenicSocialLinkManager extends Component {
         ? this.records.map((record) => (record.id === saved.id ? saved : record))
         : [...this.records, saved];
       this.draft = null;
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     } finally {
@@ -216,7 +214,7 @@ export default class IngenicSocialLinkManager extends Component {
 
   #errorMessage(failure) {
     const errors = failure?.jqXHR?.responseJSON?.errors;
-    return errors?.join(", ") || i18n("admin.ingenic.save_failed");
+    return errors?.join(", ") || i18n("ingenic.save_failed");
   }
 
   <template>
@@ -224,12 +222,12 @@ export default class IngenicSocialLinkManager extends Component {
       {{#if this.error}}<p class="ingenic-admin-note ingenic-admin-note--error">{{this.error}}</p>{{/if}}
       {{#if this.message}}<p class="ingenic-admin-note">{{this.message}}</p>{{/if}}
       {{#if this.uploading}}
-        <p class="ingenic-admin-note">{{i18n "admin.ingenic.social_links.uploading"}}</p>
+        <p class="ingenic-admin-note">{{i18n "ingenic.social_links.uploading"}}</p>
       {{/if}}
 
       <div class="ingenic-admin__toolbar">
         <button class="btn btn-primary" type="button" {{on "click" this.startNew}}>
-          {{i18n "admin.ingenic.social_links.add"}}
+          {{i18n "ingenic.social_links.add"}}
         </button>
       </div>
 
@@ -237,24 +235,19 @@ export default class IngenicSocialLinkManager extends Component {
         <form class="ingenic-admin-form" {{on "submit" this.save}} {{on "input" this.field}}>
           <h3>
             {{#if this.draft.id}}
-              {{i18n "admin.ingenic.social_links.edit_title"}}
+              {{i18n "ingenic.social_links.edit_title"}}
             {{else}}
-              {{i18n "admin.ingenic.social_links.new_title"}}
+              {{i18n "ingenic.social_links.new_title"}}
             {{/if}}
           </h3>
 
           <label>
-            <span>{{i18n "admin.ingenic.social_links.fields.label"}}</span>
+            <span>{{i18n "ingenic.social_links.fields.label"}}</span>
             <input name="label" value={{this.draft.label}} required />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.social_links.fields.label_zh"}}</span>
-            <input name="label_zh" value={{this.draft.label_zh}} />
-          </label>
-
-          <label>
-            <span>{{i18n "admin.ingenic.social_links.fields.kind"}}</span>
+            <span>{{i18n "ingenic.social_links.fields.kind"}}</span>
             <DNativeSelect
               name="kind"
               @includeNone={{false}}
@@ -270,12 +263,12 @@ export default class IngenicSocialLinkManager extends Component {
 
           {{#if this.isQr}}
             <label>
-              <span>{{i18n "admin.ingenic.social_links.fields.qr_image_url"}}</span>
+              <span>{{i18n "ingenic.social_links.fields.qr_image_url"}}</span>
               <input name="qr_image_url" value={{this.draft.qr_image_url}} />
             </label>
 
             <label>
-              <span>{{i18n "admin.ingenic.social_links.fields.upload_qr_image"}}</span>
+              <span>{{i18n "ingenic.social_links.fields.upload_qr_image"}}</span>
               <input
                 type="file"
                 accept="image/*"
@@ -285,28 +278,23 @@ export default class IngenicSocialLinkManager extends Component {
             </label>
 
             <label>
-              <span>{{i18n "admin.ingenic.social_links.fields.qr_caption"}}</span>
+              <span>{{i18n "ingenic.social_links.fields.qr_caption"}}</span>
               <input name="qr_caption" value={{this.draft.qr_caption}} />
-            </label>
-
-            <label>
-              <span>{{i18n "admin.ingenic.social_links.fields.qr_caption_zh"}}</span>
-              <input name="qr_caption_zh" value={{this.draft.qr_caption_zh}} />
             </label>
           {{else}}
             <label>
-              <span>{{i18n "admin.ingenic.social_links.fields.href"}}</span>
+              <span>{{i18n "ingenic.social_links.fields.href"}}</span>
               <input name="href" value={{this.draft.href}} />
             </label>
           {{/if}}
 
           <label>
-            <span>{{i18n "admin.ingenic.social_links.fields.image_url"}}</span>
+            <span>{{i18n "ingenic.social_links.fields.image_url"}}</span>
             <input name="image_url" value={{this.draft.image_url}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.social_links.fields.upload_image"}}</span>
+            <span>{{i18n "ingenic.social_links.fields.upload_image"}}</span>
             <input
               type="file"
               accept="image/*"
@@ -316,34 +304,34 @@ export default class IngenicSocialLinkManager extends Component {
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.social_links.fields.image_hint"}}
+            {{i18n "ingenic.social_links.fields.image_hint"}}
           </p>
 
           <label class="checkbox-label">
             <input type="checkbox" name="icon_only" checked={{this.draft.icon_only}} />
-            <span>{{i18n "admin.ingenic.social_links.fields.icon_only"}}</span>
+            <span>{{i18n "ingenic.social_links.fields.icon_only"}}</span>
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.social_links.fields.icon_only_hint"}}
+            {{i18n "ingenic.social_links.fields.icon_only_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.social_links.fields.position"}}</span>
+            <span>{{i18n "ingenic.social_links.fields.position"}}</span>
             <input type="number" name="position" value={{this.draft.position}} />
           </label>
 
           <label class="checkbox-label">
             <input type="checkbox" name="published" checked={{this.draft.published}} />
-            <span>{{i18n "admin.ingenic.social_links.fields.published"}}</span>
+            <span>{{i18n "ingenic.social_links.fields.published"}}</span>
           </label>
 
           <div class="ingenic-admin__toolbar">
             <button class="btn btn-primary" type="submit" disabled={{or this.busy this.uploading}}>
-              {{i18n "admin.ingenic.save"}}
+              {{i18n "ingenic.save"}}
             </button>
             <button class="btn" type="button" {{on "click" this.cancel}}>
-              {{i18n "admin.ingenic.cancel"}}
+              {{i18n "ingenic.cancel"}}
             </button>
           </div>
         </form>
@@ -359,21 +347,21 @@ export default class IngenicSocialLinkManager extends Component {
                 {{#if record.href}}· {{record.href}}{{/if}}
                 {{#if record.position}}· {{record.position}}{{/if}}
                 {{#unless record.published}}
-                  · {{i18n "admin.ingenic.social_links.unpublished"}}
+                  · {{i18n "ingenic.social_links.unpublished"}}
                 {{/unless}}
               </div>
             </div>
             <div class="ingenic-admin__toolbar">
               <button class="btn" type="button" {{on "click" (fn this.edit record)}}>
-                {{i18n "admin.ingenic.edit"}}
+                {{i18n "ingenic.edit"}}
               </button>
               <button class="btn btn-danger" type="button" {{on "click" (fn this.remove record)}}>
-                {{i18n "admin.ingenic.delete"}}
+                {{i18n "ingenic.delete"}}
               </button>
             </div>
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.social_links.empty"}}</p>
+          <p>{{i18n "ingenic.social_links.empty"}}</p>
         {{/each}}
       </div>
     </div>

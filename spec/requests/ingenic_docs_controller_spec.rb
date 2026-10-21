@@ -11,16 +11,15 @@ describe IngenicDocsController do
   # from: 2.0.0 is position 0 and the pages its successor did not rewrite are
   # read through it.
   fab!(:series) do
-    IngenicDocProduct.create!(slug: "t-series", name: "T Series", locale: "en", position: 0)
+    IngenicProduct.create!(slug: "t-series", name: "T Series", locale: "en", position: 0)
   end
 
   fab!(:product) do
-    IngenicDocProduct.create!(
+    IngenicProduct.create!(
       slug: "t32pro",
       name: "T32Pro",
-      kind: IngenicDocProduct::CHIP,
+      kind: IngenicProduct::CHIP,
       parent: series,
-      locale: "en",
       position: 0,
     )
   end
@@ -30,7 +29,6 @@ describe IngenicDocsController do
       product: product,
       slug: "2.1.0",
       label: "2.1.0",
-      locale: "en",
       latest: true,
       position: 1,
     )
@@ -41,7 +39,6 @@ describe IngenicDocsController do
       product: product,
       slug: "2.0.0",
       label: "2.0.0",
-      locale: "en",
       position: 0,
     )
   end
@@ -51,7 +48,6 @@ describe IngenicDocsController do
       version: latest_version,
       slug: "overview",
       title: "Overview",
-      locale: "en",
       position: 0,
       body: "Chip introduction.",
     )
@@ -62,7 +58,6 @@ describe IngenicDocsController do
       version: latest_version,
       slug: "quick-start",
       title: "Quick Start",
-      locale: "en",
       position: 1,
       body: "Build your first image.",
     )
@@ -72,11 +67,10 @@ describe IngenicDocsController do
 
   describe "GET /ingenic/docs" do
     it "resolves the first published product so navigation can link to one URL" do
-      IngenicDocProduct.create!(
+      IngenicProduct.create!(
         slug: "x2000",
         name: "X2000",
-        locale: "en",
-        position: 1,
+          position: 1,
       )
 
       get "/ingenic/docs.json"
@@ -98,19 +92,17 @@ describe IngenicDocsController do
     # to read is the difference between "not written yet" and "does not work".
     it "lands on the first series that has documentation, not the first one listed" do
       empty_series =
-        IngenicDocProduct.create!(
+        IngenicProduct.create!(
           slug: "a-series",
           name: "A Series",
-          locale: "en",
-          position: -1,
+              position: -1,
         )
-      IngenicDocProduct.create!(
+      IngenicProduct.create!(
         slug: "a1",
         name: "A1",
-        kind: IngenicDocProduct::CHIP,
+        kind: IngenicProduct::CHIP,
         parent: empty_series,
-        locale: "en",
-      )
+        )
 
       get "/ingenic/docs.json"
 
@@ -124,13 +116,12 @@ describe IngenicDocsController do
     end
 
     it "lands on a chip that has versions when the series has one that does not" do
-      IngenicDocProduct.create!(
+      IngenicProduct.create!(
         slug: "t31",
         name: "T31",
-        kind: IngenicDocProduct::CHIP,
+        kind: IngenicProduct::CHIP,
         parent: series,
-        locale: "en",
-        position: -1,
+          position: -1,
       )
 
       get "/ingenic/docs.json"
@@ -150,7 +141,7 @@ describe IngenicDocsController do
       # The sidebar links here on every page, so a site whose documentation has
       # not been written yet has to render something. An error would make the
       # navigation entry look broken.
-      IngenicDocProduct.update_all(published: false)
+      IngenicProduct.update_all(published: false)
 
       get "/ingenic/docs.json"
 
@@ -284,12 +275,45 @@ describe IngenicDocsController do
   end
 
   describe "translated content" do
-    fab!(:translated_overview) do
+    # A translation is a second set of product rows, not a second locale column
+    # on the same rows. The Chinese chip has its own versions and pages, and
+    # nothing in it is reachable through the English one.
+    fab!(:chinese_series) do
+      IngenicProduct.create!(
+        slug: "t-series",
+        name: "T 系列",
+        kind: IngenicProduct::SERIES,
+        locale: "zh_CN",
+        position: 0,
+      )
+    end
+
+    fab!(:chinese_product) do
+      IngenicProduct.create!(
+        slug: "t32pro",
+        name: "T32Pro 中文",
+        kind: IngenicProduct::CHIP,
+        parent: chinese_series,
+        locale: "zh_CN",
+        position: 0,
+      )
+    end
+
+    fab!(:chinese_version) do
+      IngenicDocVersion.create!(
+        product: chinese_product,
+        slug: "2.1.0",
+        label: "2.1.0",
+        latest: true,
+        position: 0,
+      )
+    end
+
+    fab!(:chinese_overview) do
       IngenicDocPage.create!(
-        version: latest_version,
+        version: chinese_version,
         slug: "overview",
         title: "概述",
-        locale: "zh_CN",
         position: 0,
         body: "芯片介绍。",
       )
@@ -297,28 +321,26 @@ describe IngenicDocsController do
 
     before { SiteSetting.default_locale = "zh_CN" }
 
-    it "serves the reader's language and lists each page once" do
+    it "serves the reader's language and lists only that language's pages" do
       get "/ingenic/docs/t-series/t32pro/2.1.0/overview.json"
 
       json = response.parsed_body
       expect(json["page"]["title"]).to eq("概述")
-      expect(json["pages"].map { |page| page["slug"] }).to contain_exactly(
-        "overview",
-        "quick-start",
-      )
+      expect(json["pages"].map { |page| page["slug"] }).to eq(["overview"])
     end
 
-    it "falls back to the default locale for pages with no translation" do
+    it "does not fall back to another language for a page with no translation" do
       get "/ingenic/docs/t-series/t32pro/2.1.0/quick-start.json"
 
-      expect(response.parsed_body["page"]["title"]).to eq("Quick Start")
+      expect(response.status).to eq(404)
     end
 
-    it "opens a product that has no translated row at all" do
+    it "does not serve a product filed only under another language" do
+      chinese_product.destroy!
+
       get "/ingenic/docs/t-series/t32pro/2.1.0.json"
 
-      expect(response.status).to eq(200)
-      expect(response.parsed_body["product"]["slug"]).to eq("t32pro")
+      expect(response.status).to eq(404)
     end
   end
 

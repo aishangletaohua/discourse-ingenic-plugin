@@ -13,6 +13,7 @@ class IngenicSocialLink < ActiveRecord::Base
   KINDS = [LINK, QR].freeze
 
   validates :label, presence: true
+  validates :locale, presence: true
   validates :kind, inclusion: { in: KINDS }
   validate :has_something_to_show
 

@@ -21,6 +21,7 @@ require_relative "lib/discourse_ingenic/config_parser"
 require_relative "lib/discourse_ingenic/app_shell"
 require_relative "lib/discourse_ingenic/guardian_extensions"
 require_relative "lib/discourse_ingenic/management_constraint"
+require_relative "lib/ingenic/locales"
 require_relative "lib/ingenic/permission_resolver"
 require_relative "lib/ingenic/resolved_page"
 require_relative "lib/ingenic/documentation_resolver"
@@ -46,7 +47,7 @@ require_relative "lib/ingenic/config_export"
 # time a route or a job reaches for it. `spec/plugin_requires_spec.rb` fails if
 # a file under app/ stops being listed.
 after_initialize do
-require_relative "app/models/ingenic_doc_product"
+require_relative "app/models/ingenic_product"
 require_relative "app/models/ingenic_doc_version"
 require_relative "app/models/ingenic_doc_page"
 require_relative "app/models/ingenic_download_category"
@@ -95,6 +96,7 @@ require_relative "app/controllers/ingenic_docs_controller"
 require_relative "app/controllers/ingenic_downloads_controller"
 require_relative "app/controllers/ingenic_boards_controller"
 require_relative "app/controllers/ingenic_mcp_controller"
+require_relative "app/controllers/ingenic_manage_controller"
 require_relative "app/controllers/ingenic_site_controller"
 require_relative "app/controllers/ingenic_points_controller"
 require_relative "app/controllers/ingenic_home_controller"
@@ -248,7 +250,7 @@ after_initialize do
   end
 
   add_to_serializer(:site, :ingenic_homepage_blocks, include_condition: -> { SiteSetting.ingenic_enabled }) do
-    DiscourseIngenic::ConfigParser.homepage_blocks
+    DiscourseIngenic::ConfigParser.homepage_blocks(Ingenic::Locales.reading)
   end
 
   # The external buttons and the section cards are content, and both are drawn
@@ -257,7 +259,7 @@ after_initialize do
   # already has them, rather than showing an empty footer and filling it in a
   # moment later.
   add_to_serializer(:site, :ingenic_header_links, include_condition: -> { SiteSetting.ingenic_enabled }) do
-    IngenicHeaderLink.published.ordered.map do |link|
+    IngenicHeaderLink.published.where(locale: Ingenic::Locales.reading).ordered.map do |link|
       {
         "id" => link.id,
         "label" => link.label,
@@ -279,7 +281,7 @@ after_initialize do
   end
 
   add_to_serializer(:site, :ingenic_section_cards, include_condition: -> { SiteSetting.ingenic_enabled }) do
-    IngenicSectionCard.published.ordered.map do |card|
+    IngenicSectionCard.published.where(locale: Ingenic::Locales.reading).ordered.map do |card|
       {
         "id" => card.id,
         "label" => card.label,
@@ -488,7 +490,12 @@ after_initialize do
       delete "/footer-links/:id" => "admin/ingenic#destroy_footer_link"
     end
 
-    # The front page at its canonical address. Discourse mounts the page chosen
+    # The content workbench. A scoped manager opens the same Ember screens an
+  # administrator does, but from a path staff-only admin routes cannot offer.
+  get "/ingenic/manage", to: "ingenic_manage#index", as: :ingenic_manage
+  get "/ingenic/manage/*path", to: "ingenic_manage#index", as: :ingenic_manage_path
+
+  # The front page at its canonical address. Discourse mounts the page chosen
     # in `default_homepage` at `/` itself; this is the same page under a path of
     # its own, which is what the client route and every link to the home page
     # use, and what makes the address survive a refresh.

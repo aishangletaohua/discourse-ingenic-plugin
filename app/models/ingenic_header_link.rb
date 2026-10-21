@@ -11,6 +11,7 @@ class IngenicHeaderLink < ActiveRecord::Base
   self.table_name = "ingenic_header_links"
 
   validates :label, presence: true
+  validates :locale, presence: true
   validates :href, presence: true
 
   scope :published, -> { where(published: true) }

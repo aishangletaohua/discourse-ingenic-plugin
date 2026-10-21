@@ -49,12 +49,7 @@ module Admin
         allowed = resolver.can_manage_feature?(area)
 
         unless allowed
-          product =
-            if record.respond_to?(:product_slug) && record.product_slug.present?
-              IngenicDocProduct.find_by(slug: record.product_slug)
-            elsif record.respond_to?(:product)
-              record.product
-            end
+          product = record.product if record.respond_to?(:product)
           allowed = product.present? && resolver.can_manage_area?(product, area)
         end
 

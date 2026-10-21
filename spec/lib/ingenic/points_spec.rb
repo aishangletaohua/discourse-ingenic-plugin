@@ -5,6 +5,16 @@ require "rails_helper"
 describe Ingenic::Points do
   fab!(:user) { Fabricate(:user) }
   fab!(:other_user) { Fabricate(:user) }
+  fab!(:series) { IngenicProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:chip) do
+    IngenicProduct.create!(
+      slug: "t32pro",
+      name: "T32Pro",
+      kind: IngenicProduct::CHIP,
+      parent: series,
+      locale: "en",
+    )
+  end
 
   before { SiteSetting.ingenic_points_enabled = true }
 
@@ -16,7 +26,7 @@ describe Ingenic::Points do
   # needs a row to be the subject of the purchase.
   def make_download(name)
     IngenicDownload.create!(
-      product_slug: "t32pro",
+      product: chip,
       name: name,
       locale: "en",
       access_level: IngenicDownload::LOGIN_ONLY,

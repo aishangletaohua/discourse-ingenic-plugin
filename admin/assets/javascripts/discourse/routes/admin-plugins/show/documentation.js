@@ -1,8 +1,10 @@
 import DiscourseRoute from "discourse/routes/discourse";
-import { ajax } from "discourse/lib/ajax";
+import { service } from "@ember/service";
 
 export default class AdminPluginsShowDocumentation extends DiscourseRoute {
-  async model() {
-    return ajax("/admin/plugins/discourse-ingenic/documentation");
+  @service ingenicContentLocale;
+
+  model() {
+    return this.ingenicContentLocale.load("/admin/plugins/discourse-ingenic/documentation");
   }
 }

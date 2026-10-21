@@ -23,6 +23,7 @@ class IngenicFooterColumn < ActiveRecord::Base
            foreign_key: :column_id
 
   validates :title, presence: true
+  validates :locale, presence: true
 
   scope :published, -> { where(published: true) }
   scope :ordered, -> { order(position: :asc, id: :asc) }

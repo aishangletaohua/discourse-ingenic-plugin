@@ -10,6 +10,7 @@
 class IngenicSectionCard < ActiveRecord::Base
   self.table_name = "ingenic_section_cards"
 
+  validates :locale, presence: true
   validates :category, format: { with: /\A[a-z0-9-]+\z/ }, allow_blank: true
   validate :has_somewhere_to_go
   validate :has_a_name

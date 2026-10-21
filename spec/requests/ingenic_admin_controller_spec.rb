@@ -5,9 +5,18 @@ require "zip"
 
 describe Admin::IngenicController do
   fab!(:admin) { Fabricate(:admin) }
-  fab!(:product) { IngenicDocProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:product) { IngenicProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:chip) do
+    IngenicProduct.create!(
+      slug: "t33",
+      name: "T33",
+      kind: IngenicProduct::CHIP,
+      parent: product,
+      locale: "en",
+    )
+  end
   fab!(:board) do
-    IngenicBoard.create!(slug: "board-one", name: "Board One", locale: "en", application_url: "https://example.com")
+    IngenicBoard.create!(slug: "board-one", name: "Board One", product: chip, application_url: "https://example.com")
   end
 
   before { sign_in(admin) }
@@ -21,72 +30,38 @@ describe Admin::IngenicController do
       # The screen offers a language picker rather than a text box, so the
       # list of languages has to travel with the tree.
       expect(response.parsed_body["locales"]).to be_present
-      expect(response.parsed_body["default_locale"]).to be_present
+      expect(response.parsed_body["locale"]).to eq("en")
     end
   end
 
   describe "PUT /admin/plugins/discourse-ingenic/documentation/products/:id" do
-    # Rows written before the default was fixed are filed under "en" and are
-    # invisible to a reader of the site's own language. The screen has to be
-    # able to move such a row, with its versions and pages, without deleting
-    # it and writing its content again.
-    it "changes the language of an existing row" do
+    it "renames a row in place" do
       put "/admin/plugins/discourse-ingenic/documentation/products/#{product.id}.json",
-          params: { name: "C 系列", slug: "c-series", locale: "zh_CN", published: false }
+          params: { name: "T 系列", slug: "t-series", published: false }
 
       expect(response.status).to eq(200)
       expect(product.reload).to have_attributes(
-        name: "C 系列",
-        slug: "c-series",
-        locale: "zh_CN",
+        name: "T 系列",
+        slug: "t-series",
+        locale: "en",
         published: false,
       )
     end
 
-    # The reader filters *pages* by locale, so moving only the series would
-    # leave a Chinese title opening onto an empty section. Rows carrying the
-    # old language follow it down the whole tree.
-    it "takes the rows below it along when the language changes" do
-      chip =
-        IngenicDocProduct.create!(
-          slug: "t33",
-          name: "T33",
-          kind: IngenicDocProduct::CHIP,
-          parent: product,
-          locale: "en",
-        )
-      version =
-        IngenicDocVersion.create!(product: chip, slug: "1.0", label: "1.0", locale: "en")
-      page =
-        IngenicDocPage.create!(
-          version: version,
-          slug: "start",
-          title: "Start",
-          locale: "en",
-        )
-
+    # A row's language is what everything under it was written in. Moving the
+    # row would either move that content into a language nobody wrote it in or
+    # strand it, so the edit is refused and the other language is built by
+    # creating its own rows.
+    it "refuses to move a row to another language" do
       put "/admin/plugins/discourse-ingenic/documentation/products/#{product.id}.json",
-          params: { locale: "zh_CN" }
+          params: { name: "T 系列", locale: "zh_CN" }
 
-      expect(response.status).to eq(200)
-      expect(chip.reload.locale).to eq("zh_CN")
-      expect(version.reload.locale).to eq("zh_CN")
-      expect(page.reload.locale).to eq("zh_CN")
-    end
-
-    it "leaves a row deliberately filed under another language alone" do
-      IngenicDocProduct.create!(
-        slug: "t33",
-        name: "T33",
-        kind: IngenicDocProduct::CHIP,
-        parent: product,
-        locale: "ja",
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"].first).to eq(
+        I18n.t("ingenic.admin_errors.locale_immutable"),
       )
-
-      put "/admin/plugins/discourse-ingenic/documentation/products/#{product.id}.json",
-          params: { locale: "zh_CN" }
-
-      expect(IngenicDocProduct.find_by(slug: "t33").locale).to eq("ja")
+      expect(product.reload.locale).to eq("en")
+      expect(product.name).to eq("T Series")
     end
   end
 
@@ -95,22 +70,13 @@ describe Admin::IngenicController do
       expect {
         post "/admin/plugins/discourse-ingenic/documentation/products.json",
              params: { slug: "c-series", name: "C Series", locale: "en" }
-      }.to change(IngenicDocProduct, :count).by(1)
+      }.to change(IngenicProduct, :count).by(1)
 
       expect(response.status).to eq(200)
     end
   end
 
   describe "POST /admin/plugins/discourse-ingenic/documentation/versions" do
-    fab!(:chip) do
-      IngenicDocProduct.create!(
-        slug: "t33",
-        name: "T33",
-        kind: IngenicDocProduct::CHIP,
-        parent: product,
-        locale: "en",
-      )
-    end
 
     # A version has no `published` column, and `published` is what every other
     # form in this controller sends. Permitting it made the request raise
@@ -123,7 +89,6 @@ describe Admin::IngenicController do
                product_id: chip.id,
                slug: "v1",
                label: "v1.0",
-               locale: "en",
                published: true,
              }
       }.to change(IngenicDocVersion, :count).by(1)
@@ -136,17 +101,8 @@ describe Admin::IngenicController do
   # A parent typed as a slug used to produce a top-level page when the slug
   # matched nothing, which read as "the folder would not take".
   describe "POST /admin/plugins/discourse-ingenic/documentation/pages" do
-    fab!(:chip) do
-      IngenicDocProduct.create!(
-        slug: "t33",
-        name: "T33",
-        kind: IngenicDocProduct::CHIP,
-        parent: product,
-        locale: "en",
-      )
-    end
     fab!(:version) do
-      IngenicDocVersion.create!(product: chip, slug: "v1", label: "v1.0", locale: "en", position: 0)
+      IngenicDocVersion.create!(product: chip, slug: "v1", label: "v1.0", position: 0)
     end
 
     it "creates a folder and returns its kind" do
@@ -174,7 +130,6 @@ describe Admin::IngenicController do
           slug: "guide",
           title: "Guide",
           kind: "folder",
-          locale: "en",
           position: 0,
         )
 
@@ -198,17 +153,8 @@ describe Admin::IngenicController do
   # previewed by a different Markdown implementation would agree with the
   # editor and disagree with the published article.
   describe "POST /admin/plugins/discourse-ingenic/documentation/preview" do
-    fab!(:chip) do
-      IngenicDocProduct.create!(
-        slug: "t33",
-        name: "T33",
-        kind: IngenicDocProduct::CHIP,
-        parent: product,
-        locale: "en",
-      )
-    end
     fab!(:version) do
-      IngenicDocVersion.create!(product: chip, slug: "v1", label: "v1.0", locale: "en", position: 0)
+      IngenicDocVersion.create!(product: chip, slug: "v1", label: "v1.0", position: 0)
     end
 
     it "cooks the body with the public page pipeline" do
@@ -227,17 +173,8 @@ describe Admin::IngenicController do
   # so what is pinned down here is that shape, the heading becoming the title,
   # and a bad file being reported without discarding the good ones beside it.
   describe "POST /admin/plugins/discourse-ingenic/documentation/versions/:id/import" do
-    fab!(:chip) do
-      IngenicDocProduct.create!(
-        slug: "t33",
-        name: "T33",
-        kind: IngenicDocProduct::CHIP,
-        parent: product,
-        locale: "en",
-      )
-    end
     fab!(:version) do
-      IngenicDocVersion.create!(product: chip, slug: "v1", label: "v1.0", locale: "en", position: 0)
+      IngenicDocVersion.create!(product: chip, slug: "v1", label: "v1.0", position: 0)
     end
 
     def uploaded(name, content, type)
@@ -324,42 +261,30 @@ describe Admin::IngenicController do
 
   describe "GET /admin/plugins/discourse-ingenic/boards" do
     it "offers the chips a board can be filed against, with their series" do
-      IngenicDocProduct.create!(
-        slug: "t33",
-        name: "T33",
-        kind: IngenicDocProduct::CHIP,
-        parent: product,
-        locale: "en",
-      )
+      chip
 
       get "/admin/plugins/discourse-ingenic/boards.json"
 
       expect(response.status).to eq(200)
-      chip = response.parsed_body["chips"].first
-      expect(chip["slug"]).to eq("t33")
-      expect(chip["series_name"]).to eq("T Series")
+      option = response.parsed_body["chips"].first
+      expect(option["slug"]).to eq("t33")
+      expect(option["series_name"]).to eq("T Series")
     end
 
     it "offers a boards manager only the chips they may file a board under" do
-      chip = IngenicDocProduct.create!(
-        slug: "t33",
-        name: "T33",
-        kind: IngenicDocProduct::CHIP,
-        parent: product,
-        locale: "en",
-      )
-      other_series = IngenicDocProduct.create!(slug: "c-series", name: "C Series", locale: "en")
-      IngenicDocProduct.create!(
+      chip
+      other_series = IngenicProduct.create!(slug: "c-series", name: "C Series", locale: "en")
+      IngenicProduct.create!(
         slug: "c100",
         name: "C100",
-        kind: IngenicDocProduct::CHIP,
+        kind: IngenicProduct::CHIP,
         parent: other_series,
         locale: "en",
       )
       manager = Fabricate(:user)
       IngenicPermission.create!(
         user: manager,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: product.id,
         area: "boards",
       )
@@ -396,46 +321,37 @@ describe Admin::IngenicController do
     end
 
     it "files the board against a chip and reads the name back from the tree" do
-      chip =
-        IngenicDocProduct.create!(
-          slug: "t33",
-          name: "T33",
-          kind: IngenicDocProduct::CHIP,
+      second_chip =
+        IngenicProduct.create!(
+          slug: "t32",
+          name: "T32",
+          kind: IngenicProduct::CHIP,
           parent: product,
           locale: "en",
         )
 
       put "/admin/plugins/discourse-ingenic/boards/#{board.id}.json",
           params: {
-            product_id: chip.id,
+            product_id: second_chip.id,
           }
 
       expect(response.status).to eq(200)
-      expect(response.parsed_body["board"]["chip_name"]).to eq("T33")
+      expect(response.parsed_body["board"]["chip_name"]).to eq("T32")
       expect(response.parsed_body["board"]["series_name"]).to eq("T Series")
-      expect(board.reload.product).to eq(chip)
+      expect(board.reload.product).to eq(second_chip)
     end
 
-    it "unfiles the board when the chip picker is cleared" do
-      chip =
-        IngenicDocProduct.create!(
-          slug: "t33",
-          name: "T33",
-          kind: IngenicDocProduct::CHIP,
-          parent: product,
-          locale: "en",
-        )
-      board.update!(product: chip)
-
-      # The picker posts an empty string for its blank option, which the foreign
-      # key would refuse as a value.
+    # A board is a card for one product; clearing the picker would leave it
+    # with nothing to be listed under, so the blank option is refused rather
+    # than saved as null.
+    it "refuses to unfile the board when the chip picker is cleared" do
       put "/admin/plugins/discourse-ingenic/boards/#{board.id}.json",
           params: {
             product_id: "",
           }
 
-      expect(response.status).to eq(200)
-      expect(board.reload.product_id).to be_nil
+      expect(response.status).to eq(422)
+      expect(board.reload.product).to eq(chip)
     end
   end
 
@@ -660,7 +576,7 @@ describe Admin::IngenicController do
       download =
         IngenicDownload.create!(
           name: "T33 SDK",
-          product_slug: "t33",
+          product: chip,
           locale: "en",
           category: category,
           file_url: "https://example.com/sdk.tgz",
@@ -677,7 +593,7 @@ describe Admin::IngenicController do
     it "lists what was taken, newest first" do
       download = IngenicDownload.create!(
         name: "T33 SDK",
-        product_slug: "t33",
+        product: chip,
         locale: "en",
         file_url: "https://example.com/sdk.tgz",
       )
@@ -711,7 +627,7 @@ describe Admin::IngenicController do
     fab!(:gated_download) do
       IngenicDownload.create!(
         name: "T33 SDK",
-        product_slug: "t33",
+        product: chip,
         locale: "en",
         access_level: IngenicDownload::APPROVAL_REQUIRED,
         file_url: "https://example.com/sdk.tgz",
@@ -773,7 +689,7 @@ describe Admin::IngenicController do
       manager = Fabricate(:user)
       download = IngenicDownload.create!(
         name: "T33 SDK",
-        product_slug: "t33",
+        product: chip,
         locale: "en",
         file_url: "https://example.com/sdk.tgz",
       )

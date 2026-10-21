@@ -24,17 +24,14 @@ class IngenicBoardsController < ::ApplicationController
 
   private
 
-  # Reading locale first, then the site default, with one row per board: a
-  # translation that exists only in the default locale still shows up, and a
-  # board that has both does not appear twice.
+  # A board belongs to one catalogue row, and that row is one language. The
+  # listing therefore shows exactly this reader's language: no fallback means a
+  # Chinese reader never gets an English card, and an untranslated catalogue is
+  # visibly empty rather than quietly mixed.
   def boards
     @boards ||=
       begin
-        rows =
-          IngenicBoard
-            .published
-            .includes(product: :parent)
-            .where(locale: [locale, default_locale].uniq)
+        rows = IngenicBoard.for_locale(locale).published.includes(product: :parent)
 
         # The first filter is the kind of thing — a board or a sample — and the
         # second is the chip. An unknown kind is ignored rather than turned
@@ -42,16 +39,7 @@ class IngenicBoardsController < ::ApplicationController
         rows = rows.for_kind(params[:kind]) if IngenicBoard::KINDS.include?(params[:kind])
         rows = rows.for_chip(params[:chip]) if params[:chip].present?
 
-        # One row per board, and the slug is what a board *is*: the unique index
-        # is on slug and locale together, so the same slug in two languages is
-        # one board translated. Grouping by the name as well would split it
-        # exactly when the translation changed the name, which is the usual
-        # reason for having a translation at all — Halley5 and Halley5 中文
-        # would be two identical cards side by side.
-        rows
-          .ordered
-          .group_by(&:slug)
-          .map { |_, group| group.find { |row| row.locale == locale } || group.first }
+        rows.ordered
       end
   end
 
@@ -62,7 +50,7 @@ class IngenicBoardsController < ::ApplicationController
   # not enough context when every series is listed together.
   def filters
     chips =
-      IngenicDocProduct.chips.includes(:parent).published.ordered.map do |record|
+      IngenicProduct.chips.includes(:parent).published.where(locale: locale).ordered.map do |record|
         {
           "slug" => record.slug,
           "name" => record.name,
@@ -75,10 +63,6 @@ class IngenicBoardsController < ::ApplicationController
   end
 
   def locale
-    @locale ||= I18n.locale.to_s
-  end
-
-  def default_locale
-    SiteSetting.ingenic_default_locale
+    @locale ||= Ingenic::Locales.reading
   end
 end

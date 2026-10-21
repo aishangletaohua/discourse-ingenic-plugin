@@ -49,16 +49,16 @@ export default class IngenicPointsManager extends Component {
 
   get totalRows() {
     return [
-      { key: "earned", label: i18n("admin.ingenic.points.totals.earned"), value: this.totals.earned },
-      { key: "spent", label: i18n("admin.ingenic.points.totals.spent"), value: this.totals.spent },
+      { key: "earned", label: i18n("ingenic.points.totals.earned"), value: this.totals.earned },
+      { key: "spent", label: i18n("ingenic.points.totals.spent"), value: this.totals.spent },
       {
         key: "reversed",
-        label: i18n("admin.ingenic.points.totals.reversed"),
+        label: i18n("ingenic.points.totals.reversed"),
         value: this.totals.reversed,
       },
       {
         key: "adjusted",
-        label: i18n("admin.ingenic.points.totals.adjusted"),
+        label: i18n("ingenic.points.totals.adjusted"),
         value: this.totals.adjusted,
       },
       // Points behind a standing 悬赏 are not in anybody's balance — they were
@@ -66,10 +66,10 @@ export default class IngenicPointsManager extends Component {
       // the four above and the balances would look like they disagreed.
       {
         key: "escrowed",
-        label: i18n("admin.ingenic.points.totals.escrowed"),
+        label: i18n("ingenic.points.totals.escrowed"),
         value: this.totals.escrowed,
       },
-      { key: "holders", label: i18n("admin.ingenic.points.totals.holders"), value: this.totals.holders },
+      { key: "holders", label: i18n("ingenic.points.totals.holders"), value: this.totals.holders },
     ].map((row) => ({ ...row, value: row.value ?? 0 }));
   }
 
@@ -94,7 +94,7 @@ export default class IngenicPointsManager extends Component {
       this.rules = this.rules.map((item) =>
         item.id === rule.id ? response.rule : item
       );
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     }
@@ -124,13 +124,13 @@ export default class IngenicPointsManager extends Component {
 
     const username = this.username;
     if (!username) {
-      this.error = i18n("admin.ingenic.points.pick_account");
+      this.error = i18n("ingenic.points.pick_account");
       return;
     }
 
     const points = Number.parseInt(this.amount, 10);
     if (!points) {
-      this.error = i18n("admin.ingenic.points.amount_required");
+      this.error = i18n("ingenic.points.amount_required");
       return;
     }
 
@@ -155,7 +155,7 @@ export default class IngenicPointsManager extends Component {
       this.amount = null;
       this.note = "";
       this.username = null;
-      this.message = i18n("admin.ingenic.points.adjusted", {
+      this.message = i18n("ingenic.points.adjusted", {
         username,
         points: response.balance,
       });
@@ -176,7 +176,7 @@ export default class IngenicPointsManager extends Component {
 
     try {
       const response = await ajax(`${ENDPOINT}/points/rebuild`, { type: "POST" });
-      this.message = i18n("admin.ingenic.points.rebuilt", {
+      this.message = i18n("ingenic.points.rebuilt", {
         checked: response.checked,
         corrected: response.corrected,
       });
@@ -219,19 +219,19 @@ export default class IngenicPointsManager extends Component {
 
   #errorMessage(failure) {
     const errors = failure?.jqXHR?.responseJSON?.errors;
-    return errors?.join(", ") || i18n("admin.ingenic.save_failed");
+    return errors?.join(", ") || i18n("ingenic.save_failed");
   }
 
   <template>
     <div class="ingenic-admin-panel">
       {{#unless this.enabled}}
         <p class="ingenic-admin-note ingenic-admin-note--error">
-          {{i18n "admin.ingenic.points.disabled_notice"}}
+          {{i18n "ingenic.points.disabled_notice"}}
         </p>
       {{/unless}}
 
       {{#if this.excludeStaff}}
-        <p class="ingenic-admin-note">{{i18n "admin.ingenic.points.staff_notice"}}</p>
+        <p class="ingenic-admin-note">{{i18n "ingenic.points.staff_notice"}}</p>
       {{/if}}
 
       {{#if this.error}}<p class="ingenic-admin-note ingenic-admin-note--error">{{this.error}}</p>{{/if}}
@@ -246,54 +246,54 @@ export default class IngenicPointsManager extends Component {
         {{/each}}
       </div>
 
-      <h3>{{i18n "admin.ingenic.points.rules_title"}}</h3>
-      <p class="ingenic-admin-form__hint">{{i18n "admin.ingenic.points.rules_hint"}}</p>
+      <h3>{{i18n "ingenic.points.rules_title"}}</h3>
+      <p class="ingenic-admin-form__hint">{{i18n "ingenic.points.rules_hint"}}</p>
 
       <div class="ingenic-admin-list">
         {{#each this.rules as |rule|}}
           <section class="ingenic-admin-list__row">
             <form class="ingenic-admin-form ingenic-points__rule" {{on "submit" (fn this.saveRule rule)}}>
               <label>
-                <span>{{i18n "admin.ingenic.points.fields.event"}}</span>
+                <span>{{i18n "ingenic.points.fields.event"}}</span>
                 <input value={{rule.event}} disabled />
               </label>
 
               <label>
-                <span>{{i18n "admin.ingenic.points.fields.label"}}</span>
+                <span>{{i18n "ingenic.points.fields.label"}}</span>
                 <input name="label" value={{rule.label}} required />
               </label>
 
               <label>
-                <span>{{i18n "admin.ingenic.points.fields.points"}}</span>
+                <span>{{i18n "ingenic.points.fields.points"}}</span>
                 <input type="number" name="points" min="0" value={{rule.points}} required />
               </label>
 
               <label>
-                <span>{{i18n "admin.ingenic.points.fields.position"}}</span>
+                <span>{{i18n "ingenic.points.fields.position"}}</span>
                 <input type="number" name="position" value={{rule.position}} />
               </label>
 
               <label class="checkbox-label">
                 <input type="checkbox" name="published" checked={{rule.published}} />
-                <span>{{i18n "admin.ingenic.points.fields.published"}}</span>
+                <span>{{i18n "ingenic.points.fields.published"}}</span>
               </label>
 
               <div class="ingenic-admin__toolbar">
                 <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-                  {{i18n "admin.ingenic.save"}}
+                  {{i18n "ingenic.save"}}
                 </button>
               </div>
             </form>
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.points.no_rules"}}</p>
+          <p>{{i18n "ingenic.points.no_rules"}}</p>
         {{/each}}
       </div>
 
-      <h3>{{i18n "admin.ingenic.points.adjust_title"}}</h3>
+      <h3>{{i18n "ingenic.points.adjust_title"}}</h3>
       <form class="ingenic-admin-form" {{on "submit" this.adjust}}>
         <label>
-          <span>{{i18n "admin.ingenic.points.fields.account"}}</span>
+          <span>{{i18n "ingenic.points.fields.account"}}</span>
           <UserChooser
             @value={{this.username}}
             @onChange={{this.pickUser}}
@@ -302,31 +302,31 @@ export default class IngenicPointsManager extends Component {
         </label>
 
         <label>
-          <span>{{i18n "admin.ingenic.points.fields.amount"}}</span>
+          <span>{{i18n "ingenic.points.fields.amount"}}</span>
           <input type="number" value={{this.amount}} {{on "input" this.setAmount}} />
         </label>
 
         <label>
-          <span>{{i18n "admin.ingenic.points.fields.note"}}</span>
+          <span>{{i18n "ingenic.points.fields.note"}}</span>
           <input value={{this.note}} {{on "input" this.setNote}} />
         </label>
 
-        <p class="ingenic-admin-form__hint">{{i18n "admin.ingenic.points.amount_hint"}}</p>
+        <p class="ingenic-admin-form__hint">{{i18n "ingenic.points.amount_hint"}}</p>
 
         <div class="ingenic-admin__toolbar">
           <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-            {{i18n "admin.ingenic.points.adjust"}}
+            {{i18n "ingenic.points.adjust"}}
           </button>
         </div>
       </form>
 
-      <h3>{{i18n "admin.ingenic.points.balances_title"}}</h3>
+      <h3>{{i18n "ingenic.points.balances_title"}}</h3>
       <table class="ingenic-admin-table">
         <thead>
           <tr>
-            <th>{{i18n "admin.ingenic.points.columns.account"}}</th>
-            <th>{{i18n "admin.ingenic.points.columns.points"}}</th>
-            <th>{{i18n "admin.ingenic.points.columns.updated_at"}}</th>
+            <th>{{i18n "ingenic.points.columns.account"}}</th>
+            <th>{{i18n "ingenic.points.columns.points"}}</th>
+            <th>{{i18n "ingenic.points.columns.updated_at"}}</th>
           </tr>
         </thead>
         <tbody>
@@ -337,23 +337,23 @@ export default class IngenicPointsManager extends Component {
               <td>{{row.updated_at}}</td>
             </tr>
           {{else}}
-            <tr><td colspan="3">{{i18n "admin.ingenic.points.no_balances"}}</td></tr>
+            <tr><td colspan="3">{{i18n "ingenic.points.no_balances"}}</td></tr>
           {{/each}}
         </tbody>
       </table>
 
-      <h3>{{i18n "admin.ingenic.points.entries_title"}}</h3>
-      <p class="ingenic-admin-form__hint">{{i18n "admin.ingenic.points.entries_hint"}}</p>
+      <h3>{{i18n "ingenic.points.entries_title"}}</h3>
+      <p class="ingenic-admin-form__hint">{{i18n "ingenic.points.entries_hint"}}</p>
 
       <table class="ingenic-admin-table">
         <thead>
           <tr>
-            <th>{{i18n "admin.ingenic.points.columns.taken_at"}}</th>
-            <th>{{i18n "admin.ingenic.points.columns.account"}}</th>
-            <th>{{i18n "admin.ingenic.points.columns.points"}}</th>
-            <th>{{i18n "admin.ingenic.points.columns.event"}}</th>
-            <th>{{i18n "admin.ingenic.points.columns.reason"}}</th>
-            <th>{{i18n "admin.ingenic.points.columns.by"}}</th>
+            <th>{{i18n "ingenic.points.columns.taken_at"}}</th>
+            <th>{{i18n "ingenic.points.columns.account"}}</th>
+            <th>{{i18n "ingenic.points.columns.points"}}</th>
+            <th>{{i18n "ingenic.points.columns.event"}}</th>
+            <th>{{i18n "ingenic.points.columns.reason"}}</th>
+            <th>{{i18n "ingenic.points.columns.by"}}</th>
           </tr>
         </thead>
         <tbody>
@@ -364,7 +364,7 @@ export default class IngenicPointsManager extends Component {
                 {{#if entry.username}}
                   {{entry.username}}
                 {{else}}
-                  {{i18n "admin.ingenic.deleted_member"}}
+                  {{i18n "ingenic.deleted_member"}}
                 {{/if}}
               </td>
               <td>{{entry.points}}</td>
@@ -373,16 +373,16 @@ export default class IngenicPointsManager extends Component {
               <td>{{entry.awarded_by}}</td>
             </tr>
           {{else}}
-            <tr><td colspan="6">{{i18n "admin.ingenic.points.no_entries"}}</td></tr>
+            <tr><td colspan="6">{{i18n "ingenic.points.no_entries"}}</td></tr>
           {{/each}}
         </tbody>
       </table>
 
-      <h3>{{i18n "admin.ingenic.points.rebuild_title"}}</h3>
-      <p class="ingenic-admin-form__hint">{{i18n "admin.ingenic.points.rebuild_hint"}}</p>
+      <h3>{{i18n "ingenic.points.rebuild_title"}}</h3>
+      <p class="ingenic-admin-form__hint">{{i18n "ingenic.points.rebuild_hint"}}</p>
       <div class="ingenic-admin__toolbar">
         <button class="btn" type="button" disabled={{this.busy}} {{on "click" this.rebuild}}>
-          {{i18n "admin.ingenic.points.rebuild"}}
+          {{i18n "ingenic.points.rebuild"}}
         </button>
       </div>
     </div>

@@ -46,7 +46,7 @@ export default {
 
       if (currentUser.admin || features.documentation || scoped.documentation) {
         entries.push({
-          label: "admin.ingenic.documentation.title",
+          label: "ingenic.documentation.title",
           route: "adminPlugins.show.documentation",
           currentWhen: "adminPlugins.show.documentation",
         });
@@ -54,7 +54,7 @@ export default {
 
       if (currentUser.admin || features.boards || scoped.boards) {
         entries.push({
-          label: "admin.ingenic.boards.title",
+          label: "ingenic.boards.title",
           route: "adminPlugins.show.boards",
           currentWhen: "adminPlugins.show.boards",
         });
@@ -63,22 +63,22 @@ export default {
       if (currentUser.admin) {
         entries.push(
           {
-            label: "admin.ingenic.permissions.title",
+            label: "ingenic.permissions.title",
             route: "adminPlugins.show.permissions",
             currentWhen: "adminPlugins.show.permissions",
           },
           {
-            label: "admin.ingenic.group_permissions.title",
+            label: "ingenic.group_permissions.title",
             route: "adminPlugins.show.group-permissions",
             currentWhen: "adminPlugins.show.group-permissions",
           },
           {
-            label: "admin.ingenic.category_permissions.title",
+            label: "ingenic.category_permissions.title",
             route: "adminPlugins.show.category-permissions",
             currentWhen: "adminPlugins.show.category-permissions",
           },
           {
-            label: "admin.ingenic.tag_colours.title",
+            label: "ingenic.tag_colours.title",
             route: "adminPlugins.show.tag-colours",
             currentWhen: "adminPlugins.show.tag-colours",
           },
@@ -87,7 +87,7 @@ export default {
 
       if (currentUser.admin || features.downloads) {
         entries.push({
-          label: "admin.ingenic.downloads.title",
+          label: "ingenic.downloads.title",
           route: "adminPlugins.show.downloads",
           currentWhen: "adminPlugins.show.downloads",
         });
@@ -95,7 +95,7 @@ export default {
 
       if (currentUser.admin || features.points) {
         entries.push({
-          label: "admin.ingenic.points.title",
+          label: "ingenic.points.title",
           route: "adminPlugins.show.points",
           currentWhen: "adminPlugins.show.points",
         });
@@ -103,7 +103,7 @@ export default {
 
       if (currentUser.admin || features.site) {
         entries.push({
-          label: "admin.ingenic.site.title",
+          label: "ingenic.site.title",
           route: "adminPlugins.show.site",
           currentWhen: "adminPlugins.show.site",
         });

@@ -19,7 +19,7 @@ class IngenicPermission < ActiveRecord::Base
   # theirs to read. Left off the list, that filter had nothing it could ever
   # match — every manager saw an empty page, and the flag distinguished a case
   # that could not arise.
-  RESOURCE_TYPES = %w[IngenicDocProduct IngenicDocPage IngenicBoard IngenicDownload].freeze
+  RESOURCE_TYPES = %w[IngenicProduct IngenicDocPage IngenicBoard IngenicDownload].freeze
   PERMISSIONS = %w[manage].freeze
 
   # What a grant is over. A product — a series or a chip — can carry all three,
@@ -32,7 +32,7 @@ class IngenicPermission < ActiveRecord::Base
   AREAS = [DOCUMENTATION, DOWNLOADS, BOARDS].freeze
 
   AREA_FOR_RESOURCE_TYPE = {
-    "IngenicDocProduct" => DOCUMENTATION,
+    "IngenicProduct" => DOCUMENTATION,
     "IngenicDocPage" => DOCUMENTATION,
     "IngenicBoard" => BOARDS,
     "IngenicDownload" => DOWNLOADS,
@@ -74,7 +74,7 @@ class IngenicPermission < ActiveRecord::Base
     return if area.blank? || resource_type.blank?
     # A product node is the one thing worth granting that is shared by all
     # three jobs; everything else names the area it belongs to.
-    return if resource_type == "IngenicDocProduct"
+    return if resource_type == "IngenicProduct"
 
     errors.add(:area, :invalid) unless AREA_FOR_RESOURCE_TYPE[resource_type] == area
   end

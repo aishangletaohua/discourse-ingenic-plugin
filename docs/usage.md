@@ -50,9 +50,11 @@ and a **floating assistant**. Both depend on features that a site administrator
 enables separately.
 
 The forum is bilingual. The interface switches between English and Chinese in
-the header, and documentation, downloads and board entries can each carry a
-language. Authentication is untouched: the sign-in methods are whichever ones
-the site has configured (email, Google, GitHub and so on).
+the header. Content is language-first: the shared product catalogue, its
+documentation, downloads and the editable site text are written and read one
+language at a time, with no cross-language fallback. Authentication is
+untouched: the sign-in methods are whichever ones the site has configured
+(email, Google, GitHub and so on).
 
 ## 2. Requirements summary
 
@@ -199,8 +201,8 @@ CW080, X2600 or G32S10 — and the series page gathers all of its chips' topics.
 Use the language menu in the header. Each language is written in its own
 language — **EN** and **中文** — so the menu is readable whichever language is
 currently active. The choice changes the interface; content such as
-documentation pages and downloads follows the same language when a translation
-exists, and falls back to the site's default content language otherwise.
+documentation pages and downloads follows the same language. Each language has
+its own catalogue rows, so a translation is written rather than fallen back to.
 
 ## 5. Online documentation
 
@@ -765,7 +767,6 @@ The settings that matter most are under **Admin → Settings** (search for
 | `ingenic_enabled` | Master switch for the extension |
 | `ingenic_nav_items` | JSON list of sidebar entries: label, icon, target, group, order, visibility |
 | `ingenic_homepage_blocks` | JSON list of home-page blocks (the Site content screen edits the same list) |
-| `ingenic_default_locale` | Content language used when a translation is missing |
 | `ingenic_docs_discussion_category` | Category used by "Discuss in forum" when a page has no linked topic |
 | `ingenic_download_storage_path` | Where uploaded files are stored; must be outside `public/` |
 | `ingenic_download_admin_email` | Address notified when an application is submitted |
@@ -819,11 +820,20 @@ colour scheme, editable with Discourse's normal colour pickers.
 
 ### 11.11 Content languages
 
-Every documentation page, download and board row carries a locale. Use
-Discourse's own codes — `en`, `zh_CN` — because they are compared with the
-reader's interface language. `zh-CN` is not the same code and will not match.
-Missing translations fall back to `ingenic_default_locale` per record, so a
-half-translated site still renders.
+The languages offered in the management screens are the site's own: its
+`default_locale`, plus every language in
+`content_localization_supported_locales` when content localisation is on.
+Content is filed under those exact codes — `en`, `zh_CN` — because they are
+compared with the reader's interface language; `zh-CN` is not the same code and
+will not match.
+
+Pick a language at the top of a management screen before creating anything.
+Products, versions, pages, boards, downloads, categories and site content
+created while it is selected belong to that language. The other language is
+built by switching the selector and creating its own rows; there is no
+per-record language field and no cross-language fallback. A Chinese reader sees
+the Chinese catalogue, and a product nobody has translated yet is simply absent
+from it.
 
 The theme's interface strings live in `locales/en.yml` and `locales/zh_CN.yml`;
 adding another language means adding a file with the same keys. The header
@@ -856,7 +866,7 @@ switcher only offers languages listed in `ingenic_locales`.
 | A page is missing from the reader | It is unpublished, or its parent is unpublished | Publish it in Admin → Documentation |
 | Uploads fail | The download storage directory is not writable | Point `ingenic_download_storage_path` at a writable volume outside `public/` |
 | The home page looks empty | The extension or theme is disabled, or no blocks are configured | Check `ingenic_enabled`, the default homepage setting and Site content → Home page |
-| Content appears in the wrong language | The row's locale code does not match the reader's locale | Use `en` or `zh_CN`; check `ingenic_default_locale` |
+| Content appears in the wrong language | The row was created under another language | Switch the language selector in the management screen and create the row there |
 
 ## 13. Repository and support
 

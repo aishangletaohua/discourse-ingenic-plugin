@@ -52,7 +52,6 @@ module Ingenic
         slug: available_slug(filename, title),
         title: title,
         body: body,
-        locale: @version.locale.presence || "en",
         published: true,
         position: next_position,
       )
@@ -94,7 +93,7 @@ module Ingenic
 
       candidate = base
       suffix = 2
-      while IngenicDocPage.exists?(version_id: version.id, locale: version.locale.presence || "en", slug: candidate)
+      while IngenicDocPage.exists?(version_id: version.id, slug: candidate)
         candidate = "#{base}-#{suffix}"
         suffix += 1
       end

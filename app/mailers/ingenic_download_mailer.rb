@@ -20,7 +20,7 @@ class IngenicDownloadMailer < ActionMailer::Base
       applicant_username: request.user.username,
       applicant_name: request.user.name.presence || request.user.username,
       resource_name: request.download.name,
-      resource_product: request.download.product_slug,
+      resource_product: request.download.product&.name,
       resource_version: request.download.version,
       applicant_message: request.message,
       profile_summary: profile_summary(request.user),

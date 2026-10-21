@@ -5,8 +5,8 @@ import { i18n } from "discourse-i18n";
 const GroupPermissions = <template>
   <div class="admin-detail">
     <DPageSubheader
-      @titleLabel={{i18n "admin.ingenic.group_permissions.title"}}
-      @descriptionLabel={{i18n "admin.ingenic.group_permissions.description"}}
+      @titleLabel={{i18n "ingenic.group_permissions.title"}}
+      @descriptionLabel={{i18n "ingenic.group_permissions.description"}}
     />
     <IngenicGroupPermissionMatrix
       @groups={{@model.groups}}

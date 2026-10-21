@@ -2,9 +2,8 @@ import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
-import { service } from "@ember/service";
 import { fn } from "@ember/helper";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import { i18n } from "discourse-i18n";
 
 const ENDPOINT = "/admin/plugins/discourse-ingenic/promotions";
@@ -20,7 +19,6 @@ const BLANK = {
   button_href: "",
   button_external: false,
   image_url: "",
-  locale: "",
   starts_at: "",
   ends_at: "",
   position: 0,
@@ -36,15 +34,6 @@ const BLANK = {
  * a fourth is added, or one taken down, without a deploy.
  */
 export default class IngenicPromotionManager extends Component {
-  @service siteSettings;
-
-  // A new row is filed in the language this site serves rather than in
-  // English: a row under a locale no reader's interface uses is a row nobody
-  // finds, and nothing reports the mistake.
-  get defaultLocale() {
-    return this.siteSettings.ingenic_default_locale || "";
-  }
-
   @tracked records = this.args.promotions ?? [];
   @tracked draft = null;
   @tracked busy = false;
@@ -53,7 +42,7 @@ export default class IngenicPromotionManager extends Component {
 
   @action
   startNew() {
-    this.draft = { ...BLANK, locale: this.defaultLocale };
+    this.draft = { ...BLANK };
     this.message = null;
     this.error = null;
   }
@@ -125,7 +114,7 @@ export default class IngenicPromotionManager extends Component {
         ? this.records.map((record) => (record.id === saved.id ? saved : record))
         : [...this.records, saved];
       this.draft = null;
-      this.message = i18n("admin.ingenic.saved");
+      this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     } finally {
@@ -148,7 +137,7 @@ export default class IngenicPromotionManager extends Component {
 
   #errorMessage(failure) {
     const errors = failure?.jqXHR?.responseJSON?.errors;
-    return errors?.join(", ") || i18n("admin.ingenic.save_failed");
+    return errors?.join(", ") || i18n("ingenic.save_failed");
   }
 
   <template>
@@ -158,7 +147,7 @@ export default class IngenicPromotionManager extends Component {
 
       <div class="ingenic-admin__toolbar">
         <button class="btn btn-primary" type="button" {{on "click" this.startNew}}>
-          {{i18n "admin.ingenic.promotions.add"}}
+          {{i18n "ingenic.promotions.add"}}
         </button>
       </div>
 
@@ -166,86 +155,81 @@ export default class IngenicPromotionManager extends Component {
         <form class="ingenic-admin-form" {{on "submit" this.save}} {{on "input" this.field}}>
           <h3>
             {{#if this.draft.id}}
-              {{i18n "admin.ingenic.promotions.edit_title"}}
+              {{i18n "ingenic.promotions.edit_title"}}
             {{else}}
-              {{i18n "admin.ingenic.promotions.new_title"}}
+              {{i18n "ingenic.promotions.new_title"}}
             {{/if}}
           </h3>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.title"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.title"}}</span>
             <input name="title" value={{this.draft.title}} required />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.corner_label"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.corner_label"}}</span>
             <input name="corner_label" value={{this.draft.corner_label}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.description"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.description"}}</span>
             <textarea name="description">{{this.draft.description}}</textarea>
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.button_label"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.button_label"}}</span>
             <input name="button_label" value={{this.draft.button_label}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.button_href"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.button_href"}}</span>
             <input name="button_href" value={{this.draft.button_href}} />
           </label>
 
           <label class="checkbox-label">
             <input type="checkbox" name="button_external" checked={{this.draft.button_external}} />
-            <span>{{i18n "admin.ingenic.promotions.fields.button_external"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.button_external"}}</span>
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.image_url"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.image_url"}}</span>
             <input name="image_url" value={{this.draft.image_url}} />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.promotions.fields.image_hint"}}
+            {{i18n "ingenic.promotions.fields.image_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.locale"}}</span>
-            <input name="locale" value={{this.draft.locale}} />
-          </label>
-
-          <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.starts_at"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.starts_at"}}</span>
             <input type="datetime-local" name="starts_at" value={{this.draft.starts_at}} />
           </label>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.ends_at"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.ends_at"}}</span>
             <input type="datetime-local" name="ends_at" value={{this.draft.ends_at}} />
           </label>
 
           <p class="ingenic-admin-form__hint">
-            {{i18n "admin.ingenic.promotions.fields.window_hint"}}
+            {{i18n "ingenic.promotions.fields.window_hint"}}
           </p>
 
           <label>
-            <span>{{i18n "admin.ingenic.promotions.fields.position"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.position"}}</span>
             <input type="number" name="position" value={{this.draft.position}} />
           </label>
 
           <label class="checkbox-label">
             <input type="checkbox" name="published" checked={{this.draft.published}} />
-            <span>{{i18n "admin.ingenic.promotions.fields.published"}}</span>
+            <span>{{i18n "ingenic.promotions.fields.published"}}</span>
           </label>
 
           <div class="ingenic-admin__toolbar">
             <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
-              {{i18n "admin.ingenic.save"}}
+              {{i18n "ingenic.save"}}
             </button>
             <button class="btn" type="button" {{on "click" this.cancel}}>
-              {{i18n "admin.ingenic.cancel"}}
+              {{i18n "ingenic.cancel"}}
             </button>
           </div>
         </form>
@@ -263,30 +247,30 @@ export default class IngenicPromotionManager extends Component {
               </div>
               <div class="ingenic-admin-list__meta">
                 {{#if record.live}}
-                  {{i18n "admin.ingenic.promotions.live"}}
+                  {{i18n "ingenic.promotions.live"}}
                 {{else}}
-                  {{i18n "admin.ingenic.promotions.not_live"}}
+                  {{i18n "ingenic.promotions.not_live"}}
                 {{/if}}
                 {{#unless record.published}}
-                  · {{i18n "admin.ingenic.promotions.unpublished"}}
+                  · {{i18n "ingenic.promotions.unpublished"}}
                 {{/unless}}
               </div>
             </div>
             <div class="ingenic-admin__toolbar">
               <button class="btn" type="button" {{on "click" (fn this.edit record)}}>
-                {{i18n "admin.ingenic.edit"}}
+                {{i18n "ingenic.edit"}}
               </button>
               <button
                 class="btn btn-danger"
                 type="button"
                 {{on "click" (fn this.remove record)}}
               >
-                {{i18n "admin.ingenic.delete"}}
+                {{i18n "ingenic.delete"}}
               </button>
             </div>
           </section>
         {{else}}
-          <p>{{i18n "admin.ingenic.promotions.empty"}}</p>
+          <p>{{i18n "ingenic.promotions.empty"}}</p>
         {{/each}}
       </div>
     </div>

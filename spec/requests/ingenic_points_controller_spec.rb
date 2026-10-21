@@ -112,10 +112,10 @@ describe IngenicPointsController do
     end
 
     it "is out of reach for a scoped content manager" do
-      product = IngenicDocProduct.create!(slug: "t33", name: "T33", locale: "en")
+      product = IngenicProduct.create!(slug: "t33", name: "T33", locale: "en")
       IngenicPermission.create!(
         user: user,
-        resource_type: "IngenicDocProduct",
+        resource_type: "IngenicProduct",
         resource_id: product.id,
         permission: "manage",
       )

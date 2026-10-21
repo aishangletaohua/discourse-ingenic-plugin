@@ -114,13 +114,13 @@ class IngenicDocsController < ::ApplicationController
   # The selector's data. Sent with every documentation response so switching
   # series or chip does not need a second round trip.
   def series_list
-    in_reading_locale(IngenicDocProduct.series.published.ordered).map do |series|
+    IngenicProduct.series.published.where(locale: locale).ordered.map do |series|
       {
         id: series.id,
         slug: series.slug,
         name: series.name,
         chips:
-          in_reading_locale(series.children.published.ordered).map do |chip|
+          series.children.published.where(locale: locale).ordered.map do |chip|
             { id: chip.id, slug: chip.slug, name: chip.name }
           end,
       }
@@ -165,18 +165,14 @@ class IngenicDocsController < ::ApplicationController
     fragment
   end
 
-  # A version carries no `published` flag, so the selector lists the ones in
-  # the reader's language: what a reader may see is decided page by page, and
-  # the version that is empty because nobody has written it yet shows the pages
-  # it inherited. Versions in another language are a different manual — their
-  # slugs can repeat and "latest" is flagged once per language — so mixing them
-  # makes the dropdown, the default version and `latest` ambiguous.
+  # A version carries no `published` flag, so the selector lists every version
+  # the product has: what a reader may see is decided page by page, and the
+  # version that is empty because nobody has written it yet shows the pages it
+  # inherited.
   def available_versions(chip)
     return [] if chip.nil?
 
-    versions_in_reading_locale(chip).map do |record|
-      IngenicVersionSerializer.new(record, root: false)
-    end
+    chip.versions.ordered.map { |record| IngenicVersionSerializer.new(record, root: false) }
   end
 
   # Read from the path segments on `show`, and from query parameters on
@@ -211,39 +207,33 @@ class IngenicDocsController < ::ApplicationController
   # /ingenic/docs on it showed an empty page with no version dropdown — the
   # reader then concluded the documentation was broken rather than unwritten.
   def find_series
-    scope = IngenicDocProduct.series.published.ordered
+    scope = IngenicProduct.series.published.where(locale: locale).ordered
 
-    if series_slug.present?
-      return in_reading_locale(scope.where(slug: series_slug)).first
-    end
+    return scope.find_by(slug: series_slug) if series_slug.present?
 
-    candidates = in_reading_locale(scope)
+    candidates = scope.to_a
     candidates.find { |series| series_documented?(series) } || candidates.first
   end
 
   def find_chip(series)
-    scope = series.children.published.ordered
+    scope = series.children.published.where(locale: locale).ordered
 
-    if chip_slug.present?
-      return in_reading_locale(scope.where(slug: chip_slug)).first
-    end
+    return scope.find_by(slug: chip_slug) if chip_slug.present?
 
-    chips = in_reading_locale(scope)
+    chips = scope.to_a
     chips.find { |chip| chip.versions.exists? } || chips.first
   end
 
   # A chip with no versions is a chip nobody has written about yet.
   def series_documented?(series)
-    in_reading_locale(series.children.published.ordered).any? do |chip|
-      chip.versions.exists?
-    end
+    series.children.published.where(locale: locale).any? { |chip| chip.versions.exists? }
   end
 
-  # Versions hang off a chip row and are themselves filed under a language, so
-  # the lookup starts from the reader's manual. An explicit `latest` is an alias
-  # for the version flagged latest in that language, not a slug of its own.
+  # An explicit `latest` is an alias for the version flagged latest, not a slug
+  # of its own. The version list belongs to one product, and a product is one
+  # language's manual, so there is no other language to fall back to.
   def find_version(chip)
-    versions = versions_in_reading_locale(chip)
+    versions = chip.versions.ordered
 
     if version_slug.blank? || version_slug == "latest"
       return versions.find(&:latest) || versions.first
@@ -253,55 +243,17 @@ class IngenicDocsController < ::ApplicationController
     # or not is decided per page — an unpublished version is one whose pages a
     # reader cannot see — so a version that exists is one a reader can open, and
     # asking for one that does not exist is the 404 below.
-    #
-    # A link written for another language still opens instead of 404ing: the
-    # page list goes through the usual language fallback. Only the selector and
-    # the bare `latest` are decided by the reader's language.
-    versions.find { |version| version.slug == version_slug } ||
-      chip.versions.find_by(slug: version_slug)
+    versions.find_by(slug: version_slug)
   end
 
-  # The versions of the manual this reader is reading. The reader's language
-  # wins; a chip written only in the site's documentation language falls back to
-  # that. Rows that predate the locale column, or a chip filed under neither,
-  # still list something rather than turning the documentation blank.
-  def versions_in_reading_locale(chip)
-    rows = chip.versions.ordered.to_a
-    preferred = rows.select { |version| version.locale.to_s == locale }
-    return preferred if preferred.any?
-
-    fallback = rows.select { |version| version.locale.to_s == default_locale }
-    fallback.any? ? fallback : rows
-  end
-
-  # The version already resolves the reading language per slug, so matching the
-  # slug is all that is left.
   def find_page(version)
     return if page_slug.blank?
 
     version.find_readable_page(page_slug)
   end
 
-  # The visitor's language wins over the site default. The two locales are
-  # queried separately on purpose: `where(locale: [a, b]).first` returns
-  # whichever row the database happens to hand back first, and which page a URL
-  # opens should not depend on that.
-  #
-  # Returns rows rather than a relation — the fallback is decided by whether the
-  # first query found anything, which a relation cannot express.
-  def in_reading_locale(scope)
-    rows = scope.where(locale: locale).to_a
-    return rows if rows.any? || locale == default_locale
-
-    scope.where(locale: default_locale).to_a
-  end
-
   def locale
-    @locale ||= I18n.locale.to_s
-  end
-
-  def default_locale
-    SiteSetting.ingenic_default_locale
+    @locale ||= Ingenic::Locales.reading
   end
 
   def render_not_found(key)

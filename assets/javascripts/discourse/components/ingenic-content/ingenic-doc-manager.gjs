@@ -5,7 +5,7 @@ import { fn } from "@ember/helper";
 import { tracked } from "@glimmer/tracking";
 import didInsert from "@ember/render-modifiers/modifiers/did-insert";
 import { eq } from "discourse/truth-helpers";
-import { ajax } from "discourse/lib/ajax";
+import { ajax } from "../../lib/ingenic-content-api";
 import { i18n } from "discourse-i18n";
 import IngenicDocPageForm from "./ingenic-doc-page-form";
 import IngenicDocPageTree from "./ingenic-doc-page-tree";
@@ -15,24 +15,21 @@ const BASE = "/admin/plugins/discourse-ingenic";
 /**
  * Authoring workbench for the documentation tree.
  *
- * The shape is series -> chip -> version -> pages, with a language that picks
- * which manual of that chip is being written. The four filters are chosen once,
- * at the top; language sits last in the bar but still narrows the version list,
- * because a chip plus a language names one manual. The left pane is always the
- * page tree of the chosen version, and the right pane is always the editor of
- * the selected row. Series, chips and versions are changed in a drawer so that
- * the two columns stay reserved for the two things an editor does all day:
- * find a page, write it.
+ * The shape is series -> chip -> version -> pages. The language is chosen once,
+ * above this screen, and everything here belongs to it: the series list, the
+ * chips, their versions and their pages. A Chinese manual is not a translation
+ * view of the English one — it is other rows — so the two are never mixed in
+ * one list.
+ *
+ * The left pane is always the page tree of the chosen version, and the right
+ * pane is always the editor of the selected row. Series, chips and versions are
+ * changed in a drawer so that the two columns stay reserved for the two things
+ * an editor does all day: find a page, write it.
  */
 export default class IngenicDocManager extends Component {
   @tracked series = this.args.series;
   @tracked selectedSeriesId = null;
   @tracked selectedChipId = null;
-  // A chip's documentation is located by language before version: the same
-  // chip can carry an English and a Chinese manual, and their release lists
-  // are independent. The picker is mandatory, so there is always one language
-  // in effect and the version list never mixes two of them.
-  @tracked selectedLocale = null;
   @tracked selectedVersionId = null;
   @tracked pages = [];
   @tracked selectedPageSlug = null;
@@ -51,10 +48,9 @@ export default class IngenicDocManager extends Component {
   treeApi = null;
 
   // The first series/chip/version is picked after the first paint rather than
-  // in the constructor: `selectChip` reads `selectedLocale` to decide the next
-  // one and then writes it back, and doing that while the component is still
-  // being rendered is a read followed by a write in the same computation —
-  // which Glimmer refuses, aborting the whole screen.
+  // in the constructor: selecting a chip loads its tree, and doing that while
+  // the component is still being rendered is a read followed by a write in the
+  // same computation — which Glimmer refuses, aborting the whole screen.
   @action
   startUp() {
     if (this.selectedSeriesId === null) {
@@ -75,39 +71,7 @@ export default class IngenicDocManager extends Component {
   }
 
   get versions() {
-    return (this.selectedChip?.versions ?? []).filter(
-      (version) => this.#localeOf(version) === this.selectedLocale
-    );
-  }
-
-  // The languages this chip actually has versions in. When it has none yet,
-  // the site's documentation default still appears, so the mandatory picker is
-  // never empty.
-  get languageOptions() {
-    const values = [
-      ...new Set((this.selectedChip?.versions ?? []).map((version) => this.#localeOf(version))),
-    ].filter(Boolean);
-
-    // The language being shown stays in the picker while it has no version, or
-    // deleting the last one would silently switch the workbench elsewhere.
-    if (this.selectedLocale && !values.includes(this.selectedLocale)) {
-      values.push(this.selectedLocale);
-    }
-
-    if (values.length === 0) {
-      const fallback = this.selectedChip?.locale || this.args.defaultLocale;
-
-      if (!fallback) {
-        return [];
-      }
-
-      values.push(fallback);
-    }
-
-    return values.map((value) => ({
-      value,
-      name: (this.args.locales ?? []).find((locale) => locale.value === value)?.name ?? value,
-    }));
+    return this.selectedChip?.versions ?? [];
   }
 
   get selectedVersion() {
@@ -140,37 +104,8 @@ export default class IngenicDocManager extends Component {
     }
 
     return i18n(
-      `admin.ingenic.documentation.workbench.${this.drawer.action}_${this.drawer.kind}`
+      `ingenic.documentation.workbench.${this.drawer.action}_${this.drawer.kind}`
     );
-  }
-
-  // The language a drawer's form starts on. Creating a version starts in the
-  // language the workbench is showing — a new release of the same manual is
-  // the common case — while editing uses the row's own value.
-  get drawerLocale() {
-    return this.drawer?.record?.locale ?? this.selectedLocale;
-  }
-
-  // The site's served languages, plus the row's own value when it is not one
-  // of them: a row filed under "en" on a Chinese site has to show "en" in the
-  // picker, or saving any other field would silently move it to the first
-  // option and take it off the reader's screen.
-  localeOptions(current) {
-    const options = this.args.locales ?? [];
-
-    if (current && !options.some((option) => option.value === current)) {
-      return [{ value: current, name: current }, ...options];
-    }
-
-    return options;
-  }
-
-  // The drawer's picker asks for one fixed list, so it is a getter rather than
-  // a method call with an argument in the template: Glimmer invokes such calls
-  // without `this`, and a method that reads `this.args` would throw and render
-  // an empty select.
-  get drawerLanguageOptions() {
-    return this.localeOptions(this.drawerLocale);
   }
 
   #selectFirst() {
@@ -189,32 +124,6 @@ export default class IngenicDocManager extends Component {
     }
   }
 
-  // Rows written before the language default was fixed may have no locale at
-  // all. The documentation default is the language they were meant for.
-  #localeOf(version) {
-    return version.locale || this.args.defaultLocale || "";
-  }
-
-  // The language kept across chip switches when the new chip has it, the site
-  // default next, and the chip's first language otherwise. Never blank.
-  #localeFor(chip) {
-    const locales = (chip.versions ?? [])
-      .map((version) => this.#localeOf(version))
-      .filter(Boolean);
-
-    if (this.selectedLocale && locales.includes(this.selectedLocale)) {
-      return this.selectedLocale;
-    }
-
-    if (this.args.defaultLocale && locales.includes(this.args.defaultLocale)) {
-      return this.args.defaultLocale;
-    }
-
-    // A chip with no versions yet still has a language of its own; start there
-    // so the first version is filed where the chip says it belongs.
-    return locales[0] ?? chip.locale ?? this.args.defaultLocale ?? null;
-  }
-
   #preferredVersion() {
     return this.versions.find((version) => version.latest) ?? this.versions[0] ?? null;
   }
@@ -230,7 +139,6 @@ export default class IngenicDocManager extends Component {
     const id = Number(event.target.value);
     this.selectedSeriesId = id || null;
     this.selectedChipId = null;
-    this.selectedLocale = null;
     this.selectedVersionId = null;
     this.selectedPageSlug = null;
     this.pages = [];
@@ -255,32 +163,6 @@ export default class IngenicDocManager extends Component {
   @action
   async selectChip(chip) {
     this.selectedChipId = chip.id;
-    this.selectedLocale = this.#localeFor(chip);
-    this.selectedVersionId = null;
-    this.selectedPageSlug = null;
-    this.pages = [];
-    this.importMessage = null;
-
-    const version = this.#preferredVersion();
-
-    if (version) {
-      await this.selectVersion(version);
-    }
-  }
-
-  // Language sits last in the bar, but changing it still selects that
-  // language's latest version. A version list mixing two languages would make
-  // "latest" and the position arrows ambiguous — releasing the English v2 must
-  // not renumber the Chinese manual.
-  @action
-  async selectLanguageById(event) {
-    const locale = event.target.value;
-
-    if (!locale || locale === this.selectedLocale) {
-      return;
-    }
-
-    this.selectedLocale = locale;
     this.selectedVersionId = null;
     this.selectedPageSlug = null;
     this.pages = [];
@@ -320,16 +202,14 @@ export default class IngenicDocManager extends Component {
     this.error = null;
 
     try {
-      // The server resolves the tree in the language it is told, which is the
-      // one picked at the top of this screen — not the admin's UI language.
-      const locale = this.selectedLocale;
-      const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+      // The language travels with every request from the screen's selector;
+      // the tree is resolved in it by the server.
       const payload = await ajax(
-        `${BASE}/documentation/versions/${this.selectedVersionId}/tree${query}`
+        `${BASE}/documentation/versions/${this.selectedVersionId}/tree`
       );
       this.pages = payload.pages;
     } catch {
-      this.error = i18n("admin.ingenic.save_failed");
+      this.error = i18n("ingenic.save_failed");
     } finally {
       this.busy = false;
     }
@@ -387,7 +267,6 @@ export default class IngenicDocManager extends Component {
           slug: this.#slugFor(name),
           kind,
           parent_id: parent?.id ?? null,
-          locale: this.selectedLocale,
           published: true,
           body: kind === "folder" ? null : "",
           version_id: this.selectedVersionId,
@@ -441,7 +320,7 @@ export default class IngenicDocManager extends Component {
 
     const response = await ajax(
       `${BASE}/documentation/versions/${this.selectedVersionId}/pages/${page.slug}/override`,
-      { type: "POST", data: { locale: this.selectedLocale } }
+      { type: "POST" }
     );
 
     return response?.page ?? page;
@@ -481,7 +360,7 @@ export default class IngenicDocManager extends Component {
         }
       );
 
-      this.importMessage = i18n("admin.ingenic.documentation.imported", {
+      this.importMessage = i18n("ingenic.documentation.imported", {
         count: response.imported?.length ?? 0,
       });
 
@@ -635,7 +514,7 @@ export default class IngenicDocManager extends Component {
 
   @action
   async destroyPage(page) {
-    if (!window.confirm(i18n("admin.ingenic.documentation.delete_page_confirm"))) {
+    if (!window.confirm(i18n("ingenic.documentation.delete_page_confirm"))) {
       return;
     }
 
@@ -737,25 +616,12 @@ export default class IngenicDocManager extends Component {
         data: {
           label: values.label?.trim(),
           slug: values.slug?.trim(),
-          locale: values.locale,
           // An empty date input is "no date", not the epoch.
           released_on: values.released_on || null,
           deprecated: form.elements.deprecated.checked,
         },
       });
       await this.reload();
-
-      // A version moved to another language leaves the current picker, so the
-      // picker follows it rather than emptying the workbench.
-      if (version.id === this.selectedVersionId) {
-        const updated = (this.selectedChip?.versions ?? []).find(
-          (entry) => entry.id === version.id
-        );
-
-        if (updated) {
-          this.selectedLocale = this.#localeOf(updated);
-        }
-      }
     } catch (error) {
       this.error = this.#errorMessage(error);
     } finally {
@@ -765,7 +631,7 @@ export default class IngenicDocManager extends Component {
 
   @action
   async destroyVersion(version) {
-    if (!window.confirm(i18n("admin.ingenic.documentation.delete_version_confirm"))) {
+    if (!window.confirm(i18n("ingenic.documentation.delete_version_confirm"))) {
       return;
     }
 
@@ -808,7 +674,6 @@ export default class IngenicDocManager extends Component {
         data: {
           name: values.name?.trim(),
           slug: values.slug?.trim(),
-          locale: values.locale,
           published: form.elements.published.checked,
         },
       });
@@ -862,7 +727,7 @@ export default class IngenicDocManager extends Component {
 
   @action
   async destroyProduct(record) {
-    if (!window.confirm(i18n("admin.ingenic.documentation.delete_confirm"))) {
+    if (!window.confirm(i18n("ingenic.documentation.delete_confirm"))) {
       return;
     }
 
@@ -918,17 +783,12 @@ export default class IngenicDocManager extends Component {
         const response = await this.#createRecord("documentation/versions", {
           label: values.label?.trim(),
           slug: values.slug?.trim(),
-          locale: values.locale,
           released_on: values.released_on || null,
           deprecated: form.elements.deprecated?.checked ?? false,
           product_id: this.selectedChipId,
         });
 
         if (response?.version) {
-          // The new version decides which language the workbench shows: the
-          // drawer just said so, and the version would otherwise be hidden by
-          // the current filter.
-          this.selectedLocale = this.#localeOf(response.version);
           this.selectedVersionId = response.version.id;
           await this.loadTree();
         }
@@ -939,7 +799,6 @@ export default class IngenicDocManager extends Component {
       const response = await this.#createRecord("documentation/products", {
         name: values.name?.trim(),
         slug: values.slug?.trim(),
-        locale: values.locale,
         published: form.elements.published?.checked ?? true,
         kind,
         parent_id: kind === "chip" ? this.selectedSeriesId : null,
@@ -949,7 +808,6 @@ export default class IngenicDocManager extends Component {
         if (kind === "series") {
           this.selectedSeriesId = response.product.id;
           this.selectedChipId = null;
-          this.selectedLocale = null;
           this.selectedVersionId = null;
           this.selectedPageSlug = null;
           this.pages = [];
@@ -997,7 +855,7 @@ export default class IngenicDocManager extends Component {
   }
 
   #errorMessage(error) {
-    return error.jqXHR?.responseJSON?.errors?.join(", ") || i18n("admin.ingenic.save_failed");
+    return error.jqXHR?.responseJSON?.errors?.join(", ") || i18n("ingenic.save_failed");
   }
 
   <template>
@@ -1008,7 +866,7 @@ export default class IngenicDocManager extends Component {
     <div class="ingenic-doc-workbench" {{didInsert this.startUp}}>
       <header class="ingenic-doc-workbench__bar">
         <div class="ingenic-doc-workbench__field">
-          <span>{{i18n "admin.ingenic.documentation.workbench.series"}}</span>
+          <span>{{i18n "ingenic.documentation.workbench.series"}}</span>
           <select {{on "change" this.selectSeries}} disabled={{this.noSeries}}>
             {{#each this.series as |entry|}}
               <option value={{entry.id}} selected={{eq entry.id this.selectedSeriesId}}>
@@ -1020,13 +878,13 @@ export default class IngenicDocManager extends Component {
         <button
           type="button"
           class="ingenic-doc-workbench__icon"
-          title={{i18n "admin.ingenic.documentation.workbench.new_series"}}
+          title={{i18n "ingenic.documentation.workbench.new_series"}}
           {{on "click" (fn this.openDrawer "series" "create")}}
         >＋</button>
         <button
           type="button"
           class="ingenic-doc-workbench__icon"
-          title={{i18n "admin.ingenic.documentation.workbench.edit_series"}}
+          title={{i18n "ingenic.documentation.workbench.edit_series"}}
           disabled={{this.noSelectedSeries}}
           {{on "click" (fn this.openDrawer "series" "edit" this.selectedSeries)}}
         >⚙</button>
@@ -1034,7 +892,7 @@ export default class IngenicDocManager extends Component {
         <span class="ingenic-doc-workbench__sep">/</span>
 
         <div class="ingenic-doc-workbench__field">
-          <span>{{i18n "admin.ingenic.documentation.workbench.chip"}}</span>
+          <span>{{i18n "ingenic.documentation.workbench.chip"}}</span>
           <select {{on "change" this.selectChipById}} disabled={{this.noSelectedSeries}}>
             {{#each this.chips as |chip|}}
               <option value={{chip.id}} selected={{eq chip.id this.selectedChipId}}>
@@ -1046,14 +904,14 @@ export default class IngenicDocManager extends Component {
         <button
           type="button"
           class="ingenic-doc-workbench__icon"
-          title={{i18n "admin.ingenic.documentation.workbench.new_chip"}}
+          title={{i18n "ingenic.documentation.workbench.new_chip"}}
           disabled={{this.noSelectedSeries}}
           {{on "click" (fn this.openDrawer "chip" "create")}}
         >＋</button>
         <button
           type="button"
           class="ingenic-doc-workbench__icon"
-          title={{i18n "admin.ingenic.documentation.workbench.edit_chip"}}
+          title={{i18n "ingenic.documentation.workbench.edit_chip"}}
           disabled={{this.noSelectedChip}}
           {{on "click" (fn this.openDrawer "chip" "edit" this.selectedChip)}}
         >⚙</button>
@@ -1061,11 +919,11 @@ export default class IngenicDocManager extends Component {
         <span class="ingenic-doc-workbench__sep">/</span>
 
         <div class="ingenic-doc-workbench__field">
-          <span>{{i18n "admin.ingenic.documentation.workbench.version"}}</span>
+          <span>{{i18n "ingenic.documentation.workbench.version"}}</span>
           <select {{on "change" this.selectVersionById}} disabled={{this.noSelectedChip}}>
             {{#each this.versions as |version|}}
               <option value={{version.id}} selected={{eq version.id this.selectedVersionId}}>
-                {{version.label}}{{#if version.latest}} · {{i18n "admin.ingenic.documentation.latest"}}{{/if}}
+                {{version.label}}{{#if version.latest}} · {{i18n "ingenic.documentation.latest"}}{{/if}}
               </option>
             {{/each}}
           </select>
@@ -1073,39 +931,17 @@ export default class IngenicDocManager extends Component {
         <button
           type="button"
           class="ingenic-doc-workbench__icon"
-          title={{i18n "admin.ingenic.documentation.workbench.new_version"}}
+          title={{i18n "ingenic.documentation.workbench.new_version"}}
           disabled={{this.noSelectedChip}}
           {{on "click" (fn this.openDrawer "version" "create")}}
         >＋</button>
         <button
           type="button"
           class="ingenic-doc-workbench__icon"
-          title={{i18n "admin.ingenic.documentation.workbench.edit_version"}}
+          title={{i18n "ingenic.documentation.workbench.edit_version"}}
           disabled={{this.noSelectedVersion}}
           {{on "click" (fn this.openDrawer "version" "edit" this.selectedVersion)}}
         >⚙</button>
-
-        <span class="ingenic-doc-workbench__sep">/</span>
-
-        {{! Language sits at the end of the bar but is still mandatory: a chip
-            plus a language names one manual, and it narrows the version list.
-            It has no + of its own — a language appears the moment a version is
-            created in it, and that happens in the version drawer. }}
-        <div class="ingenic-doc-workbench__field">
-          <span>{{i18n "admin.ingenic.documentation.workbench.language"}}</span>
-          <select
-            class="ingenic-doc-workbench__language"
-            {{on "change" this.selectLanguageById}}
-            disabled={{this.noSelectedChip}}
-            required
-          >
-            {{#each this.languageOptions as |locale|}}
-              <option value={{locale.value}} selected={{eq locale.value this.selectedLocale}}>
-                {{locale.name}}
-              </option>
-            {{/each}}
-          </select>
-        </div>
 
         <span class="ingenic-doc-workbench__spacer"></span>
 
@@ -1117,7 +953,7 @@ export default class IngenicDocManager extends Component {
               disabled={{this.busy}}
               {{on "change" this.toggleLatest}}
             />
-            <span>{{i18n "admin.ingenic.documentation.latest"}}</span>
+            <span>{{i18n "ingenic.documentation.latest"}}</span>
           </label>
         {{/if}}
       </header>
@@ -1125,11 +961,11 @@ export default class IngenicDocManager extends Component {
       <div class="ingenic-doc-workbench__body">
         <aside class="ingenic-doc-workbench__tree">
           <div class="ingenic-doc-workbench__tree-head">
-            <h3>{{i18n "admin.ingenic.documentation.workbench.tree"}}</h3>
+            <h3>{{i18n "ingenic.documentation.workbench.tree"}}</h3>
             <button
               type="button"
               class="ingenic-doc-workbench__icon"
-              title={{i18n "admin.ingenic.documentation.workbench.new_entry"}}
+              title={{i18n "ingenic.documentation.workbench.new_entry"}}
               disabled={{this.noSelectedVersion}}
               {{on "click" this.toggleTopAdd}}
             >＋</button>
@@ -1137,10 +973,10 @@ export default class IngenicDocManager extends Component {
             {{#if this.topAddMenu}}
               <span class="ingenic-admin-tree__add-menu">
                 <button type="button" {{on "click" (fn this.addFromTop "page")}}>
-                  📄 {{i18n "admin.ingenic.documentation.workbench.new_article"}}
+                  📄 {{i18n "ingenic.documentation.workbench.new_article"}}
                 </button>
                 <button type="button" {{on "click" (fn this.addFromTop "folder")}}>
-                  📁 {{i18n "admin.ingenic.documentation.workbench.new_folder"}}
+                  📁 {{i18n "ingenic.documentation.workbench.new_folder"}}
                 </button>
               </span>
             {{/if}}
@@ -1158,7 +994,7 @@ export default class IngenicDocManager extends Component {
             />
           {{else}}
             <p class="ingenic-admin-tree__empty">
-              {{i18n "admin.ingenic.documentation.workbench.pick_version"}}
+              {{i18n "ingenic.documentation.workbench.pick_version"}}
             </p>
           {{/if}}
 
@@ -1168,26 +1004,26 @@ export default class IngenicDocManager extends Component {
               class="ingenic-doc-workbench__ghost"
               disabled={{this.noSelectedVersion}}
               {{on "click" (fn this.startDraft null "page")}}
-            >＋ {{i18n "admin.ingenic.documentation.workbench.new_article"}}</button>
+            >＋ {{i18n "ingenic.documentation.workbench.new_article"}}</button>
             <button
               type="button"
               class="ingenic-doc-workbench__ghost"
               disabled={{this.noSelectedVersion}}
               {{on "click" (fn this.startDraft null "folder")}}
-            >＋ {{i18n "admin.ingenic.documentation.workbench.new_folder"}}</button>
+            >＋ {{i18n "ingenic.documentation.workbench.new_folder"}}</button>
           </div>
 
           {{#if this.selectedVersion}}
             <details class="ingenic-doc-workbench__import">
-              <summary>{{i18n "admin.ingenic.documentation.import_action"}}</summary>
+              <summary>{{i18n "ingenic.documentation.import_action"}}</summary>
               <form class="ingenic-admin-form" {{on "submit" this.importPages}}>
                 <input type="file" name="files[]" accept=".md,.markdown,.txt,.docx" multiple required />
                 <button type="submit" disabled={{this.busy}}>
-                  {{i18n "admin.ingenic.documentation.import_action"}}
+                  {{i18n "ingenic.documentation.import_action"}}
                 </button>
               </form>
               <p class="ingenic-admin-note">
-                {{i18n "admin.ingenic.documentation.import_hint"}}
+                {{i18n "ingenic.documentation.import_hint"}}
               </p>
               {{#if this.importMessage}}
                 <p class="ingenic-admin-note">{{this.importMessage}}</p>
@@ -1212,10 +1048,10 @@ export default class IngenicDocManager extends Component {
             />
           {{else}}
             <div class="ingenic-doc-workbench__empty">
-              <p>{{i18n "admin.ingenic.documentation.workbench.empty_editor"}}</p>
+              <p>{{i18n "ingenic.documentation.workbench.empty_editor"}}</p>
               {{#if this.noSeries}}
                 <p class="ingenic-admin-note">
-                  {{i18n "admin.ingenic.documentation.workbench.empty_series"}}
+                  {{i18n "ingenic.documentation.workbench.empty_series"}}
                 </p>
               {{/if}}
             </div>
@@ -1240,38 +1076,28 @@ export default class IngenicDocManager extends Component {
 
           {{#if (eq this.drawer.kind "version")}}
             <label>
-              <span>{{i18n "admin.ingenic.documentation.version_label"}}</span>
+              <span>{{i18n "ingenic.documentation.version_label"}}</span>
               <input name="label" value={{this.drawer.record.label}} required />
             </label>
             <label>
-              <span>{{i18n "admin.ingenic.documentation.version_slug"}}</span>
+              <span>{{i18n "ingenic.documentation.version_slug"}}</span>
               <input name="slug" value={{this.drawer.record.slug}} required />
             </label>
             <label>
-              <span>{{i18n "admin.ingenic.documentation.locale"}}</span>
-              <select name="locale" required>
-                {{#each this.drawerLanguageOptions as |locale|}}
-                  <option value={{locale.value}} selected={{eq locale.value this.drawerLocale}}>
-                    {{locale.name}}
-                  </option>
-                {{/each}}
-              </select>
-            </label>
-            <label>
-              <span>{{i18n "admin.ingenic.documentation.released_on"}}</span>
+              <span>{{i18n "ingenic.documentation.released_on"}}</span>
               <input type="date" name="released_on" value={{this.drawer.record.released_on}} />
             </label>
             <label class="checkbox-label">
               <input type="checkbox" name="deprecated" checked={{this.drawer.record.deprecated}} />
-              <span>{{i18n "admin.ingenic.documentation.deprecated"}}</span>
+              <span>{{i18n "ingenic.documentation.deprecated"}}</span>
             </label>
           {{else}}
             <label>
               <span>
                 {{#if (eq this.drawer.kind "series")}}
-                  {{i18n "admin.ingenic.documentation.series_name"}}
+                  {{i18n "ingenic.documentation.series_name"}}
                 {{else}}
-                  {{i18n "admin.ingenic.documentation.chip_name"}}
+                  {{i18n "ingenic.documentation.chip_name"}}
                 {{/if}}
               </span>
               <input name="name" value={{this.drawer.record.name}} required />
@@ -1279,33 +1105,23 @@ export default class IngenicDocManager extends Component {
             <label>
               <span>
                 {{#if (eq this.drawer.kind "series")}}
-                  {{i18n "admin.ingenic.documentation.series_slug"}}
+                  {{i18n "ingenic.documentation.series_slug"}}
                 {{else}}
-                  {{i18n "admin.ingenic.documentation.chip_slug"}}
+                  {{i18n "ingenic.documentation.chip_slug"}}
                 {{/if}}
               </span>
               <input name="slug" value={{this.drawer.record.slug}} required />
             </label>
-            <label>
-              <span>{{i18n "admin.ingenic.documentation.locale"}}</span>
-              <select name="locale" required>
-                {{#each this.drawerLanguageOptions as |locale|}}
-                  <option value={{locale.value}} selected={{eq locale.value this.drawerLocale}}>
-                    {{locale.name}}
-                  </option>
-                {{/each}}
-              </select>
-            </label>
             <label class="checkbox-label">
               <input type="checkbox" name="published" checked={{this.drawer.record.published}} />
-              <span>{{i18n "admin.ingenic.documentation.published"}}</span>
+              <span>{{i18n "ingenic.documentation.published"}}</span>
             </label>
           {{/if}}
 
           <div class="ingenic-doc-drawer__actions">
-            <button type="submit" disabled={{this.busy}}>{{i18n "admin.ingenic.save"}}</button>
+            <button type="submit" disabled={{this.busy}}>{{i18n "ingenic.save"}}</button>
             <button type="button" class="btn" {{on "click" this.closeDrawer}}>
-              {{i18n "admin.ingenic.documentation.cancel"}}
+              {{i18n "ingenic.documentation.cancel"}}
             </button>
           </div>
         </form>
@@ -1318,33 +1134,33 @@ export default class IngenicDocManager extends Component {
                 class="btn btn-small"
                 disabled={{this.busy}}
                 {{on "click" (fn this.moveVersion this.drawer.record -1)}}
-              >↑ {{i18n "admin.ingenic.documentation.move_up"}}</button>
+              >↑ {{i18n "ingenic.documentation.move_up"}}</button>
               <button
                 type="button"
                 class="btn btn-small"
                 disabled={{this.busy}}
                 {{on "click" (fn this.moveVersion this.drawer.record 1)}}
-              >↓ {{i18n "admin.ingenic.documentation.move_down"}}</button>
+              >↓ {{i18n "ingenic.documentation.move_down"}}</button>
             {{else}}
               <button
                 type="button"
                 class="btn btn-small"
                 disabled={{this.busy}}
                 {{on "click" (fn this.moveProduct this.drawer.record -1)}}
-              >↑ {{i18n "admin.ingenic.documentation.move_up"}}</button>
+              >↑ {{i18n "ingenic.documentation.move_up"}}</button>
               <button
                 type="button"
                 class="btn btn-small"
                 disabled={{this.busy}}
                 {{on "click" (fn this.moveProduct this.drawer.record 1)}}
-              >↓ {{i18n "admin.ingenic.documentation.move_down"}}</button>
+              >↓ {{i18n "ingenic.documentation.move_down"}}</button>
             {{/if}}
             <button
               type="button"
               class="btn btn-danger"
               disabled={{this.busy}}
               {{on "click" this.deleteFromDrawer}}
-            >{{i18n "admin.ingenic.documentation.delete"}}</button>
+            >{{i18n "ingenic.documentation.delete"}}</button>
           </div>
         {{/if}}
       </aside>

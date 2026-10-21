@@ -195,7 +195,6 @@ register_homepage(
 | `ingenic_enabled` | 总开关 |
 | `ingenic_nav_items` | JSON 数组——侧边栏条目：图标、目标、分组（`forum` / `resources` / `member`）、组内顺序和可见性 |
 | `ingenic_homepage_blocks` | JSON 数组——首页渲染哪些区块、以什么顺序 |
-| `ingenic_default_locale` | 文档、下载和开发板的回退语言 |
 | `ingenic_docs_discussion_category` | 页面没有关联话题时，「在论坛讨论」使用的分类 |
 | `ingenic_download_storage_path` | 上传的 SDK 和固件存放位置，必须在 `public/` 之外 |
 | `ingenic_download_admin_email` | 接收受限下载申请的邮箱 |
@@ -209,19 +208,29 @@ register_homepage(
 | `ingenic_high_like_enabled` | 是否由定时任务维护「高赞」标签 |
 | `ingenic_high_like_threshold` | 话题所有正常回复的点赞数达到多少时获得「高赞」（默认 20） |
 
-三个 JSON 设置的格式写在 `config/settings.yml` 的注释里。语言设置只列出这个 Discourse 能提供的语言，所以在 Discourse 里启用一种语言，这里就能选，不需要改文件。
+三个 JSON 设置的格式写在 `config/settings.yml` 的注释里。
+
+内容语言不是这个插件自己的设置。语言列表来自站点本身：`default_locale`，加上内容本地化启用时 `content_localization_supported_locales` 里的每一种语言。所以在 Discourse 里启用一种语言，内容管理界面里就能选，不需要改这个仓库。
 
 ## 数据模型
 
 ```
-ingenic_doc_products        系列和芯片，按语言区分，一棵两层的树
+ingenic_products            公共产品目录：系列和芯片，按语言区分，一棵两层的树。
+                            文档、开发板和下载都引用它，谁也不拥有它。
 ingenic_doc_versions        某个芯片的版本，其中一个标记为 `latest`
 ingenic_doc_pages           版本实际改动过的页面，parent_id 构成目录树
 ingenic_downloads           可下载资源、访问级别和 point_cost
+ingenic_download_categories 下载列表的分类，按语言区分
 ingenic_developer_profiles  开发者信息表单，每个账号一份
 ingenic_download_requests   申请及其审核状态
 ingenic_download_grants     审批结果，按账号、按资源
 ingenic_boards              开发板，归属到某个芯片
+ingenic_header_links        头部按钮，按语言区分
+ingenic_section_cards       首页卡片，按语言区分
+ingenic_promotions          推广位，按语言区分
+ingenic_social_links        社交入口，按语言区分
+ingenic_footer_columns      页脚链接栏，按语言区分
+ingenic_footer_links        页脚栏里的链接（语言跟随所在栏）
 ingenic_permissions         授予用户或群组的范围权限
 ingenic_group_permissions   授予用户组的一整块管理页面
 ingenic_tag_colours         按标签名保存的颜色系列指定
@@ -231,13 +240,20 @@ ingenic_point_balances      每个账号的累计余额，由流水推导
 ingenic_bounties            某个会员在某个话题上的悬赏，以及它的结局
 ```
 
+一个产品行就是目录里某一种语言的条目：英文 T33 和中文 T33 是两行。版本、页面和
+开发板跟随所属产品的语言，不再各自保存一份语言，所以两者不可能不一致。下载行自带
+`locale`，并校验与所属产品一致；算法资源没有产品，语言就保存在行上。一个产品可以有
+文档、开发板、下载，任意组合，或者都没有；三者互不依赖。
+
 `ingenic_doc_pages` 是**每个改动过它的版本**一行，而不是每个版本一行：某个版本没有某个 slug 的行，就继承最近一个更早、有该行的版本。这避免了文档集随版本数成倍膨胀。
 
 会员可以被删除。这里对 `users` 的每一处引用要么**置空**——行保留、账号置空，流水、申请、授权和悬赏都是这样——要么**级联删除**，用于那些属于个人而非属于论坛的记录：开发者资料、缓存的余额、授予一个已不存在的人的权限。普通引用会让删除一个活跃会员因外键冲突而失败，而管理后台没有办法解释这件事。账号被置空的地方，界面显示**已删除账号**，而不是空白。`Ingenic::Points.record` 会为两条会走到这里的路径写一条没有账号的流水：删除会员后收回其奖励，以及退回他留下的有效悬赏——托管是一条流水，所以关闭它的变动也必须是一条流水。
 
 话题是另一种引用。`ingenic_bounties.topic_id` **级联删除**，因为悬赏的每一种读法都要经过它的话题——话题页问有什么悬赏，悬赏板通过访客可见的话题找到悬赏，采纳答案也按帖子的所属话题查找——所以一条不挂在任何东西上的悬赏不记录任何事。级联与 `Topic` 上的 `before_destroy` 回调配合，先关闭有效悬赏，从而不会销毁托管的积分：`Ingenic::Bounties.refund_for_topic!`。
 
-每张内容表都有 `locale` 列，所以以后启用更多语言不需要迁移表结构。语言代码使用 Discourse 自己的（`zh_CN`、`pt_BR`），因为它们要与 `I18n.locale`——读者在偏好设置里选择的语言——比较。请求先按读者语言解析内容，再逐页回退到 `ingenic_default_locale`，所以只翻译了一半的版本仍然能渲染，一个页面在目录里也只出现一次，而不是每种语言一次。
+每种语言有自己的一套产品、版本、页面、开发板、下载和站点内容，所以以后启用更多语言不需要迁移表结构。语言代码使用 Discourse 自己的（`zh_CN`、`pt_BR`），因为它们要与 `I18n.locale`——读者在偏好设置里选择的语言——比较。
+
+后台先选语言：选中的语言下创建和编辑的一切都属于该语言，也只在该语言下显示；切换语言就是另外配置一套，没有逐条记录的语言选择器，也没有双语字段。公开读取是严格的：请求只返回该语言的行，不做跨语言回退。同一产品内，新版本没有覆盖的页面仍从同语言的上一版本继承。
 
 ## 添加内容
 

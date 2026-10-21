@@ -12,11 +12,21 @@ describe Ingenic::DownloadAccess do
   fab!(:user) { Fabricate(:user) }
   fab!(:admin) { Fabricate(:admin) }
   fab!(:category) { IngenicDownloadCategory.find_or_create_by!(name: "sdk", locale: "en") }
+  fab!(:series) { IngenicProduct.create!(slug: "t-series", name: "T Series", locale: "en") }
+  fab!(:chip) do
+    IngenicProduct.create!(
+      slug: "t33",
+      name: "T33",
+      kind: IngenicProduct::CHIP,
+      parent: series,
+      locale: "en",
+    )
+  end
 
   def resource(level, name: "SDK", point_cost: 0)
     IngenicDownload.create!(
       name: name,
-      product_slug: "t33",
+      product: chip,
       category: category,
       locale: "en",
       access_level: level,

@@ -409,14 +409,14 @@ export default class IngenicDocPageTree extends Component {
               class="ingenic-admin-tree__name-input"
               type="text"
               value={{this.draftName}}
-              placeholder={{i18n "admin.ingenic.documentation.workbench.name_placeholder"}}
+              placeholder={{i18n "ingenic.documentation.workbench.name_placeholder"}}
               {{on "input" this.updateDraftName}}
               {{on "keydown" this.draftKeydown}}
               {{on "blur" this.draftBlur}}
               {{didInsert this.focusDraft}}
             />
             <span class="ingenic-admin-tree__name-hint">
-              {{i18n "admin.ingenic.documentation.workbench.name_hint"}}
+              {{i18n "ingenic.documentation.workbench.name_hint"}}
             </span>
           </div>
         {{else}}
@@ -429,7 +429,7 @@ export default class IngenicDocPageTree extends Component {
               <span
                 class="ingenic-admin-tree__handle"
                 draggable="true"
-                title={{i18n "admin.ingenic.documentation.workbench.drag"}}
+                title={{i18n "ingenic.documentation.workbench.drag"}}
                 {{on "dragstart" (fn this.startDrag page)}}
                 {{on "dragend" this.endDrag}}
               >⠿</span>
@@ -462,7 +462,7 @@ export default class IngenicDocPageTree extends Component {
               <button
                 type="button"
                 class="ingenic-admin-tree__select"
-                title={{i18n "admin.ingenic.documentation.workbench.rename_hint"}}
+                title={{i18n "ingenic.documentation.workbench.rename_hint"}}
                 {{on "click" (fn @onSelect page)}}
                 {{on "dblclick" (fn this.startRename page)}}
               >
@@ -474,7 +474,7 @@ export default class IngenicDocPageTree extends Component {
                 </span>
                 {{#if page.inherited}}
                   <span class="ingenic-admin-tree__badge">
-                    {{i18n "admin.ingenic.documentation.inherited_from"}} {{page.inherited_from_label}}
+                    {{i18n "ingenic.documentation.inherited_from"}} {{page.inherited_from_label}}
                   </span>
                 {{/if}}
               </button>
@@ -486,8 +486,8 @@ export default class IngenicDocPageTree extends Component {
                 class="ingenic-admin-tree__add"
                 title={{if
                   page.folder
-                  (i18n "admin.ingenic.documentation.workbench.new_child")
-                  (i18n "admin.ingenic.documentation.workbench.new_sibling")
+                  (i18n "ingenic.documentation.workbench.new_child")
+                  (i18n "ingenic.documentation.workbench.new_sibling")
                 }}
                 {{on "click" (fn this.toggleAdd page)}}
               >＋</button>
@@ -496,17 +496,17 @@ export default class IngenicDocPageTree extends Component {
             {{#if (eq this.addSlug page.slug)}}
               <span class="ingenic-admin-tree__add-menu">
                 <button type="button" {{on "click" (fn this.addChild page "page")}}>
-                  📄 {{i18n "admin.ingenic.documentation.workbench.new_article"}}
+                  📄 {{i18n "ingenic.documentation.workbench.new_article"}}
                 </button>
                 <button type="button" {{on "click" (fn this.addChild page "folder")}}>
-                  📁 {{i18n "admin.ingenic.documentation.workbench.new_folder"}}
+                  📁 {{i18n "ingenic.documentation.workbench.new_folder"}}
                 </button>
               </span>
             {{/if}}
           </div>
         {{/if}}
       {{else}}
-        <p class="ingenic-admin-tree__empty">{{i18n "admin.ingenic.documentation.no_pages"}}</p>
+        <p class="ingenic-admin-tree__empty">{{i18n "ingenic.documentation.no_pages"}}</p>
       {{/each}}
     </div>
   </template>
