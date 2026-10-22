@@ -3,10 +3,11 @@ import { service } from "@ember/service";
 
 export default class IngenicManageBoardsRoute extends DiscourseRoute {
   @service ingenicContentLocale;
+  @service router;
 
   beforeModel() {
     if (!this.modelFor("ingenic-manage").areas.boards) {
-      this.replaceWith("ingenic-manage.index");
+      this.router.replaceWith("ingenic-manage.index");
     }
   }
 
