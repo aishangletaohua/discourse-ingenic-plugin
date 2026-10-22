@@ -990,6 +990,28 @@
   color: var(--primary-medium);
 }
 
+// Bytes leaving the browser, for uploads long enough that an unchanging form
+// reads as a frozen page. Its own row, like the hints around it.
+.ingenic-admin-progress {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 0.6rem;
+
+  progress {
+    flex: 1 1 auto;
+    height: 0.55rem;
+    accent-color: var(--tertiary);
+  }
+}
+
+.ingenic-admin-progress__label {
+  flex: 0 0 auto;
+  color: var(--primary-medium);
+  font-size: var(--font-down-1);
+  font-variant-numeric: tabular-nums;
+}
+
 .ingenic-admin-list__badge {
   display: inline-block;
   margin-left: 0.5rem;
