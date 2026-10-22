@@ -1,3 +1,4 @@
+import { array } from "@ember/helper";
 import IngenicDownloadManager from "../../components/ingenic-content/ingenic-download-manager";
 import IngenicCategoryManager from "../../components/ingenic-content/ingenic-category-manager";
 import { i18n } from "discourse-i18n";
@@ -9,16 +10,19 @@ import { i18n } from "discourse-i18n";
  * should be able to see the list they were choosing from.
  */
 const Downloads = <template>
-  <IngenicDownloadManager
-    @downloads={{@model.downloads}}
-    @categories={{@model.categories}}
-    @accessLevels={{@model.access_levels}}
-    @chips={{@model.chips}}
-    @storageWritable={{@model.storage_writable}}
-  />
+  {{#each (array @model.locale) key="@identity" as |locale|}}
+    <IngenicDownloadManager
+      @downloads={{@model.downloads}}
+      @categories={{@model.categories}}
+      @accessLevels={{@model.access_levels}}
+      @chips={{@model.chips}}
+      @storageWritable={{@model.storage_writable}}
+      @locale={{locale}}
+    />
 
-  <h2 class="ingenic-manage__section">{{i18n "ingenic.downloads.tab_categories"}}</h2>
-  <IngenicCategoryManager @categories={{@model.categories}} />
+    <h2 class="ingenic-manage__section">{{i18n "ingenic.downloads.tab_categories"}}</h2>
+    <IngenicCategoryManager @categories={{@model.categories}} @locale={{locale}} />
+  {{/each}}
 </template>;
 
 export default Downloads;
