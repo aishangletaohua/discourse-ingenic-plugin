@@ -7,7 +7,7 @@ export default class IngenicManageDocumentationRoute extends DiscourseRoute {
 
   beforeModel() {
     if (!this.modelFor("ingenic-manage").areas.documentation) {
-      this.router.replaceWith("ingenic-manage.index");
+      return this.router.replaceWith("ingenic-manage.index");
     }
   }
 

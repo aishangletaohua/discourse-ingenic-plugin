@@ -13,7 +13,7 @@ export default class IngenicManageIndexRoute extends DiscourseRoute {
     const area = AREAS.find((key) => areas[key]);
 
     if (area) {
-      this.router.replaceWith(`ingenic-manage.${area}`);
+      return this.router.replaceWith(`ingenic-manage.${area}`);
     } else {
       // Reaching the workbench means the server found *something* this account
       // may manage; an empty set here means the grants changed under an open
