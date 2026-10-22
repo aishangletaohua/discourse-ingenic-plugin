@@ -15,6 +15,10 @@ module Ingenic
   module DownloadStorage
     DEFAULT_DIRECTORY = "ingenic-downloads"
     CHUNK = 256.kilobytes
+    # Chunks being assembled live here, in a directory the delivery endpoint
+    # never names. A part file is not a download until the last chunk arrives
+    # and its size and digest have been checked.
+    STAGING_DIRECTORY = ".uploads"
 
     module_function
 
@@ -43,6 +47,74 @@ module Ingenic
       end
 
       { path: relative, sha256: digest.hexdigest, size: byte_size }
+    end
+
+    # Where the chunks of one session are appended. The name comes from a
+    # server-generated token, never from the uploaded filename.
+    def staging_relative(token)
+      File.join(STAGING_DIRECTORY, "#{token}.part")
+    end
+
+    def staging_path(token)
+      absolute_path(staging_relative(token))
+    end
+
+    # Appends one request's bytes. The caller has already checked that the
+    # offset is the current end of the file and that the chunk fits inside the
+    # announced size, so this writes without re-reading what came before.
+    def append(relative, bytes)
+      target = absolute_path(relative)
+      FileUtils.mkdir_p(target.dirname)
+
+      File.open(target, "ab") do |file|
+        file.write(bytes)
+      end
+
+      target.size
+    end
+
+    # Makes the part file exactly as long as the server has acknowledged.
+    #
+    # The database row is the record of what arrived, and the file is written
+    # just before that row is updated. A process killed between the two leaves
+    # a tail of bytes nobody counted; truncating to the acknowledged length
+    # drops it, so the next chunk starts where the server says the file ends
+    # rather than after a half-written piece. Returns what the file held
+    # before truncation, because a file shorter than the row means bytes were
+    # lost and the browser has to hear the smaller number.
+    def align(relative, byte_size)
+      target = absolute_path(relative)
+      FileUtils.mkdir_p(target.dirname)
+      FileUtils.touch(target) unless target.exist?
+      actual = target.size
+
+      File.truncate(target, byte_size) if actual > byte_size
+
+      actual
+    end
+
+    # The last step of a chunked upload: hash and size the assembled file,
+    # then move it beside the files uploaded whole. `File.rename` is atomic
+    # within one filesystem, and staging shares the root with the final files,
+    # so a three-gigabyte image is not copied a second time.
+    def finalize(relative, original_filename)
+      source = absolute_path(relative)
+      digest = Digest::SHA256.new
+      byte_size = 0
+
+      File.open(source, "rb") do |file|
+        while (chunk = file.read(CHUNK))
+          digest.update(chunk)
+          byte_size += chunk.bytesize
+        end
+      end
+
+      target_relative = relative_path_for(original_filename)
+      target = absolute_path(target_relative)
+      FileUtils.mkdir_p(target.dirname)
+      File.rename(source, target)
+
+      { path: target_relative, sha256: digest.hexdigest, size: byte_size }
     end
 
     def absolute_path(relative)

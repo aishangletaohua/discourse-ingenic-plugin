@@ -52,11 +52,19 @@ module Ingenic
       served?(candidate) ? candidate : default
     end
 
-    # What a public reader is looking at. A locale the site does not publish is
-    # answered with the default rather than an empty catalogue; a supported one
-    # is used as-is with no cross-language fallback inside the content.
-    def reading
-      candidate = normalize(I18n.locale)
+    # What a public reader is looking at.
+    #
+    # The request may name the language outright. The documentation reader
+    # fetches one address per page and changes the language without leaving it,
+    # so the address has to be able to say which language it is asking for —
+    # otherwise the answer depends on a cookie the URL does not mention, and a
+    # cache between the two serves the first reader's language to the second.
+    #
+    # A locale the site does not publish is answered with the default rather
+    # than an empty catalogue; a supported one is used as-is with no
+    # cross-language fallback inside the content.
+    def reading(requested = nil)
+      candidate = normalize(requested).presence || normalize(I18n.locale)
       supported.include?(candidate) ? candidate : default
     end
 

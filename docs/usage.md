@@ -67,7 +67,7 @@ was built for it, and where a reader can see it.
 | 2 | Online documentation with a product hierarchy | Series → chip product tree, versioned pages, Markdown reader, contents tree, full-text search | `/ingenic/docs` |
 | 3 | Versions must not duplicate every page | A version stores only the pages it changed; other pages are inherited from the nearest earlier version | Version selector; Admin → Documentation |
 | 4 | Manage documentation from the admin UI | Create series, chips, versions and pages; reorder; rename; override or restore inheritance | Admin → Plugins → Ingenic |
-| 5 | SDK/firmware downloads with three access levels | Sign-in, developer information, and application plus approval; files stored outside the web root and streamed after a check | `/ingenic/downloads` |
+| 5 | SDK/firmware downloads with three access levels | Sign-in, developer information, and application plus approval; files stored outside the web root and streamed after a check; uploads sent in eight-megabyte pieces so multi-gigabyte images pass the web server's limit | `/ingenic/downloads` |
 | 6 | Application workflow with email and per-account grants | Application queue, email to the team address, approve/decline, revocable grants with optional expiry | Admin → Downloads → Applications / Access |
 | 7 | Development board catalogue | Boards and samples filed against chips, filters, cards and a detail dialog | `/ingenic/boards` |
 | 8 | Application and purchase are separate actions | Apply and Buy drawn side by side; a button without a link is grey, and the separate Sold out switch stamps the board and disables both | Board card and dialog |
@@ -78,6 +78,7 @@ was built for it, and where a reader can see it.
 | 13 | A forum that reads as Ingenic, in both languages | Sky-blue palette, three-block sidebar, bilingual strings, language switcher, wider layout and clearer borders | Theme |
 | 14 | Connect the forum to AI clients | MCP landing page with endpoint and client steps; floating assistant into the AI bot | `/ingenic/mcp`; bottom-right robot |
 | 15 | Ship it and explain it | Plugin and theme in separate repositories; deployment, seeding and this usage guide in both languages | Repositories and `docs/` |
+| 16 | Footer links that go somewhere of their own | Terms of service, privacy policy and points rules are standalone pages at `/ingenic/pages/<slug>`, seeded in both languages and edited in Site content → Pages | `/ingenic/pages/terms`; Admin → Site content → Pages |
 
 ### Not included
 
@@ -99,7 +100,7 @@ These were considered and deliberately left out of this version:
 | Boards | Filter by type and chip, read the dialog, follow Apply or Buy | Create cards, set type, chip, links, sold-out switch, specifications, publication and order |
 | Points | See their balance, the price list and their own history | Edit rules, adjust an account, inspect balances and movements, recompute balances |
 | Bounties | Put points on their own question, withdraw, accept an answer | Nothing specific: settle by accepting; repair mistakes through points adjustments |
-| Site content | See the home page, promotions and footer the team configured | Edit home blocks, home cards, promotions, external buttons, partner platforms and footer columns |
+| Site content | See the home page, promotions, footer and standalone pages the team configured | Edit home blocks, home cards, promotions, external buttons, partner platforms, footer columns and standalone pages |
 | MCP / assistant | Copy the MCP endpoint and connect a client; open the assistant | Enable or disable the core MCP server and the AI bot |
 
 ## 4. Getting started as a member
@@ -523,7 +524,7 @@ screen also has its own address, which is what to bookmark or link to:
 | Tag colours | `/admin/plugins/discourse-ingenic/tag-colours` | The colour family of each tag |
 | Downloads | `/admin/plugins/discourse-ingenic/downloads` | Resources, applications, access, categories, download record |
 | Points | `/admin/plugins/discourse-ingenic/points` | Rules, adjustments, balances, movements |
-| Site content | `/admin/plugins/discourse-ingenic/site` | Home layout, home cards, promotions, external buttons, partner platforms, footer |
+| Site content | `/admin/plugins/discourse-ingenic/site` | Home layout, home cards, promotions, external buttons, partner platforms, footer, standalone pages |
 
 Scoped managers see the documentation, boards and downloads they were granted.
 The application queue, access list, download record, points and site content
@@ -612,6 +613,14 @@ web root) and computes its SHA-256. The file is streamed through the forum only
 after the access check. If the configured storage directory is not writable,
 the screen says so before an upload is attempted; set
 `ingenic_download_storage_path` to a writable volume.
+
+Large files are sent in eight-megabyte pieces rather than as one request, so an
+SDK or firmware image of several gigabytes uploads past the web server's
+request-size limit. The screen shows a percentage while the transfer runs. A
+piece refused because the connection dropped is resumed from the byte the
+server reports, not from the beginning; closing the form discards the pieces,
+and a transfer abandoned for a day is removed by a scheduled cleanup. The
+largest accepted file is 8 GB.
 
 The three access levels are explained in section 6.2. The point price is
 optional and is charged only when the file is actually released.
@@ -724,7 +733,7 @@ The vocabulary is a site policy, not a convention:
 
 ### 11.8 Site content
 
-The **Site content** screen has six tabs:
+The **Site content** screen has seven tabs:
 
 - **Home page** — the ordered list of blocks: block type, heading, width
   (automatic, full, main or side), row count, category or section list, and
@@ -745,6 +754,16 @@ The **Site content** screen has six tabs:
 - **Footer columns** — headings and their links (label, address, external flag,
   order, visibility). Columns and links also take an optional Chinese heading or
   label.
+- **Pages** — the standalone documents the footer links to: terms of service,
+  privacy policy and the points rules ship with each language and can be edited
+  here. A page has a title, a slug, Markdown body, order and publication. Its
+  address is `/ingenic/pages/<slug>`, so a footer link can point at it with an
+  ordinary link. Unpublishing one makes that address answer 404 rather than
+  leaving a stale copy in place.
+
+The three shipped pages are seeded in both languages by the plugin's migrations.
+The footer links to them already; retitling a page does not break the link,
+because the link names the slug and the slug is what the editor keeps stable.
 
 The footer follows the language the forum is being read in: English text is
 required, Chinese is optional, and anything without a Chinese spelling falls

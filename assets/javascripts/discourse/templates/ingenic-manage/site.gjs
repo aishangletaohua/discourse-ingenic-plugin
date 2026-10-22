@@ -12,6 +12,7 @@ const Site = <template>
       @headerLinks={{@model.header_links}}
       @socialLinks={{@model.social_links}}
       @footerColumns={{@model.footer_columns}}
+      @sitePages={{@model.site_pages}}
       @locale={{locale}}
     />
   {{/each}}

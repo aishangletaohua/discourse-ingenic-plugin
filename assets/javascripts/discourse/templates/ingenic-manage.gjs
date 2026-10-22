@@ -31,6 +31,14 @@ export default class IngenicManageTemplate extends Component {
     return this.tabs.length > 0;
   }
 
+  // Permissions are staff-only, so they are not one of the workbench's tabs: a
+  // scoped manager is here because they were granted one area, not because
+  // they may hand that grant to somebody else. An administrator still needs a
+  // way across to the screen that does, without remembering the address.
+  get isAdmin() {
+    return Boolean(this.args.model.admin);
+  }
+
   <template>
     <div class="ingenic-manage">
       <header class="ingenic-manage__header">
@@ -40,6 +48,12 @@ export default class IngenicManageTemplate extends Component {
         </div>
         <IngenicContentLocaleBar />
       </header>
+
+      {{#if this.isAdmin}}
+        <p class="ingenic-manage__admin">
+          <a href="/admin/plugins/discourse-ingenic">{{i18n "ingenic.manage.admin_link"}}</a>
+        </p>
+      {{/if}}
 
       {{#if this.hasTabs}}
         <nav class="ingenic-admin__tabs">

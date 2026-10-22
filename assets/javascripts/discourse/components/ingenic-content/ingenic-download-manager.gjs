@@ -8,6 +8,12 @@ import DNativeSelect from "discourse/ui-kit/d-native-select";
 import { i18n } from "discourse-i18n";
 
 const ENDPOINT = "/admin/plugins/discourse-ingenic/downloads";
+const UPLOADS = "/admin/plugins/discourse-ingenic/uploads";
+
+// Eight megabytes a request. The web server in front of the forum refuses
+// bodies over ten, and a firmware image can be three gigabytes, so the file
+// is sent in pieces that fit under that limit with room for headers.
+const CHUNK_SIZE = 8 * 1024 * 1024;
 
 // A new resource starts at the lowest tier and unpublished. Both defaults are
 // the ones that cannot leak a file by accident.
@@ -34,10 +40,12 @@ const BLANK = {
  * SDK and firmware resources: the list, and the form that creates and edits
  * them, including the upload.
  *
- * The file input is the reason the form is submitted as FormData rather than as
- * a plain object: a firmware image cannot be sent as a URL-encoded field. The
- * server decides between the upload and the URL, and clears the URL when a file
- * arrives, so the form does not have to arbitrate between them.
+ * The file is not part of the form body. It goes to the upload endpoints in
+ * pieces, because a three-gigabyte firmware image cannot be one request and a
+ * ten-megabyte proxy limit is not something the browser can argue with; the
+ * form carries the token of the finished upload instead. The server decides
+ * between the upload and the URL, and clears the URL when a file arrives, so
+ * the form does not have to arbitrate between them.
  */
 export default class IngenicDownloadManager extends Component {
   @tracked records = this.args.downloads ?? [];
@@ -47,8 +55,13 @@ export default class IngenicDownloadManager extends Component {
   @tracked error = null;
   // The file that has been chosen but not saved yet. A browser will not
   // let a filename be written into a file input, so the name is kept here
-  // and drawn in the form rather than by the control.
+  // and drawn in the form rather than by the control; the File itself is
+  // what the upload reads from.
   @tracked chosenFile = null;
+  // The transfer in progress, if any: its token, and the file it belongs to,
+  // so a second save of the same form resumes rather than starts again.
+  @tracked upload = null;
+  @tracked uploadProgress = 0;
 
   // The classification list is editable, so it arrives with the listing rather
   // than being a fixed set here. An empty list is a normal state: nothing has
@@ -113,28 +126,37 @@ export default class IngenicDownloadManager extends Component {
 
   @action
   startNew() {
+    this.#abortPendingUpload();
     this.draft = { ...BLANK };
     this.chosenFile = null;
+    this.upload = null;
+    this.uploadProgress = 0;
     this.message = null;
     this.error = null;
   }
 
   @action
   edit(record) {
+    this.#abortPendingUpload();
     this.draft = {
       ...record,
       file_url: record.file_url ?? "",
       product_id: record.product_id ?? "",
     };
     this.chosenFile = null;
+    this.upload = null;
+    this.uploadProgress = 0;
     this.message = null;
     this.error = null;
   }
 
   @action
   cancel() {
+    this.#abortPendingUpload();
     this.draft = null;
     this.chosenFile = null;
+    this.upload = null;
+    this.uploadProgress = 0;
     this.message = null;
     this.error = null;
   }
@@ -169,11 +191,32 @@ export default class IngenicDownloadManager extends Component {
   }
 
   // A chosen file is not a draft value: it is the browser's FileList on
-  // the control, and the filename is the only part of it the form can
-  // usefully show.
+  // the control. The File is kept so the upload can read it; the name is what
+  // the form draws, because a browser will not let one be written back into
+  // the control.
   @action
   pickFile(event) {
-    this.chosenFile = event.target.files?.[0]?.name ?? null;
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      this.chosenFile = null;
+      return;
+    }
+
+    // A different file is a different upload: the half-sent bytes of the old
+    // one are not a prefix of this one and must not be resumed into it.
+    if (this.upload && this.upload.name !== file.name) {
+      this.#abortPendingUpload();
+      this.upload = null;
+      this.uploadProgress = 0;
+    }
+
+    this.chosenFile = {
+      file,
+      name: file.name,
+      size: file.size,
+      lastModified: file.lastModified,
+    };
   }
 
   // The text fields are bound one way, and a re-render puts the draft back
@@ -204,10 +247,17 @@ export default class IngenicDownloadManager extends Component {
     // Checkboxes are absent from FormData when unchecked, which the server reads
     // as "leave it alone" — the opposite of what unchecking means here.
     form.set("published", String(event.target.elements.published.checked));
+    // The file travels through the upload endpoints, not inside this body.
+    form.delete("file");
 
     const id = this.draft.id;
 
     try {
+      if (this.chosenFile) {
+        const token = await this.#uploadChunked(this.chosenFile);
+        form.set("upload_token", token);
+      }
+
       const response = await ajax(id ? `${ENDPOINT}/${id}` : ENDPOINT, {
         type: id ? "PUT" : "POST",
         data: form,
@@ -223,12 +273,105 @@ export default class IngenicDownloadManager extends Component {
         : [...this.records, saved];
       this.draft = null;
       this.chosenFile = null;
+      this.upload = null;
+      this.uploadProgress = 0;
       this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     } finally {
       this.busy = false;
     }
+  }
+
+  // Sends the file in eight-megabyte pieces and returns the token the server
+  // uses to name the finished upload.
+  //
+  // The bytes go up in order, and the offset in each request is where the file
+  // actually is: a three-gigabyte transfer is a few hundred of these, and if
+  // one is refused the loop reads the byte count the server reports and sends
+  // the rest rather than starting the image again.
+  async #uploadChunked(chosen) {
+    const { file, name, size, lastModified } = chosen;
+    const resumable =
+      this.upload &&
+      this.upload.name === name &&
+      this.upload.size === size &&
+      this.upload.lastModified === lastModified;
+    let session = null;
+
+    if (resumable) {
+      try {
+        session = (await ajax(`${UPLOADS}/${this.upload.token}`)).upload;
+      } catch {
+        // The session was cleaned up or the server restarted; a new one is
+        // cheaper than failing the save.
+        session = null;
+      }
+    }
+
+    if (!session) {
+      session = (
+        await ajax(UPLOADS, {
+          type: "POST",
+          data: { filename: name, size },
+        })
+      ).upload;
+    }
+
+    this.upload = { token: session.token, name, size, lastModified };
+    let offset = session.received_size ?? 0;
+    this.uploadProgress = size ? Math.round((offset / size) * 100) : 0;
+
+    while (offset < size) {
+      const end = Math.min(offset + CHUNK_SIZE, size);
+      const piece = file.slice(offset, end);
+
+      try {
+        const response = await ajax(
+          `${UPLOADS}/${session.token}/chunks?offset=${offset}`,
+          {
+            type: "POST",
+            data: piece,
+            processData: false,
+            contentType: "application/octet-stream",
+          }
+        );
+        offset = response.upload.received_size;
+      } catch (failure) {
+        // A lost response leaves the server ahead of what the browser last
+        // heard. The byte count it reports is the truth; anything else is a
+        // real failure and ends the transfer.
+        const reported = failure?.jqXHR?.responseJSON?.received_size;
+        if (failure?.jqXHR?.status === 409 && Number.isInteger(reported)) {
+          offset = reported;
+        } else {
+          throw failure;
+        }
+      }
+
+      this.uploadProgress = Math.round((offset / size) * 100);
+    }
+
+    if (session.status === "pending") {
+      await ajax(`${UPLOADS}/${session.token}/complete`, {
+        type: "POST",
+        data: {},
+      });
+    }
+
+    this.uploadProgress = 100;
+    return session.token;
+  }
+
+  // An upload the form no longer needs. Sent without waiting: the screen is
+  // moving on, and a session that survives this call is cleaned up by the
+  // scheduled job a day later anyway.
+  #abortPendingUpload() {
+    if (!this.upload?.token) {
+      return;
+    }
+
+    ajax(`${UPLOADS}/${this.upload.token}`, { type: "DELETE" }).catch(() => {});
   }
 
   @action
@@ -400,11 +543,17 @@ export default class IngenicDownloadManager extends Component {
 
           {{#if this.chosenFile}}
             <p class="ingenic-admin-form__hint">
-              {{i18n "ingenic.downloads.fields.replacing_file" file=this.chosenFile}}
+              {{i18n "ingenic.downloads.fields.replacing_file" file=this.chosenFile.name}}
             </p>
           {{else if this.storedFileLabel}}
             <p class="ingenic-admin-form__hint">
               {{i18n "ingenic.downloads.fields.stored_file" file=this.storedFileLabel}}
+            </p>
+          {{/if}}
+
+          {{#if this.busy}}
+            <p class="ingenic-admin-form__hint">
+              {{i18n "ingenic.downloads.fields.upload_progress" progress=this.uploadProgress}}
             </p>
           {{/if}}
 

@@ -337,16 +337,17 @@ module Admin
         # A refusal that raises - a foreign key, a constraint - never reaches
         # the branch below, and the file this request just wrote would sit
         # on disk with nothing naming it.
-        ::Ingenic::DownloadStorage.delete(uploaded) if uploaded
+        discard_upload(uploaded)
         raise
       end
 
       if saved
+        consume_upload_session!
         render_json_dump(download: admin_download_json(record, *counts_for(record)))
       else
         # The bytes are already on disk by the time validation runs, and nothing
         # will ever name them again if the row is refused.
-        ::Ingenic::DownloadStorage.delete(uploaded) if uploaded
+        discard_upload(uploaded)
         render_record_error(record)
       end
     end
@@ -374,18 +375,182 @@ module Admin
       rescue StandardError
         # The row still points at the file it already had, so only the
         # upload this request wrote is cleaned up.
-        ::Ingenic::DownloadStorage.delete(uploaded) if uploaded
+        discard_upload(uploaded)
         raise
       end
 
       if saved
+        consume_upload_session!
         # Replacing an upload orphans the file it replaced.
         ::Ingenic::DownloadStorage.delete(replaced) if replaced.present? && replaced != record.storage_path
         render_json_dump(download: admin_download_json(record, *counts_for(record)))
       else
-        ::Ingenic::DownloadStorage.delete(uploaded) if uploaded
+        discard_upload(uploaded)
         render_record_error(record)
       end
+    end
+
+    # Chunked uploads -------------------------------------------------------
+    #
+    # A three-gigabyte firmware image cannot be one request: the web server in
+    # front of Rails rejects anything over ten megabytes. The browser sends the
+    # file in eight-megabyte pieces, each request stays under that limit, and
+    # the session row is what holds the transfer together between them.
+    #
+    # The pieces are appended in order. An offset that is not the current end
+    # of the file is answered with 409 and the byte count the server has, so a
+    # browser whose last response was lost resumes instead of starting over.
+
+    # How large a single request body may be. Well under the usual ten-megabyte
+    # proxy limit, and large enough that a three-gigabyte file is a few hundred
+    # requests rather than thousands.
+    MAX_CHUNK_SIZE = 8.megabytes
+
+    # A ceiling on the whole file. The largest SDK here is around three
+    # gigabytes; this leaves room without letting a typo fill the disk.
+    MAX_UPLOAD_SIZE = 8.gigabytes
+
+    def create_upload_session
+      authorize_downloads_upload!
+
+      filename = File.basename(params[:filename].to_s)
+      size = params[:size].to_i
+
+      if filename.blank? || size <= 0 || size > MAX_UPLOAD_SIZE
+        return render json: { errors: [I18n.t("ingenic.errors.upload_invalid")] }, status: 422
+      end
+
+      unless ::Ingenic::DownloadStorage.writable?
+        return(
+          render json: { errors: [I18n.t("ingenic.admin_errors.storage_unavailable")] }, status: 422
+        )
+      end
+
+      session =
+        IngenicUploadSession.create!(
+          token: SecureRandom.urlsafe_base64(24),
+          user_id: current_user.id,
+          original_filename: filename,
+          expected_size: size,
+          received_size: 0,
+        )
+
+      ::Ingenic::DownloadStorage.append(session.staging_relative, "")
+
+      render_json_dump(upload: upload_session_json(session))
+    end
+
+    # What the server has so far. A browser that comes back to an interrupted
+    # transfer - a closed tab, a dropped connection - asks here and continues
+    # from `received_size` instead of sending the file from the beginning.
+    def show_upload_session
+      authorize_downloads_upload!
+      session = owned_upload_session
+      return render_upload_error(:upload_missing) unless session
+
+      render_json_dump(upload: upload_session_json(session))
+    end
+
+    def append_upload_chunk
+      authorize_downloads_upload!
+      session = owned_upload_session
+      return render_upload_error(:upload_missing) unless session&.pending?
+
+      bytes = request.body.read.to_s
+      offset = params[:offset].to_i
+
+      if bytes.empty?
+        return render json: { errors: [I18n.t("ingenic.errors.upload_invalid")] }, status: 422
+      end
+
+      if bytes.bytesize > MAX_CHUNK_SIZE
+        return render json: { errors: [I18n.t("ingenic.errors.upload_chunk_too_large")] }, status: 413
+      end
+
+      session.with_lock do
+        # The lock is what keeps two chunks from the same session - a retry
+        # racing the request it repeats - from both writing at one offset.
+        #
+        # The file is first cut back to what the row acknowledges, which
+        # discards a tail left by a process that died mid-write.
+        actual = ::Ingenic::DownloadStorage.align(session.staging_relative, session.received_size)
+        if actual < session.received_size
+          session.update!(received_size: actual)
+          return(
+            render json: {
+                     errors: [I18n.t("ingenic.errors.upload_offset")],
+                     received_size: actual,
+                   },
+                   status: 409
+          )
+        end
+
+        if offset != session.received_size
+          return(
+            render json: {
+                     errors: [I18n.t("ingenic.errors.upload_offset")],
+                     received_size: session.received_size,
+                   },
+                   status: 409
+          )
+        end
+
+        if session.received_size + bytes.bytesize > session.expected_size
+          return render_upload_error(:upload_too_large)
+        end
+
+        written = ::Ingenic::DownloadStorage.append(session.staging_relative, bytes)
+        session.update!(received_size: written)
+      end
+
+      render_json_dump(upload: upload_session_json(session))
+    end
+
+    def complete_upload_session
+      authorize_downloads_upload!
+      session = owned_upload_session
+      return render_upload_error(:upload_missing) unless session&.pending?
+
+      if session.received_size != session.expected_size
+        return(
+          render json: {
+                   errors: [I18n.t("ingenic.errors.upload_incomplete")],
+                   received_size: session.received_size,
+                 },
+                 status: 422
+        )
+      end
+
+      stored =
+        ::Ingenic::DownloadStorage.finalize(
+          session.staging_relative,
+          session.original_filename,
+        )
+
+      if params[:sha256].present? && params[:sha256].to_s.downcase != stored[:sha256]
+        ::Ingenic::DownloadStorage.delete(stored[:path])
+        session.destroy!
+        return render_upload_error(:upload_checksum)
+      end
+
+      session.update!(status: "completed", sha256: stored[:sha256], storage_path: stored[:path])
+
+      render_json_dump(upload: upload_session_json(session))
+    end
+
+    # An upload the browser abandons - the form was closed, the wrong file was
+    # chosen - leaves a part file behind until somebody says so.
+    def destroy_upload_session
+      authorize_downloads_upload!
+      session = owned_upload_session
+      return render_upload_error(:upload_missing) unless session
+
+      ::Ingenic::DownloadStorage.delete(
+        session.pending? ? session.staging_relative : session.storage_path,
+      )
+      session.destroy!
+
+      head :no_content
     end
 
     # Withdrawn rather than destroyed: a resource that has been downloaded is
@@ -566,6 +731,8 @@ module Admin
             .includes(:links)
             .ordered
             .map { |record| footer_column_json(record) },
+        site_pages:
+          IngenicSitePage.for_locale(content_locale).ordered.map { |record| site_page_json(record) },
         locales: ::Ingenic::Locales.options,
         locale: content_locale,
       )
@@ -763,6 +930,32 @@ module Admin
     def destroy_footer_link
       authorize_ingenic_feature!("site")
       IngenicFooterLink.find(params[:id]).destroy!
+      head :no_content
+    end
+
+    # Site pages ------------------------------------------------------------
+
+    # The standalone pages the footer links to. A page belongs to the language
+    # the screen is working in, like every other content row; the language is
+    # taken from the screen rather than from the form, so a page cannot be
+    # filed under a language the editor is not looking at.
+    def create_site_page
+      authorize_ingenic_feature!("site")
+      record = IngenicSitePage.new(site_page_params)
+      record.locale = content_locale
+      save_or_error(record) { render_json_dump(site_page: site_page_json(record)) }
+    end
+
+    def update_site_page
+      authorize_ingenic_feature!("site")
+      record = IngenicSitePage.find(params[:id])
+      record.assign_attributes(site_page_params)
+      save_or_error(record) { render_json_dump(site_page: site_page_json(record)) }
+    end
+
+    def destroy_site_page
+      authorize_ingenic_feature!("site")
+      IngenicSitePage.find(params[:id]).destroy!
       head :no_content
     end
 
@@ -1294,13 +1487,26 @@ module Admin
       params.permit(:column_id, :label, :href, :external, :position, :published)
     end
 
+    def site_page_params
+      params.permit(:slug, :title, :body, :position, :published)
+    end
+
     # Writes the uploaded file, if the request carries one, and returns where it
     # went. The path is returned rather than read back off the record so that a
     # refused save can clean up the file it just wrote.
     #
     # A stored file clears any URL the row had: two sources for the same bytes
     # is one more than the delivery endpoint is willing to choose between.
+    #
+    # A large file does not arrive in this request. It arrives as chunks under
+    # a token, already assembled and hashed; `upload_token` names that upload
+    # and this method adopts it. The file the session assembled is left in
+    # place if the save is refused, so the browser can correct the form and
+    # attach the same three gigabytes again rather than send them again.
     def apply_upload(record)
+      token = params[:upload_token].to_s
+      return apply_upload_session(record, token) if token.present?
+
       file = params[:file]
       return nil unless file.respond_to?(:read)
 
@@ -1318,6 +1524,74 @@ module Admin
       record.file_size = ActiveSupport::NumberHelper.number_to_human_size(stored[:size])
       record.file_url = nil
       stored[:path]
+    end
+
+    def apply_upload_session(record, token)
+      session = IngenicUploadSession.find_by(token: token)
+
+      if session.nil? || session.user_id != current_user.id || !session.completed? ||
+           !::Ingenic::DownloadStorage.exist?(session.storage_path)
+        record.errors.add(:base, I18n.t("ingenic.admin_errors.upload_missing"))
+        return nil
+      end
+
+      record.storage_path = session.storage_path
+      record.original_filename = session.original_filename
+      record.file_sha256 = session.sha256
+      record.file_size = ActiveSupport::NumberHelper.number_to_human_size(session.expected_size)
+      record.file_url = nil
+      @upload_session = session
+      session.storage_path
+    end
+
+    # A file uploaded in one request belongs to nobody until the row is saved,
+    # so a refused save deletes it. A file uploaded in chunks belongs to its
+    # session until the row is saved, so it stays: the browser still holds the
+    # token and the next attempt will adopt the same bytes.
+    def discard_upload(path)
+      return if path.blank? || @upload_session.present?
+
+      ::Ingenic::DownloadStorage.delete(path)
+    end
+
+    # The row now names the file; the session has done its job.
+    def consume_upload_session!
+      @upload_session&.destroy!
+      @upload_session = nil
+    end
+
+    # A chunked upload a scoped manager may start: the session is not filed
+    # under a product yet, so there is no chip to check. An upload nobody can
+    # attach to a resource is harmless; the download create itself is checked
+    # against the chip it is filed under.
+    def authorize_downloads_upload!
+      resolver = ::Ingenic::PermissionResolver.new(current_user)
+      allowed =
+        current_user.admin? || resolver.can_manage_feature?("downloads") ||
+          resolver.can_manage_any_area?("downloads")
+      raise Discourse::NotFound unless allowed
+    end
+
+    # Sessions are private to the person who started them. An administrator
+    # included: a token is not a shared handle, and reviewing someone else's
+    # half-finished upload is not what the screen's grants describe.
+    def owned_upload_session
+      IngenicUploadSession.find_by(token: params[:token].to_s, user_id: current_user.id)
+    end
+
+    def upload_session_json(session)
+      {
+        token: session.token,
+        filename: session.original_filename,
+        size: session.expected_size,
+        received_size: session.received_size,
+        status: session.status,
+        sha256: session.sha256,
+      }
+    end
+
+    def render_upload_error(key)
+      render json: { errors: [I18n.t("ingenic.errors.#{key}")] }, status: 422
     end
 
     def parse_time(value)
@@ -1510,6 +1784,16 @@ module Admin
         "position",
         "published",
       )
+    end
+
+    # The body is sent raw, not cooked: the management screen edits Markdown
+    # and has to show what it saved, while the public reader receives the
+    # rendered form.
+    def site_page_json(page)
+      page
+        .attributes
+        .slice("id", "slug", "locale", "title", "body", "position", "published")
+        .merge("updated_at" => page.updated_at&.iso8601)
     end
 
     def download_request_json(request)

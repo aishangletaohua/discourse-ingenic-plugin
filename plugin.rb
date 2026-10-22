@@ -39,6 +39,7 @@ require_relative "lib/ingenic/status_tags"
 require_relative "lib/ingenic/tag_policy"
 require_relative "lib/ingenic/bounties"
 require_relative "lib/ingenic/config_export"
+require_relative "lib/ingenic/site_page_defaults"
 
 # A plugin's `app/` tree is not autoloaded. Discourse either namespaces it
 # behind a Rails::Engine or expects the plugin to require each file, and this
@@ -66,6 +67,8 @@ require_relative "app/models/ingenic_header_link"
 require_relative "app/models/ingenic_section_card"
 require_relative "app/models/ingenic_footer_column"
 require_relative "app/models/ingenic_footer_link"
+require_relative "app/models/ingenic_site_page"
+require_relative "app/models/ingenic_upload_session"
 require_relative "app/models/ingenic_point_rule"
 require_relative "app/models/ingenic_point_entry"
 require_relative "app/models/ingenic_point_balance"
@@ -89,6 +92,7 @@ require_relative "app/jobs/regular/ingenic_download_decision_email"
 require_relative "app/jobs/regular/ingenic_official_flair_sync"
 require_relative "app/jobs/scheduled/ingenic_bounty_expiry"
 require_relative "app/jobs/scheduled/ingenic_high_like_tag"
+require_relative "app/jobs/scheduled/ingenic_upload_cleanup"
 
 require_relative "app/controllers/admin/ingenic/base_controller"
 require_relative "app/controllers/admin/ingenic_controller"
@@ -98,6 +102,7 @@ require_relative "app/controllers/ingenic_boards_controller"
 require_relative "app/controllers/ingenic_mcp_controller"
 require_relative "app/controllers/ingenic_manage_controller"
 require_relative "app/controllers/ingenic_site_controller"
+require_relative "app/controllers/ingenic_pages_controller"
 require_relative "app/controllers/ingenic_points_controller"
 require_relative "app/controllers/ingenic_home_controller"
 require_relative "app/controllers/ingenic_bounties_controller"
@@ -436,6 +441,14 @@ after_initialize do
       post "/downloads" => "admin/ingenic#create_download"
       put "/downloads/:id" => "admin/ingenic#update_download"
       delete "/downloads/:id" => "admin/ingenic#destroy_download"
+
+      # A file too large for one request. The browser opens a session, sends
+      # the pieces, then names the finished upload when it saves the resource.
+      post "/uploads" => "admin/ingenic#create_upload_session"
+      get "/uploads/:token" => "admin/ingenic#show_upload_session"
+      post "/uploads/:token/chunks" => "admin/ingenic#append_upload_chunk"
+      post "/uploads/:token/complete" => "admin/ingenic#complete_upload_session"
+      delete "/uploads/:token" => "admin/ingenic#destroy_upload_session"
       get "/download-requests" => "admin/ingenic#download_requests"
       put "/download-requests/:id/approve" => "admin/ingenic#approve_request"
       put "/download-requests/:id/reject" => "admin/ingenic#reject_request"
@@ -488,6 +501,12 @@ after_initialize do
       post "/footer-links" => "admin/ingenic#create_footer_link"
       put "/footer-links/:id" => "admin/ingenic#update_footer_link"
       delete "/footer-links/:id" => "admin/ingenic#destroy_footer_link"
+
+      # The standalone pages the footer points at. They are part of the site's
+      # content, so they share its permission rather than the documentation's.
+      post "/site-pages" => "admin/ingenic#create_site_page"
+      put "/site-pages/:id" => "admin/ingenic#update_site_page"
+      delete "/site-pages/:id" => "admin/ingenic#destroy_site_page"
     end
 
     # The content workbench. A scoped manager opens the same Ember screens an
@@ -537,6 +556,10 @@ after_initialize do
     # no page here: every one of them is drawn inside a layout the theme already
     # owns.
     get "/ingenic/site", to: "ingenic_site#show", as: :ingenic_site
+
+    # The standalone pages the footer links to. One segment because a page's
+    # slug is its identity, and nothing hangs beneath it.
+    get "/ingenic/pages/:slug", to: "ingenic_pages#show", as: :ingenic_page
 
     # The member's own points. Read-only from the front end: points are earned
     # by contributing and spent on a download, and neither happens through this

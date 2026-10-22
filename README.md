@@ -392,6 +392,7 @@ ingenic_promotions        promotion slots, per language
 ingenic_social_links      social strip entries, per language
 ingenic_footer_columns    footer link columns, per language
 ingenic_footer_links      the links inside a footer column (language follows the column)
+ingenic_site_pages        standalone pages behind the footer links, per language
 ingenic_permissions       scoped grants to a user or group
 ingenic_group_permissions a whole management screen, granted to a group
 ingenic_tag_colours       explicit colour-family assignments per tag name
@@ -399,6 +400,7 @@ ingenic_point_rules       what each action is worth, and what to call it
 ingenic_point_entries     the ledger: one append-only row per movement
 ingenic_point_balances    a running total per account, derived from the entries
 ingenic_bounties          one member's offer on one topic, and what became of it
+ingenic_upload_sessions   a chunked upload while it is arriving; consumed by the download row it becomes
 ```
 
 A product row is one language's entry in the catalogue: an English T33 and a

@@ -63,6 +63,6 @@ class IngenicBoardsController < ::ApplicationController
   end
 
   def locale
-    @locale ||= Ingenic::Locales.reading
+    @locale ||= Ingenic::Locales.reading(params[:locale])
   end
 end

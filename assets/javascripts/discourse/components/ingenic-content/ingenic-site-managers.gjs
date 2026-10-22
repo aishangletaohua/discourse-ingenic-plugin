@@ -9,6 +9,7 @@ import IngenicPromotionManager from "./ingenic-promotion-manager";
 import IngenicHeaderLinkManager from "./ingenic-header-link-manager";
 import IngenicSocialLinkManager from "./ingenic-social-link-manager";
 import IngenicFooterManager from "./ingenic-footer-manager";
+import IngenicSitePageManager from "./ingenic-site-page-manager";
 import { i18n } from "discourse-i18n";
 
 /**
@@ -48,6 +49,10 @@ export default class IngenicSiteManagers extends Component {
 
   get isFooter() {
     return this.tab === "footer";
+  }
+
+  get isSitePages() {
+    return this.tab === "site-pages";
   }
 
   @action
@@ -100,6 +105,13 @@ export default class IngenicSiteManagers extends Component {
       >
         {{i18n "ingenic.site.tab_footer"}}
       </button>
+      <button
+        class="btn {{if this.isSitePages 'btn-primary'}}"
+        type="button"
+        {{on "click" (fn this.show "site-pages")}}
+      >
+        {{i18n "ingenic.site.tab_pages"}}
+      </button>
     </div>
 
     {{#if this.isHomepage}}
@@ -112,6 +124,8 @@ export default class IngenicSiteManagers extends Component {
       <IngenicSocialLinkManager @socialLinks={{@socialLinks}} />
     {{else if this.isFooter}}
       <IngenicFooterManager @footerColumns={{@footerColumns}} />
+    {{else if this.isSitePages}}
+      <IngenicSitePageManager @sitePages={{@sitePages}} />
     {{else}}
       <IngenicPromotionManager @promotions={{@promotions}} />
     {{/if}}

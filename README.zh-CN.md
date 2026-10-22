@@ -230,7 +230,9 @@ ingenic_section_cards       首页卡片，按语言区分
 ingenic_promotions          推广位，按语言区分
 ingenic_social_links        社交入口，按语言区分
 ingenic_footer_columns      页脚链接栏，按语言区分
+ingenic_site_pages          页脚链接指向的独立页面，按语言区分
 ingenic_footer_links        页脚栏里的链接（语言跟随所在栏）
+ingenic_upload_sessions     分片上传进行中的会话；保存为资源行后即被消费
 ingenic_permissions         授予用户或群组的范围权限
 ingenic_group_permissions   授予用户组的一整块管理页面
 ingenic_tag_colours         按标签名保存的颜色系列指定

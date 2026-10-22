@@ -329,6 +329,18 @@ describe IngenicDocsController do
       expect(json["pages"].map { |page| page["slug"] }).to eq(["overview"])
     end
 
+    # The reader keeps one address per page and switches the language without
+    # leaving it. Naming the language in the address is what lets the same URL
+    # answer in either one, and what lets a cache between the two key on it.
+    it "answers in the language the request names" do
+      SiteSetting.content_localization_enabled = true
+      SiteSetting.content_localization_supported_locales = "en"
+
+      get "/ingenic/docs/t-series/t32pro/2.1.0/overview.json?locale=en"
+
+      expect(response.parsed_body["page"]["title"]).to eq("Overview")
+    end
+
     it "does not fall back to another language for a page with no translation" do
       get "/ingenic/docs/t-series/t32pro/2.1.0/quick-start.json"
 

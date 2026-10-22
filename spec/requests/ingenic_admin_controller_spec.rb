@@ -545,6 +545,76 @@ describe Admin::IngenicController do
     end
   end
 
+  describe "site pages" do
+    it "creates a page in the language the screen is working in" do
+      expect {
+        post "/admin/plugins/discourse-ingenic/site-pages.json",
+             params: { slug: "cookies", title: "Cookies", body: "What we store." }
+      }.to change(IngenicSitePage, :count).by(1)
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["site_page"]).to include(
+        "slug" => "cookies",
+        "locale" => "en",
+        "title" => "Cookies",
+      )
+    end
+
+    it "edits the body and takes the page off the site without deleting it" do
+      record =
+        IngenicSitePage.create!(slug: "cookies", locale: "en", title: "Cookies", body: "Old.")
+
+      put "/admin/plugins/discourse-ingenic/site-pages/#{record.id}.json",
+          params: { title: "Cookies and storage", body: "New.", published: false }
+
+      expect(response.status).to eq(200)
+      expect(record.reload).to have_attributes(
+        title: "Cookies and storage",
+        body: "New.",
+        published: false,
+      )
+    end
+
+    it "refuses a page whose address is already taken in that language" do
+      IngenicSitePage.create!(slug: "cookies", locale: "en", title: "Cookies")
+
+      post "/admin/plugins/discourse-ingenic/site-pages.json",
+           params: { slug: "cookies", title: "Another cookies page" }
+
+      expect(response.status).to eq(422)
+      expect(IngenicSitePage.where(slug: "cookies").count).to eq(1)
+    end
+
+    it "lists the pages with the rest of the site content" do
+      IngenicSitePage.create!(slug: "cookies", locale: "en", title: "Cookies")
+
+      get "/admin/plugins/discourse-ingenic/site.json"
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["site_pages"].map { |page| page["slug"] }).to include("cookies")
+    end
+
+    it "removes a page" do
+      record = IngenicSitePage.create!(slug: "cookies", locale: "en", title: "Cookies")
+
+      expect {
+        delete "/admin/plugins/discourse-ingenic/site-pages/#{record.id}.json"
+      }.to change(IngenicSitePage, :count).by(-1)
+
+      expect(response.status).to eq(204)
+    end
+
+    it "refuses a member without the site-content permission" do
+      sign_in(Fabricate(:user))
+
+      post "/admin/plugins/discourse-ingenic/site-pages.json",
+           params: { slug: "cookies", title: "Cookies" }
+
+      expect(response.status).to eq(404)
+      expect(IngenicSitePage.where(slug: "cookies").count).to eq(0)
+    end
+  end
+
   describe "DELETE /admin/plugins/discourse-ingenic/footer-columns/:id" do
     it "takes the column's links with it" do
       column = IngenicFooterColumn.create!(title: "Company")
@@ -940,6 +1010,110 @@ describe Admin::IngenicController do
       expect(
         CategoryGroup.where(category: category, group_id: Group::AUTO_GROUPS[:everyone]).count,
       ).to eq(1)
+    end
+  end
+
+  # A firmware image larger than the ten-megabyte proxy limit cannot be one
+  # request. These endpoints are that transfer: open a session, append pieces,
+  # finish, then name the finished file when the resource is saved.
+  describe "chunked uploads" do
+    let(:storage_dir) { Dir.mktmpdir("ingenic-uploads") }
+
+    before { SiteSetting.ingenic_download_storage_path = storage_dir }
+    after { FileUtils.remove_entry(storage_dir) if File.exist?(storage_dir) }
+
+    def open_session(name, bytes)
+      post "/admin/plugins/discourse-ingenic/uploads.json",
+           params: {
+             filename: name,
+             size: bytes.bytesize,
+           }
+      expect(response.status).to eq(200)
+      response.parsed_body["upload"]["token"]
+    end
+
+    def send_piece(token, offset, bytes)
+      post "/admin/plugins/discourse-ingenic/uploads/#{token}/chunks.json?offset=#{offset}",
+           params: bytes,
+           headers: {
+             "CONTENT_TYPE" => "application/octet-stream",
+           }
+      response
+    end
+
+    it "assembles a file from pieces and attaches it to a resource" do
+      content = "firmware-" * 1000
+      token = open_session("sdk.bin", content)
+
+      expect(send_piece(token, 0, content.byteslice(0, 3000)).status).to eq(200)
+      still_open = send_piece(token, 3000, content.byteslice(3000, 3000))
+      expect(still_open.parsed_body["upload"]["received_size"]).to eq(6000)
+
+      send_piece(token, 6000, content.byteslice(6000..))
+
+      post "/admin/plugins/discourse-ingenic/uploads/#{token}/complete.json"
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["upload"]["status"]).to eq("completed")
+
+      post "/admin/plugins/discourse-ingenic/downloads.json",
+           params: {
+             name: "SDK bundle",
+             family: "algorithm",
+             upload_token: token,
+           }
+
+      expect(response.status).to eq(200)
+      download = IngenicDownload.find(response.parsed_body["download"]["id"])
+      expect(download.original_filename).to eq("sdk.bin")
+      expect(download.file_sha256).to eq(Digest::SHA256.hexdigest(content))
+      stored = Pathname.new(storage_dir).join(download.storage_path)
+      expect(stored.read).to eq(content)
+
+      # The finished upload is consumed by the row that names it.
+      expect(IngenicUploadSession.find_by(token: token)).to be_nil
+    end
+
+    # The offset is the contract that makes resuming safe. A browser that
+    # guessed wrong is told where the file actually ends rather than having
+    # its bytes written over someone else's.
+    it "reports the byte it has when a piece arrives at the wrong offset" do
+      token = open_session("sdk.bin", "abcdefghij")
+      send_piece(token, 0, "abcdef")
+
+      response = send_piece(token, 0, "XXXXXX")
+
+      expect(response.status).to eq(409)
+      expect(response.parsed_body["received_size"]).to eq(6)
+      expect(Ingenic::DownloadStorage.staging_path(token).read).to eq("abcdef")
+    end
+
+    it "will not finish an upload that is missing bytes" do
+      token = open_session("sdk.bin", "abcdefghij")
+      send_piece(token, 0, "abc")
+
+      post "/admin/plugins/discourse-ingenic/uploads/#{token}/complete.json"
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"].first).to eq(I18n.t("ingenic.errors.upload_incomplete"))
+    end
+
+    it "keeps one person's upload out of another person's reach" do
+      token = open_session("sdk.bin", "abcdef")
+      sign_in(Fabricate(:admin))
+
+      get "/admin/plugins/discourse-ingenic/uploads/#{token}.json"
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"].first).to eq(I18n.t("ingenic.errors.upload_missing"))
+    end
+
+    it "refuses a piece larger than the per-request limit" do
+      content = "x" * 9.megabytes
+      token = open_session("sdk.bin", content)
+
+      response = send_piece(token, 0, content)
+
+      expect(response.status).to eq(413)
     end
   end
 end

@@ -253,7 +253,7 @@ class IngenicDocsController < ::ApplicationController
   end
 
   def locale
-    @locale ||= Ingenic::Locales.reading
+    @locale ||= Ingenic::Locales.reading(params[:locale])
   end
 
   def render_not_found(key)

@@ -37,7 +37,7 @@ class IngenicSiteController < ::ApplicationController
   # Every row here carries its own language, and the reader gets exactly theirs.
   # One endpoint serves the homepage and the footer, so the choice is made once.
   def locale
-    @locale ||= Ingenic::Locales.reading
+    @locale ||= Ingenic::Locales.reading(params[:locale])
   end
 
   def promotions_json
