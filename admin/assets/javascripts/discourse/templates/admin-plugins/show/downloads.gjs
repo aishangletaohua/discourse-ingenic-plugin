@@ -2,7 +2,7 @@ import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
-import { fn } from "@ember/helper";
+import { array, fn } from "@ember/helper";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import IngenicDownloadManager from "../../../components/ingenic-content/ingenic-download-manager";
 import IngenicDownloadQueue from "../../../../admin/components/ingenic-download-queue";
@@ -120,23 +120,29 @@ export default class AdminPluginsShowDownloads extends Component {
         </button>
       </div>
 
-      {{#if this.isRequests}}
-        <IngenicDownloadQueue @requests={{this.args.model.requests.requests}} />
-      {{else if this.isGrants}}
-        <IngenicGrantList @grants={{this.args.model.grants.grants}} />
-      {{else if this.isCategories}}
-        <IngenicCategoryManager @categories={{this.args.model.resources.categories}} />
-      {{else if this.isLog}}
-        <IngenicDownloadLog />
-      {{else}}
-        <IngenicDownloadManager
-          @downloads={{this.args.model.resources.downloads}}
-          @categories={{this.args.model.resources.categories}}
-          @accessLevels={{this.args.model.resources.access_levels}}
-          @chips={{this.args.model.resources.chips}}
-          @storageWritable={{this.args.model.resources.storage_writable}}
-        />
-      {{/if}}
+      {{#each (array this.args.model.resources.locale) key="@identity" as |locale|}}
+        {{#if this.isRequests}}
+          <IngenicDownloadQueue @requests={{this.args.model.requests.requests}} />
+        {{else if this.isGrants}}
+          <IngenicGrantList @grants={{this.args.model.grants.grants}} />
+        {{else if this.isCategories}}
+          <IngenicCategoryManager
+            @categories={{this.args.model.resources.categories}}
+            @locale={{locale}}
+          />
+        {{else if this.isLog}}
+          <IngenicDownloadLog />
+        {{else}}
+          <IngenicDownloadManager
+            @downloads={{this.args.model.resources.downloads}}
+            @categories={{this.args.model.resources.categories}}
+            @accessLevels={{this.args.model.resources.access_levels}}
+            @chips={{this.args.model.resources.chips}}
+            @storageWritable={{this.args.model.resources.storage_writable}}
+            @locale={{locale}}
+          />
+        {{/if}}
+      {{/each}}
     </div>
   </template>
 }
