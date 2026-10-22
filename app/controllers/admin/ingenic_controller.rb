@@ -456,6 +456,13 @@ module Admin
       session = owned_upload_session
       return render_upload_error(:upload_missing) unless session&.pending?
 
+      # Read only after the size is known: the body is buffered whole, and a
+      # request that announces far more than one piece would otherwise take
+      # that many bytes of memory before the check below could refuse it.
+      if request.content_length.to_i > MAX_CHUNK_SIZE
+        return render json: { errors: [I18n.t("ingenic.errors.upload_chunk_too_large")] }, status: 413
+      end
+
       bytes = request.body.read.to_s
       offset = params[:offset].to_i
 
@@ -511,29 +518,36 @@ module Admin
       session = owned_upload_session
       return render_upload_error(:upload_missing) unless session&.pending?
 
-      if session.received_size != session.expected_size
-        return(
-          render json: {
-                   errors: [I18n.t("ingenic.errors.upload_incomplete")],
-                   received_size: session.received_size,
-                 },
-                 status: 422
-        )
+      session.with_lock do
+        # A retry after a response the browser never received arrives once the
+        # first request has already finished. The row is the arbiter, and
+        # answering it again beats renaming a file that has already moved.
+        return render_json_dump(upload: upload_session_json(session)) unless session.pending?
+
+        if session.received_size != session.expected_size
+          return(
+            render json: {
+                     errors: [I18n.t("ingenic.errors.upload_incomplete")],
+                     received_size: session.received_size,
+                   },
+                   status: 422
+          )
+        end
+
+        stored =
+          ::Ingenic::DownloadStorage.finalize(
+            session.staging_relative,
+            session.original_filename,
+          )
+
+        if params[:sha256].present? && params[:sha256].to_s.downcase != stored[:sha256]
+          ::Ingenic::DownloadStorage.delete(stored[:path])
+          session.destroy!
+          return render_upload_error(:upload_checksum)
+        end
+
+        session.update!(status: "completed", sha256: stored[:sha256], storage_path: stored[:path])
       end
-
-      stored =
-        ::Ingenic::DownloadStorage.finalize(
-          session.staging_relative,
-          session.original_filename,
-        )
-
-      if params[:sha256].present? && params[:sha256].to_s.downcase != stored[:sha256]
-        ::Ingenic::DownloadStorage.delete(stored[:path])
-        session.destroy!
-        return render_upload_error(:upload_checksum)
-      end
-
-      session.update!(status: "completed", sha256: stored[:sha256], storage_path: stored[:path])
 
       render_json_dump(upload: upload_session_json(session))
     end
