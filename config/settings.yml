@@ -90,6 +90,30 @@ plugins:
     type: string
     description: "Directory that holds uploaded SDK and firmware files. Leave empty to use <app>/ingenic-downloads. Must be outside public/."
 
+  # The official-file library: the directory tree the file manager writes into.
+  # Real folders and real filenames, so an operator can point a colleague at a
+  # path as well as a link. The default sits beside the application rather than
+  # under public/, because every file is served through the plugin after a path
+  # check; a copy under public/ would be reachable directly and skip it.
+  #
+  # This is not the download centre's storage. That holds the bytes behind a
+  # catalogue row; this holds whatever the team wants to link to before or
+  # instead of publishing a row. Keep the two apart.
+  ingenic_file_manager_path:
+    default: ""
+    type: string
+    description: "Directory that holds the official file library. Leave empty to use <app>/ingenic-files. Must be outside public/."
+
+  # What the library will accept. The list is the whole policy: a filename whose
+  # extension is not here is refused at upload, and the browser is told the same
+  # list so its picker can agree. Extensions are case-insensitive and written
+  # without the dot.
+  ingenic_file_manager_extensions:
+    default: "zip,7z,rar,tar,gz,bz2,xz,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,csv,png,jpg,jpeg,gif,webp,avif,bin,img"
+    type: list
+    list_type: compact
+    description: "File extensions the official file library accepts."
+
   # Where an application for an access-restricted resource is sent. Left empty,
   # applications are still recorded and shown in the admin queue, but nobody is
   # emailed about them.

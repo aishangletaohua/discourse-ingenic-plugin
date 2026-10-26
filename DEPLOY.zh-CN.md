@@ -156,6 +156,8 @@ https://github.com/aishangletaohua/discourse-ingenic-theme.git
 | `ingenic_enabled` | 开启 |
 | `ingenic_docs_discussion_category` | 文档讨论所属分类的 slug |
 | `ingenic_download_storage_path` | 大容量卷上的目录，必须位于 `public/` 之外；留空则使用 `<app>/ingenic-downloads` |
+| `ingenic_file_manager_path` | 官方文件库所在的目录，必须位于 `public/` 之外；留空则使用 `<app>/ingenic-files` |
+| `ingenic_file_manager_extensions` | 文件库接受的扩展名；留空使用自带列表 |
 | `ingenic_download_admin_email` | 接收下载申请通知的邮箱 |
 | `ingenic_developer_form_fields` | JSON 配置；留空则使用内置的开发者信息表单 |
 | `ingenic_official_groups` | 需要显示官方认证图标的群组名称，例如 `admins` |
@@ -170,6 +172,16 @@ https://github.com/aishangletaohua/discourse-ingenic-theme.git
 放在 `public/` 之外：如果文件能被 Web 服务器直接访问，任何猜到地址的人都能下载，
 插件再怎么做权限判断也没有意义，因此文件统一由插件转发。下载量增长后可以把
 这个路径指向更大的数据盘。
+
+`ingenic_file_manager_path` 存放官方文件库：团队从管理页面上传的 SDK 压缩包、
+官方 PDF 和图片。它同样必须在 `public/` 之外，理由与下载目录相同。和下载中心
+不同的是，文件库里的图片是公开返回的——帖子里的图片必须无需登录就能加载——其他
+类型才只向已登录账号流式输出。文件库不设定任何下载级别；链接从这里拿到，级别在
+使用链接的地方套用。
+
+`ingenic_file_manager_extensions` 就是完整的上传策略：不在列表里的扩展名，服务端
+会拒绝，而不只是文件选择器里过滤掉。自带列表覆盖压缩包、Office 文档、PDF、文本、
+图片和固件原始镜像。
 
 `ingenic_download_admin_email` 是收到下载申请时发信的目标地址。留空时申请记录
 仍然会写入并在后台申请列表中显示，只是不会发出邮件通知。
@@ -611,6 +623,7 @@ rails c
 | 页脚链接栏目，以及每个页面右下方的板块跳转 | **Ingenic → 站点内容 → 页脚栏目** |
 | 开发板图片、规格、文档链接、购买链接 | **Ingenic → 开发板** |
 | SDK 与固件文件、下载权限、积分价格 | **Ingenic → 下载中心** |
+| 官方 SDK 压缩包、PDF 与图片，文件夹和链接 | **Ingenic → 官方文件**（被授权的用户组从 `/ingenic/manage/files` 进入） |
 | 文档的系列、型号、版本、页面 | **Ingenic → 文档** |
 | 侧边栏条目、名称和跳转 | 插件设置 `ingenic_nav_items`（JSON；留空用自带列表） |
 | 首页标题与副标题 | 主题设置 `ingenic_hero_title` / `ingenic_hero_subtitle` |
@@ -769,6 +782,10 @@ rake ingenic:import_config[/shared/ingenic-config.yml]
 上传的 SDK 与固件文件本身也不在文件里，只有指向它们的记录，包括每个文件被写入的路径。
 把下载目录一起拷过来的机器可以直接恢复出可用的下载中心；没有那些文件的机器会得到指向
 不存在文件的记录。
+
+官方文件库完全在文件系统里，数据库中没有对应的行，所以 `export_config` 和
+`import_config` 既不会导出它，也不需要导出。直接把 `ingenic_file_manager_path`
+整个目录拷走即可；空目录就是一个空的文件库页面。
 
 ### 每次部署之后
 

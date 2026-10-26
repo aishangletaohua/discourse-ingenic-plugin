@@ -9,6 +9,7 @@ export default {
     this.route("category-permissions", { path: "category-permissions" });
     this.route("tag-colours", { path: "tag-colours" });
     this.route("downloads", { path: "downloads" });
+    this.route("files", { path: "files" });
     this.route("points", { path: "points" });
     this.route("site", { path: "site" });
   },

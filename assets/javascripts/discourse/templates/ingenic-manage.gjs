@@ -18,6 +18,7 @@ const TABS = [
     area: "downloads",
     label: "ingenic.downloads.title",
   },
+  { route: "ingenic-manage.files", area: "files", label: "ingenic.files.title" },
   { route: "ingenic-manage.site", area: "site", label: "ingenic.site.title" },
 ];
 

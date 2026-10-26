@@ -12,6 +12,7 @@ export default function () {
     this.route("documentation", { path: "documentation" });
     this.route("boards", { path: "boards" });
     this.route("downloads", { path: "downloads" });
+    this.route("files", { path: "files" });
     this.route("site", { path: "site" });
   });
 }

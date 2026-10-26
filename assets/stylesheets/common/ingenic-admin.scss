@@ -1452,3 +1452,266 @@
   font-size: var(--font-down-2);
   color: var(--primary-medium);
 }
+
+// The official file library ---------------------------------------------------
+
+.ingenic-manage__hint {
+  margin: -0.5rem 0 1rem;
+  max-width: 60rem;
+  font-size: var(--font-down-1);
+  color: var(--primary-medium);
+}
+
+.ingenic-file-manager {
+  margin-top: 1rem;
+}
+
+.ingenic-file-manager__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  font-size: var(--font-down-1);
+}
+
+.ingenic-file-manager__crumb {
+  padding: 0.15rem 0.35rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--tertiary);
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--primary-very-low);
+  }
+}
+
+.ingenic-file-manager__separator {
+  color: var(--primary-low-mid);
+}
+
+.ingenic-file-manager__inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+
+  input[type="text"] {
+    min-width: 14rem;
+  }
+}
+
+// The picker is a label so the whole button opens it; the input itself has no
+// place in the layout.
+.ingenic-file-manager__upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  input[type="file"] {
+    display: none;
+  }
+}
+
+.ingenic-file-manager__uploads {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--primary-low);
+  border-radius: 6px;
+  background: var(--primary-very-low);
+}
+
+.ingenic-file-manager__upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+
+  & + & {
+    margin-top: 0.4rem;
+  }
+
+  progress {
+    flex: 1 1 12rem;
+    height: 0.5rem;
+  }
+}
+
+.ingenic-file-manager__upload-name {
+  flex: 1 1 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ingenic-file-manager__upload-error {
+  flex: 1 1 100%;
+  color: var(--danger);
+  font-size: var(--font-down-1);
+}
+
+.ingenic-file-manager__upload-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--success);
+}
+
+.ingenic-file-manager__table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 0.55rem 0.5rem;
+    border-bottom: 1px solid var(--primary-low);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  th {
+    font-size: var(--font-down-1);
+    font-weight: 600;
+    color: var(--primary-high);
+  }
+}
+
+.ingenic-file-manager__name {
+  min-width: 16rem;
+  overflow-wrap: anywhere;
+}
+
+.ingenic-file-manager__entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+button.ingenic-file-manager__entry {
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--tertiary);
+  }
+}
+
+.ingenic-file-manager__thumb {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--primary-low);
+}
+
+.ingenic-file-manager__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 924px) {
+  .ingenic-file-manager__table {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .ingenic-file-manager__upload-row progress {
+    flex-basis: 100%;
+  }
+}
+
+// Preview and the move picker. Both sit above the page rather than pushing it
+// around: a preview is a look at a file, not a place the operator has moved to.
+.ingenic-file-manager__overlay {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.ingenic-file-manager__dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(56rem, 100%);
+  max-height: 100%;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  background: var(--secondary);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+
+    h3 {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+
+    input[type="text"] {
+      flex: 1 1 18rem;
+    }
+  }
+}
+
+.ingenic-file-manager__preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  text-align: center;
+
+  img {
+    max-width: 100%;
+    max-height: 70vh;
+  }
+
+  iframe {
+    width: 100%;
+    height: 65vh;
+    border: 1px solid var(--primary-low);
+    border-radius: 4px;
+    background: var(--secondary);
+  }
+}
+
+.ingenic-file-manager__move-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: 45vh;
+  overflow: auto;
+
+  .ingenic-file-manager__crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-align: left;
+  }
+}

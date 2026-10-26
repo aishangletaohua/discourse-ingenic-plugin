@@ -12,6 +12,10 @@ and adds a developer area below them:
 - **Download centre** for SDKs, firmware, manuals, datasheets and toolchains,
   behind three tiers of access (see below), with the files themselves stored
   outside `public/` and streamed through the plugin once access is checked.
+- **Official file library**: an internal screen where the team uploads SDK
+  archives, official PDFs and images into real folders on the server, previews
+  them and copies a link. It decides nothing about access — the link is taken
+  elsewhere and given a download tier there.
 - **Development board catalogue**, with each board filed against a chip in the
   product tree and an action button that links out to the Ingenic
   application/purchase page.
@@ -69,6 +73,43 @@ instead of it: a `login_form_request` resource that costs 500 points still sends
 a new visitor through sign-in, developer details and approval before it mentions
 points. The purchase is a ledger entry, so it is charged once however many times
 the file is downloaded.
+
+## Official file library
+
+The download centre is the member-facing catalogue. Beside it, the team has a
+library of its own: SDK archives, official PDFs, datasheets and images that are
+uploaded to a directory on the server, filed in real folders, previewed in the
+screen and handed out as links.
+
+It is a workbench, not a publishing step. The library does not set a download
+tier, does not publish anything and does not touch forum post attachments.
+Whoever uploads a file copies its link and decides later where the link goes and
+which of the three tiers applies there — the link can also sit unused until the
+announcement is ready. Attachments members add while posting are uploaded by
+Discourse and stored separately; the library never sees them.
+
+Two consequences are worth knowing before using it:
+
+- **A file's path is its address.** Folders are directories, files keep their
+  names, and a link is `/ingenic/files/<path>`. Renaming or moving a file
+  changes its link, so a link already pasted into a post points at where the
+  file was, not at the row.
+- **Images are public, everything else needs a session.** A preview must be able
+  to render an image in a post, so image extensions are served without a check.
+  Every other type is streamed only to a signed-in account. The library is not
+  the gate for restricted material; the download tier is, and that is a separate
+  record.
+
+Uploads go up in eight-megabyte pieces through the same session mechanism as the
+download centre, with `purpose: files`, so a multi-gigabyte archive passes the
+web server's body limit and can be resumed. The screen accepts the extensions in
+`ingenic_file_manager_extensions`; anything else is refused on the server as well
+as filtered in the file picker.
+
+The screen is one permission, `files`, granted through the Permission matrix to
+a custom group. There is no narrower grant over one folder: a group works in the
+library or does not see it, and a member without the grant gets the forum's
+ordinary 404 at both `/ingenic/manage/files` and the admin route.
 
 ## Points
 
@@ -205,17 +246,23 @@ rebuild. See the theme repository's README for the exact steps.
 ## Management
 
 Administrators can open **Admin → Plugins → Ingenic** to manage documentation,
-development boards, downloads, the application queue, grants, points, site
-content and permissions. Documentation and boards can also be opened by a member
-who was given either the screen's feature on the Permission matrix or a grant on
-one product or board. Downloads, points and site content are reachable through a
-feature grant too. The Permissions, Permission matrix, Section permissions and
-Tag colours screens stay administrator-only, because each of them decides who
-may do something else.
+development boards, downloads, the application queue, grants, the official file
+library, points, site content and permissions. Documentation and boards can also
+be opened by a member who was given either the screen's feature on the Permission
+matrix or a grant on one product or board. Downloads, the file library, points
+and site content are reachable through a feature grant too. The Permissions,
+Permission matrix, Section permissions and Tag colours screens stay
+administrator-only, because each of them decides who may do something else.
+
+A member with a management-screen grant reaches their screens at
+`/ingenic/manage`, a workbench with one tab per screen they hold; the same
+screens also appear in the plugin's admin navigation for an administrator. The
+workbench exists because a granted member is not an administrator and has no
+admin route to stand on.
 
 The Permission matrix grants a whole management screen to a custom group:
-documentation, development boards, downloads, points or site content. It is the
-coarse layer — a tick says "every product", not "this product". The per-record
+documentation, development boards, downloads, official files, points or site
+content. It is the coarse layer — a tick says "every product", not "this product". The per-record
 grants on the Permissions screen sit underneath it and stay narrower, so one
 product can still be lent to a single member without giving them the screen.
 Automatic groups (staff, trust levels, everyone) are not listed: a tick on
@@ -285,6 +332,7 @@ Public, read-only except where noted:
 | POST | `/ingenic/downloads/profile` | Stores the developer information form (signed in) |
 | POST | `/ingenic/downloads/:id/request` | Applies for an access-restricted resource (signed in) |
 | GET | `/ingenic/boards` | Published development boards; accepts `series` and `chip` |
+| GET | `/ingenic/files/*path` | A file from the official library. Images are public; every other type needs a signed-in session |
 | GET | `/ingenic/points` | The reader's own balance, the price list and their own history |
 | GET | `/ingenic/bounties` | The standing offers, richest first, with the range a new one may be and the reader's balance |
 | POST | `/ingenic/bounties` | Opens an offer on one of the reader's own topics (signed in) |

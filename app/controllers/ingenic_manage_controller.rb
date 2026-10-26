@@ -39,7 +39,10 @@ class IngenicManageController < ::ApplicationController
       areas:
         ::IngenicPermission::AREAS.index_with do |area|
           current_user.admin? || resolver.can_manage_any_area?(area)
-        end.merge("site" => current_user.admin? || resolver.can_manage_feature?("site")),
+        end.merge(
+          "site" => current_user.admin? || resolver.can_manage_feature?("site"),
+          "files" => current_user.admin? || resolver.can_manage_feature?("files"),
+        ),
     )
   end
 end

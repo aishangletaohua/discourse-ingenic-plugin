@@ -33,7 +33,7 @@ export default {
     const scoped = currentUser.ingenic_scoped_content ?? {};
     const canContent = currentUser.can_manage_ingenic_content;
     const anyFeature = features.documentation || features.boards || features.downloads ||
-      features.points || features.site;
+      features.files || features.points || features.site;
 
     if (!currentUser.admin && !canContent && !anyFeature) {
       return;
@@ -90,6 +90,14 @@ export default {
           label: "ingenic.downloads.title",
           route: "adminPlugins.show.downloads",
           currentWhen: "adminPlugins.show.downloads",
+        });
+      }
+
+      if (currentUser.admin || features.files) {
+        entries.push({
+          label: "ingenic.files.title",
+          route: "adminPlugins.show.files",
+          currentWhen: "adminPlugins.show.files",
         });
       }
 

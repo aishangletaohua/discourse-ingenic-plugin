@@ -97,6 +97,7 @@ These were considered and deliberately left out of this version:
 | Tags and status | Choose a tag while posting; see 公告, 已解决 and 高赞 beside titles | Create tags, assign their colours, and leave acceptance and likes to apply the status tags |
 | Documentation | Pick a series and chip, switch version, search, read, follow previous/next, open the forum discussion | Create the product tree, versions and pages; control publishing; grant scoped edit rights |
 | Downloads | Filter the catalogue; download, fill in developer details, apply for access, unlock with points | Upload files, set access and price, review applications, grant or revoke access, read the download record |
+| Official files | Nothing — the library is internal | Upload SDK archives, PDFs and images into folders, preview them, copy a link. Access levels are set where the link is used |
 | Boards | Filter by type and chip, read the dialog, follow Apply or Buy | Create cards, set type, chip, links, sold-out switch, specifications, publication and order |
 | Points | See their balance, the price list and their own history | Edit rules, adjust an account, inspect balances and movements, recompute balances |
 | Bounties | Put points on their own question, withdraw, accept an answer | Nothing specific: settle by accepting; repair mistakes through points adjustments |
@@ -509,8 +510,8 @@ The button only appears while the AI bot is enabled for the site.
 Everything the plugin owns is under **Admin → Plugins → Ingenic**. Opening any
 one of them draws the plugin's tab bar under the page heading —
 **Documentation**, **Development boards**, **Permissions**, **Permission
-matrix**, **Section permissions**, **Tag colours**, **Downloads**, **Points**
-and **Site content** — so the screens can be reached by clicking a tab. The
+matrix**, **Section permissions**, **Tag colours**, **Downloads**, **Official
+files**, **Points** and **Site content** — so the screens can be reached by clicking a tab. The
 admin sidebar's single **Ingenic** entry opens **Documentation** first. Each
 screen also has its own address, which is what to bookmark or link to:
 
@@ -523,10 +524,12 @@ screen also has its own address, which is what to bookmark or link to:
 | Section permissions | `/admin/plugins/discourse-ingenic/category-permissions` | Category × group posting and reading levels |
 | Tag colours | `/admin/plugins/discourse-ingenic/tag-colours` | The colour family of each tag |
 | Downloads | `/admin/plugins/discourse-ingenic/downloads` | Resources, applications, access, categories, download record |
+| Official files | `/admin/plugins/discourse-ingenic/files` | SDK archives, PDFs and images: folders, uploads, previews, links |
 | Points | `/admin/plugins/discourse-ingenic/points` | Rules, adjustments, balances, movements |
 | Site content | `/admin/plugins/discourse-ingenic/site` | Home layout, home cards, promotions, external buttons, partner platforms, footer, standalone pages |
 
-Scoped managers see the documentation, boards and downloads they were granted.
+Scoped managers see the documentation, boards, downloads and file library they
+were granted, at `/ingenic/manage`.
 The application queue, access list, download record, points and site content
 remain administrator-only. The Permissions, Permission matrix, Section
 permissions and Tag colours screens are administrator-only as well, because
@@ -633,7 +636,51 @@ remain in their tabs, so an audit still reads correctly. Switch **Published**
 back on to offer the file again, with the existing grants still in force.
 Nothing in the downloads screen physically deletes a resource.
 
-### 11.4 Development boards and samples
+### 11.4 Official files
+
+A library for the files the team hands out — SDK archives, official PDFs,
+datasheets and images — separate from the download centre and from anything
+members attach to posts. Open it from the **Official files** tab, or at
+`/ingenic/manage/files` if you were given the `files` grant without being an
+administrator.
+
+The screen is a file browser over a directory on the server:
+
+- **New folder** creates a real directory in the folder you are looking at.
+  Paths are shown as breadcrumbs; click one to go back up.
+- **Upload** accepts the extensions in `ingenic_file_manager_extensions`, one or
+  many files at a time. Files go up one after another, each with its own
+  progress bar; an archive of several gigabytes is sent in eight-megabyte pieces
+  and resumed from the byte the server reports if a piece is lost.
+- **Preview** opens images in the page and PDFs and text in a frame. Files the
+  browser cannot show are still previewable through the same address — open it
+  to let the browser decide.
+- **Copy link** puts the absolute address on the clipboard, for pasting into a
+  post, a documentation page or a download record.
+- **Rename**, **Move** and **Delete** work on the row. A folder can be moved
+  into another folder but not into itself or its own child; the picker does not
+  offer those.
+
+Things to know before the first upload:
+
+- **The path is the address.** `/ingenic/files/<path>` is what a link says, so
+  renaming or moving a file changes its link. A link already pasted elsewhere
+  still points at the old path.
+- **Images are public; everything else needs a session.** Image files are served
+  to anyone who has the URL, because a picture in a post must load for a
+  signed-out reader. Other types are served only to a signed-in account. The
+  library is not a second access-control system: to restrict a file, put its
+  link on a download record and choose the level there.
+- **It does not touch post attachments.** Attachments members add while posting
+  are stored by Discourse itself, separately.
+- **Deleting is immediate.** There is no recycle bin. A file deleted here is
+  gone from the server; the link stops working.
+
+The grant is one screen, `files`, on the Permission matrix. There is no
+per-folder grant: a group either works in the library or does not see it. A
+member without the grant gets the forum's ordinary 404 at the address.
+
+### 11.5 Development boards and samples
 
 Add a card, then set:
 
@@ -655,7 +702,7 @@ with its text, specifications, image and both links is still in the Boards
 list, and it can be published again at any time. Nothing in the boards screen
 physically deletes a card.
 
-### 11.5 Points
+### 11.6 Points
 
 - **Rules** — edit what each action is worth, its label and order, and whether
   it is in use. Setting a value to zero or switching the rule off stops future
@@ -673,14 +720,14 @@ physically deletes a card.
 Points can be switched off in the site settings. Existing balances and entries
 are untouched, and an administrator's manual adjustment still works.
 
-### 11.6 Permissions
+### 11.7 Permissions
 
 Permissions come in two layers, and they answer different questions.
 
 **What a group may manage.** The **Permission matrix** grants a whole
 management screen to a custom group: documentation, development boards,
-downloads, points or site content. A tick means "every product", not "this
-product". Automatic groups (staff, trust levels, everyone) are not listed: a
+downloads, official files, points or site content. A tick means "every
+product", not "this product". Automatic groups (staff, trust levels, everyone) are not listed: a
 tick on `everyone` would hand a management screen to every visitor, which is
 not a decision a checkbox should make by accident.
 
@@ -707,7 +754,7 @@ category that had rows with none is refused, because that would quietly open it
 to everyone. Automatic groups keep whatever they already have — the screen only
 edits custom groups.
 
-### 11.7 Tags and status
+### 11.8 Tags and status
 
 The **Tag colours** screen assigns each tag one of five colour families: sky for
 general discussion, tech for platforms, tools and hardware, resolved for
@@ -731,7 +778,7 @@ The vocabulary is a site policy, not a convention:
 - Tags are not navigation: Discourse's Tags section is hidden from the sidebar,
   and the category badge on a topic remains the way into its section.
 
-### 11.8 Site content
+### 11.9 Site content
 
 The **Site content** screen has seven tabs:
 
@@ -776,7 +823,7 @@ discussions, latest topics, hot topics, popular posts, recent activity from a
 category, downloads, development boards, bounties and the weekly contributor
 leaderboard.
 
-### 11.9 Site settings
+### 11.10 Site settings
 
 The settings that matter most are under **Admin → Settings** (search for
 `ingenic`):
@@ -788,6 +835,8 @@ The settings that matter most are under **Admin → Settings** (search for
 | `ingenic_homepage_blocks` | JSON list of home-page blocks (the Site content screen edits the same list) |
 | `ingenic_docs_discussion_category` | Category used by "Discuss in forum" when a page has no linked topic |
 | `ingenic_download_storage_path` | Where uploaded files are stored; must be outside `public/` |
+| `ingenic_file_manager_path` | Where the official file library lives; must be outside `public/` |
+| `ingenic_file_manager_extensions` | Extensions the library accepts |
 | `ingenic_download_admin_email` | Address notified when an application is submitted |
 | `ingenic_developer_form_fields` | JSON description of the developer information form |
 | `ingenic_official_groups` | Groups whose members wear the official identity badge |
@@ -819,7 +868,7 @@ the group. Use `"category": "technical-discussions"` instead of `href` to point
 at a Discourse category. An empty setting uses the theme's default list. A
 configured list replaces the default wholesale.
 
-### 11.10 Theme settings
+### 11.11 Theme settings
 
 Under **Admin → Customize → Themes → Ingenic Community → Settings**:
 
@@ -837,7 +886,7 @@ The language switcher also needs Discourse's `allow_user_locale` and
 `set_locale_from_cookie` settings. The accent colour is the **Ingenic Light**
 colour scheme, editable with Discourse's normal colour pickers.
 
-### 11.11 Content languages
+### 11.12 Content languages
 
 The languages offered in the management screens are the site's own: its
 `default_locale`, plus every language in
@@ -858,7 +907,7 @@ The theme's interface strings live in `locales/en.yml` and `locales/zh_CN.yml`;
 adding another language means adding a file with the same keys. The header
 switcher only offers languages listed in `ingenic_locales`.
 
-### 11.12 Housekeeping
+### 11.13 Housekeeping
 
 - Run `rake ingenic:doctor` after a restore or a category change; it reports
   missing forum sections.

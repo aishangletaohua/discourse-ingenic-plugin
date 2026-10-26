@@ -6,6 +6,8 @@ en:
     ingenic_docs_discussion_category: "Category slug used for the 'Discuss in forum' link when a documentation page has no linked topic."
     ingenic_download_storage_path: "Directory holding uploaded SDK and firmware files. Empty uses <app>/ingenic-downloads. Must be outside public/."
     ingenic_download_admin_email: "Address notified when a developer applies for an access-restricted download."
+    ingenic_file_manager_path: "Directory holding the official file library. Empty uses <app>/ingenic-files. Must be outside public/."
+    ingenic_file_manager_extensions: "File extensions the official file library accepts."
     ingenic_developer_form_fields: "JSON array describing the developer information form. Empty uses the built-in fields."
     ingenic_official_groups: "Groups whose members wear an official identity badge beside their username. A member already wearing a badge of their own keeps it."
     ingenic_points_enabled: "Award points for contributions, and let a resource cost points to unlock. Switching it off keeps every balance where it is."
@@ -40,6 +42,18 @@ en:
       upload_incomplete: "The upload has not finished arriving."
       upload_checksum: "The uploaded file does not match its checksum."
       upload_missing: "That upload is not available. Start the upload again."
+    files:
+      errors:
+        path_invalid: "That folder path is not valid."
+        name_invalid: "That name cannot be used. Leave out slashes and do not begin with a dot."
+        exists: "Something with that name is already here."
+        not_found: "That file or folder no longer exists."
+        not_a_directory: "That is not a folder."
+        not_empty: "This folder still has files in it. Empty it before deleting."
+        extension: "That kind of file is not accepted here."
+        move_into_self: "A folder cannot be moved inside itself."
+        storage_unavailable: "The file library cannot be written. Check the library path in the plugin settings."
+        unavailable: "That could not be done."
     admin_errors:
       has_children: "This record has child records and cannot be deleted."
       locale_immutable: "The content language of a product cannot be changed. Create it under the other language instead."

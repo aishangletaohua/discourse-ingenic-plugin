@@ -29,6 +29,7 @@ require_relative "lib/ingenic/document_importer"
 require_relative "lib/ingenic/developer_form"
 require_relative "lib/ingenic/download_access"
 require_relative "lib/ingenic/download_storage"
+require_relative "lib/ingenic/file_storage"
 require_relative "lib/ingenic/forum_categories"
 require_relative "lib/ingenic/official_flair"
 require_relative "lib/ingenic/points"
@@ -96,6 +97,8 @@ require_relative "app/jobs/scheduled/ingenic_upload_cleanup"
 
 require_relative "app/controllers/admin/ingenic/base_controller"
 require_relative "app/controllers/admin/ingenic_controller"
+require_relative "app/controllers/admin/ingenic/files_controller"
+require_relative "app/controllers/ingenic_files_controller"
 require_relative "app/controllers/ingenic_docs_controller"
 require_relative "app/controllers/ingenic_downloads_controller"
 require_relative "app/controllers/ingenic_boards_controller"
@@ -437,6 +440,25 @@ after_initialize do
       get "/tag-colours" => "admin/ingenic#tag_colours"
       put "/tag-colours" => "admin/ingenic#update_tag_colours"
 
+      # The official-file library. Folders are real directories and files keep
+      # the names the operator gave them, so the API addresses them by path
+      # rather than by id: rename and move are the two operations, and both
+      # answer with the new path.
+      get "/files" => "admin/ingenic/files#index"
+      post "/files/folders" => "admin/ingenic/files#create_folder"
+      post "/files/rename" => "admin/ingenic/files#rename"
+      post "/files/move" => "admin/ingenic/files#move"
+      delete "/files" => "admin/ingenic/files#destroy"
+
+      # The same chunked upload as the download centre, with its own sessions:
+      # a part file is staged in the library root, and the two purposes cannot
+      # end up in each other's storage.
+      post "/files/uploads" => "admin/ingenic/files#create_upload"
+      get "/files/uploads/:token" => "admin/ingenic/files#show_upload"
+      post "/files/uploads/:token/chunks" => "admin/ingenic/files#append_upload_chunk"
+      post "/files/uploads/:token/complete" => "admin/ingenic/files#complete_upload"
+      delete "/files/uploads/:token" => "admin/ingenic/files#destroy_upload"
+
       get "/downloads" => "admin/ingenic#download_list"
       post "/downloads" => "admin/ingenic#create_download"
       put "/downloads/:id" => "admin/ingenic#update_download"
@@ -542,6 +564,17 @@ after_initialize do
     post "/ingenic/downloads/profile", to: "ingenic_downloads#save_profile", as: :ingenic_download_profile
     post "/ingenic/downloads/:id/request", to: "ingenic_downloads#request_access", as: :ingenic_download_request
     get "/ingenic/downloads/:id/file", to: "ingenic_downloads#deliver", as: :ingenic_download_file
+
+    # A library file at the address the operator copies out of the manager.
+    # Images are public so they work in a post; everything else needs a session.
+    # The glob is the file's path inside the library, not an id.
+    #
+    # `format: false` is what keeps the extension part of the file's name:
+    # a route with a format segment reads `sdk-1.0.zip` as the name `sdk-1.0`
+    # with the format `zip`, and every file would 404 under a name it does not
+    # have. There is no format here to negotiate — the response type comes from
+    # the file itself.
+    get "/ingenic/files/*path", to: "ingenic_files#show", as: :ingenic_file, format: false
 
     get "/ingenic/boards", to: "ingenic_boards#index", as: :ingenic_boards
 

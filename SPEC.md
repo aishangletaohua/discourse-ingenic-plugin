@@ -236,6 +236,30 @@ and approval first. Charging happens in the branch of the file endpoint that
 releases the file, never in the one that reports a resource unavailable, so a
 download missing from storage costs nothing.
 
+### Official file library
+
+A management screen over a directory on the server, separate from the download
+centre and from post attachments. It uploads, files, previews and hands out
+links; it does not set an access level, publish anything, or read attachments.
+
+Folders are real directories and files keep their names, so a link is
+`/ingenic/files/<path>` and renaming or moving a file changes the link. Image
+extensions are served without a check, because an image in a post has to render
+for a signed-out reader; every other extension is streamed only to a signed-in
+account. Restricting a file is the download record's job, not the library's.
+
+Uploads use the chunked session mechanism with `purpose: files` (eight-megabyte
+pieces, 8 GB cap, resume from the byte the server reports on 409). Sessions for
+this purpose are destroyed when the upload is finalised, so the only rows that
+remain are pending ones, whose part files the scheduled cleanup removes after a
+day. The accepted extensions come from `ingenic_file_manager_extensions` and are
+enforced on the server as well as in the picker.
+
+Access is one screen-level grant, `files`, on the Permission matrix. There is no
+per-folder grant: a group either works in the library or does not see it, and an
+account without the grant gets the forum's 404 on both the workbench address and
+the admin route.
+
 ### Points
 
 Three tables. `ingenic_point_rules` is the price list — what each action is
@@ -478,6 +502,10 @@ are what still has to be run on a real instance.
 - [ ] the documentation screen edits products, versions, the contents tree and page bodies
 - [ ] overriding a page in a version, and reverting to inheritance, both persist
 - [ ] the download screen uploads a file and sets one of the three access levels
+- [x] the file library lists a folder, creates one, uploads a 20 MB file in
+      pieces, previews an image and shows the absolute link
+- [x] a group granted `files` reaches `/ingenic/manage/files` and no other screen
+- [x] an account without the grant gets 404 at both file-library addresses
 - [ ] the queue approves and rejects an application
 - [ ] the grant list revokes a grant
 - [ ] the board screen creates, edits and withdraws a board, and files it against a chip
@@ -494,7 +522,7 @@ are what still has to be run on a real instance.
 
 ## Known risks
 
-- **Visual judgement is the site owner's.** The migrations, the specs (425
+- **Visual judgement is the site owner's.** The migrations, the specs (621
   examples) and the HTTP paths have all been run against a Discourse development
   container, and every screen and write is exercised over HTTP by the audit. No
   message has been sent — the development container has no mail server — so the

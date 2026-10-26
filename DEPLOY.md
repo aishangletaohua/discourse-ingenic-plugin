@@ -156,6 +156,8 @@ The theme is not a component and does not need one.
 | `ingenic_enabled` | on |
 | `ingenic_docs_discussion_category` | slug of the category that documentation discussions belong in |
 | `ingenic_download_storage_path` | a directory on a large volume, outside `public/`; empty means `<app>/ingenic-downloads` |
+| `ingenic_file_manager_path` | where the official file library lives, outside `public/`; empty means `<app>/ingenic-files` |
+| `ingenic_file_manager_extensions` | extensions the library accepts; empty uses the shipped list |
 | `ingenic_download_admin_email` | the address that should receive download applications |
 | `ingenic_developer_form_fields` | JSON; empty uses the built-in developer form |
 | `ingenic_official_groups` | the groups whose members should wear the official badge, e.g. `admins` |
@@ -171,6 +173,19 @@ be outside `public/`: a file the web server will serve to anyone who guesses
 its URL cannot be gated by anything the plugin does, so the files are streamed
 through the plugin instead. Point it at a larger volume when the downloads
 outgrow the application disk.
+
+`ingenic_file_manager_path` holds the official file library: SDK archives,
+official PDFs and images the team uploads from the management screen. It also
+has to be outside `public/`, for the same reason. Unlike the download centre,
+the library serves image files publicly — an image in a post has to load without
+a session — and streams every other type only to a signed-in account. Nothing in
+the library sets a download tier; links are taken from it and the tier is
+applied where the link is used.
+
+`ingenic_file_manager_extensions` is the whole upload policy: a name whose
+extension is not in the list is refused by the server as well as filtered out of
+the file picker. The shipped list covers archives, office documents, PDFs, text,
+images and raw firmware images.
 
 `ingenic_download_admin_email` is where an application for a restricted
 resource is sent. Left empty, applications are still recorded and shown in the
@@ -757,6 +772,7 @@ a release.
 | Footer columns and the section jump links at the bottom of every page | **Ingenic → Site content → Footer columns** |
 | Board picture, specifications, documentation and Buy links | **Ingenic → Boards** |
 | SDK and firmware files, their access level and price | **Ingenic → Downloads** |
+| Official SDK archives, PDFs and images, folders and links | **Ingenic → Official files** (or `/ingenic/manage/files` for a granted group) |
 | Documentation series, chips, versions and pages | **Ingenic → Documentation** |
 | Sidebar entries, labels and destinations | plugin setting `ingenic_nav_items` (JSON; empty uses the shipped list) |
 | Hero headline and supporting line | theme setting `ingenic_hero_title` / `ingenic_hero_subtitle` |
@@ -916,6 +932,10 @@ Uploaded SDK and firmware files are not in the file either — only the rows tha
 point at them, including the path each upload was written to. A machine whose
 download directory was copied across restores to a working download centre; a
 machine without those files gets rows pointing at files that are not there.
+
+The official file library is filesystem only: it has no rows in the database,
+so `export_config` and `import_config` neither carry it nor need to. Copy
+`ingenic_file_manager_path` itself; an empty library is simply an empty screen.
 
 ### After any deployment
 

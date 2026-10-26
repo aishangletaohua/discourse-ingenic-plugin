@@ -139,6 +139,14 @@ module Ingenic
       File.delete(path) if path.file?
     end
 
+    # The same sweep for an unfinished chunked upload, named by its token
+    # rather than by a path the caller assembled.
+    def delete_staging(token)
+      delete(staging_relative(token))
+    rescue SystemCallError
+      nil
+    end
+
     def writable?
       FileUtils.mkdir_p(root)
       File.writable?(root)

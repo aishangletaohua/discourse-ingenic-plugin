@@ -12,6 +12,12 @@ class IngenicUploadSession < ActiveRecord::Base
 
   STATUSES = %w[pending completed].freeze
 
+  # Which library the finished file belongs to. The part file is staged inside
+  # that library's root, so the two cannot be mixed after the fact.
+  PURPOSE_DOWNLOADS = "downloads"
+  PURPOSE_FILES = "files"
+  PURPOSES = [PURPOSE_DOWNLOADS, PURPOSE_FILES].freeze
+
   belongs_to :user, optional: true
 
   validates :token, presence: true, uniqueness: true
@@ -20,8 +26,11 @@ class IngenicUploadSession < ActiveRecord::Base
   validates :expected_size, numericality: { only_integer: true, greater_than: 0 }
   validates :received_size, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :status, inclusion: { in: STATUSES }
+  validates :purpose, inclusion: { in: PURPOSES }
 
   scope :stale, ->(before) { where(created_at: ...before) }
+  scope :for_downloads, -> { where(purpose: PURPOSE_DOWNLOADS) }
+  scope :for_files, -> { where(purpose: PURPOSE_FILES) }
 
   def pending?
     status == "pending"
@@ -31,7 +40,15 @@ class IngenicUploadSession < ActiveRecord::Base
     status == "completed"
   end
 
+  def files?
+    purpose == PURPOSE_FILES
+  end
+
+  def storage
+    files? ? ::Ingenic::FileStorage : ::Ingenic::DownloadStorage
+  end
+
   def staging_relative
-    ::Ingenic::DownloadStorage.staging_relative(token)
+    storage.staging_relative(token)
   end
 end
