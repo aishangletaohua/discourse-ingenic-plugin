@@ -23,7 +23,10 @@ module Ingenic
       codes = [default]
 
       if SiteSetting.content_localization_enabled
-        codes.concat(Array(SiteSetting.content_localization_supported_locales))
+        # A list setting is read as the stored string, pipe-separated. Joining it
+        # whole would turn "zh_CN|en" into one language of its own, which no
+        # reader or editor could ever pick.
+        codes.concat(SiteSetting.content_localization_supported_locales.to_s.split("|"))
       end
 
       codes.filter_map { |value| normalize(value) }.uniq
