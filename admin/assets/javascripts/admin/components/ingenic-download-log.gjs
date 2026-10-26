@@ -117,10 +117,10 @@ export default class IngenicDownloadLog extends Component {
             {{#each this.rows as |log|}}
               <tr>
                 <td>{{log.created_at}}</td>
-                <td>{{log.username}}</td>
+                <td>{{if log.anonymised (i18n "ingenic.logs.anonymised") log.username}}</td>
                 <td>{{log.resource_name}}</td>
                 <td>{{log.version}}</td>
-                <td>{{log.ip_address}}</td>
+                <td>{{if log.anonymised "—" log.ip_address}}</td>
               </tr>
             {{/each}}
           </tbody>

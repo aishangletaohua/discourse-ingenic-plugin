@@ -106,6 +106,12 @@ web server's body limit and can be resumed. The screen accepts the extensions in
 `ingenic_file_manager_extensions`; anything else is refused on the server as well
 as filtered in the file picker.
 
+The session's token is issued once and never stored: the row keeps
+`token_digest` (SHA-256) and the part file is named from that digest. A copy of
+the database therefore cannot be turned into a handle the upload endpoints
+accept, and the browser's resume works exactly as before — it holds the token,
+the server hashes what it is sent.
+
 The screen is one permission, `files`, granted through the Permission matrix to
 a custom group. There is no narrower grant over one folder: a group works in the
 library or does not see it, and a member without the grant gets the forum's
@@ -482,6 +488,14 @@ blanking the account does not lose the answer to *who took this file*. Plain
 references would make deleting an active member fail with a foreign key
 violation, in an admin screen that has no way to explain itself. Where the
 account is blanked the screens show *a deleted account* rather than a blank.
+
+That copy of the name is not kept forever. A daily pass clears `username`,
+`user_id`, `ip_address` and `user_agent` from delivery logs older than
+`ingenic_download_log_retention_months` (24 by default; 0 keeps them), leaving
+the row — resource, version, moment — as a count. Clearing only the name would
+not be enough: `user_id` still names the account, so all four go together, and
+the screen shows *anonymised* rather than a blank.
+
 `Ingenic::Points.record` writes a
 movement with no account behind it for the two paths that meet this: the
 reversal of a deleted member's award, and the refund of a bounty they left

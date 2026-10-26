@@ -262,21 +262,21 @@ module Ingenic
     # Sweeping an abandoned transfer: the part file's name begins with a dot,
     # so it cannot be reached through `delete`, and it is not something the
     # screen may name either.
-    def delete_staging(token)
-      path = staging_path(token)
+    def delete_staging(token_digest)
+      path = staging_path(token_digest)
       File.delete(path) if path.file?
     rescue SystemCallError
       nil
     end
 
-    # Where the pieces of one upload are appended. Named from the server's token,
-    # never from the uploaded filename.
-    def staging_relative(token)
-      File.join(STAGING_DIRECTORY, "#{token}.part")
+    # Where the pieces of one upload are appended. Named from the digest of the
+    # server's token, never from the uploaded filename.
+    def staging_relative(token_digest)
+      File.join(STAGING_DIRECTORY, "#{token_digest}.part")
     end
 
-    def staging_path(token)
-      internal_absolute(staging_relative(token))
+    def staging_path(token_digest)
+      internal_absolute(staging_relative(token_digest))
     end
 
     def append(relative, bytes)

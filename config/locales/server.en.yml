@@ -6,6 +6,7 @@ en:
     ingenic_docs_discussion_category: "Category slug used for the 'Discuss in forum' link when a documentation page has no linked topic."
     ingenic_download_storage_path: "Directory holding uploaded SDK and firmware files. Empty uses <app>/ingenic-downloads. Must be outside public/."
     ingenic_download_admin_email: "Address notified when a developer applies for an access-restricted download."
+    ingenic_download_log_retention_months: "Months a delivery log keeps who took the file. The row itself stays as a count; 0 keeps the account, address and browser forever."
     ingenic_file_manager_path: "Directory holding the official file library. Empty uses <app>/ingenic-files. Must be outside public/."
     ingenic_file_manager_extensions: "File extensions the official file library accepts."
     ingenic_developer_form_fields: "JSON array describing the developer information form. Empty uses the built-in fields."

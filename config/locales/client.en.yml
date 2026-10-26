@@ -398,6 +398,7 @@ en:
         all_resources: "Every resource"
         loading: "Loading…"
         empty: "Nothing has been downloaded yet."
+        anonymised: "Anonymised"
         columns:
           taken_at: "Taken at"
           account: "Account"

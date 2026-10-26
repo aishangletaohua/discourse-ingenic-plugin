@@ -1162,7 +1162,7 @@ describe Admin::IngenicController do
       expect(stored.read).to eq(content)
 
       # The finished upload is consumed by the row that names it.
-      expect(IngenicUploadSession.find_by(token: token)).to be_nil
+      expect(IngenicUploadSession.find_by_token(token)).to be_nil
     end
 
     # The offset is the contract that makes resuming safe. A browser that
@@ -1176,7 +1176,8 @@ describe Admin::IngenicController do
 
       expect(response.status).to eq(409)
       expect(response.parsed_body["received_size"]).to eq(6)
-      expect(Ingenic::DownloadStorage.staging_path(token).read).to eq("abcdef")
+      staging = Ingenic::DownloadStorage.staging_path(IngenicUploadSession.token_digest(token))
+      expect(staging.read).to eq("abcdef")
     end
 
     it "will not finish an upload that is missing bytes" do

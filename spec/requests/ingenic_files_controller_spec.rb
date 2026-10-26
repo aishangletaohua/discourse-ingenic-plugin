@@ -145,7 +145,7 @@ describe "the file library" do
       expect(file["url"]).to eq("/ingenic/files/sdk-1.0.zip")
       expect(file["sha256"]).to eq(Digest::SHA256.hexdigest(content))
       expect(Pathname.new(storage_dir).join("sdk-1.0.zip").read).to eq(content)
-      expect(IngenicUploadSession.find_by(token: token)).to be_completed
+      expect(IngenicUploadSession.find_by_token(token)).to be_completed
     end
 
     it "answers a repeated completion with the same file" do

@@ -122,6 +122,15 @@ plugins:
     type: string
     description: "Address that receives an email when a developer applies for an access-restricted download."
 
+  # How long a delivery log keeps the account, address and browser of the
+  # person who took a file. After this many months those columns are cleared
+  # and the row remains as a count. 0 keeps them forever.
+  ingenic_download_log_retention_months:
+    default: 24
+    min: 0
+    type: integer
+    description: "Months a download log keeps who took the file; the row itself is kept. 0 keeps the details forever."
+
   # The developer information form, as a JSON array. This is the form a visitor
   # fills in for the 'login and information' tier and above. Replacing it
   # changes the form, the validation and the admin's view of an answer together,

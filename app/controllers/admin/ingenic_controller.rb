@@ -432,9 +432,10 @@ module Admin
         )
       end
 
+      token = SecureRandom.urlsafe_base64(24)
       session =
         IngenicUploadSession.create!(
-          token: SecureRandom.urlsafe_base64(24),
+          token_digest: IngenicUploadSession.token_digest(token),
           user_id: current_user.id,
           original_filename: filename,
           expected_size: size,
@@ -443,7 +444,9 @@ module Admin
 
       ::Ingenic::DownloadStorage.append(session.staging_relative, "")
 
-      render_json_dump(upload: upload_session_json(session))
+      # The token leaves the server once, here; every later request brings it
+      # back and is matched against the digest stored above.
+      render_json_dump(upload: upload_session_json(session, token: token))
     end
 
     # What the server has so far. A browser that comes back to an interrupted
@@ -454,7 +457,7 @@ module Admin
       session = owned_upload_session
       return render_upload_error(:upload_missing) unless session
 
-      render_json_dump(upload: upload_session_json(session))
+      render_json_dump(upload: upload_session_json(session, token: params[:token]))
     end
 
     def append_upload_chunk
@@ -516,7 +519,7 @@ module Admin
         session.update!(received_size: written)
       end
 
-      render_json_dump(upload: upload_session_json(session))
+      render_json_dump(upload: upload_session_json(session, token: params[:token]))
     end
 
     def complete_upload_session
@@ -528,7 +531,9 @@ module Admin
         # A retry after a response the browser never received arrives once the
         # first request has already finished. The row is the arbiter, and
         # answering it again beats renaming a file that has already moved.
-        return render_json_dump(upload: upload_session_json(session)) unless session.pending?
+        unless session.pending?
+          return render_json_dump(upload: upload_session_json(session, token: params[:token]))
+        end
 
         if session.received_size != session.expected_size
           return(
@@ -555,7 +560,7 @@ module Admin
         session.update!(status: "completed", sha256: stored[:sha256], storage_path: stored[:path])
       end
 
-      render_json_dump(upload: upload_session_json(session))
+      render_json_dump(upload: upload_session_json(session, token: params[:token]))
     end
 
     # An upload the browser abandons - the form was closed, the wrong file was
@@ -1596,7 +1601,7 @@ module Admin
     end
 
     def apply_upload_session(record, token)
-      session = IngenicUploadSession.find_by(token: token)
+      session = IngenicUploadSession.find_by_token(token)
 
       if session.nil? || session.user_id != current_user.id || !session.completed? ||
            !::Ingenic::DownloadStorage.exist?(session.storage_path)
@@ -1645,12 +1650,12 @@ module Admin
     # included: a token is not a shared handle, and reviewing someone else's
     # half-finished upload is not what the screen's grants describe.
     def owned_upload_session
-      IngenicUploadSession.find_by(token: params[:token].to_s, user_id: current_user.id)
+      IngenicUploadSession.find_by_token(params[:token].to_s, user_id: current_user.id)
     end
 
-    def upload_session_json(session)
+    def upload_session_json(session, token: nil)
       {
-        token: session.token,
+        token: token,
         filename: session.original_filename,
         size: session.expected_size,
         received_size: session.received_size,
@@ -1740,6 +1745,9 @@ module Admin
         "created_at" => log.created_at.iso8601,
         "user_id" => log.user_id,
         "username" => log.username.presence || log.user&.username,
+        # True once retention has cleared the account, address and browser.
+        # The row remains, and the screen says so rather than showing blanks.
+        "anonymised" => log.username.blank? && log.user_id.blank?,
         "download_id" => log.download_id,
         "resource_name" => log.resource_name,
         "version" => log.version,

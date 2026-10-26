@@ -94,6 +94,7 @@ require_relative "app/jobs/regular/ingenic_official_flair_sync"
 require_relative "app/jobs/scheduled/ingenic_bounty_expiry"
 require_relative "app/jobs/scheduled/ingenic_high_like_tag"
 require_relative "app/jobs/scheduled/ingenic_upload_cleanup"
+require_relative "app/jobs/scheduled/ingenic_download_log_retention"
 
 require_relative "app/controllers/admin/ingenic/base_controller"
 require_relative "app/controllers/admin/ingenic_controller"

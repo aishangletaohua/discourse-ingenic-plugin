@@ -17,7 +17,7 @@ describe Jobs::IngenicUploadCleanup do
   def session_for(attributes = {})
     IngenicUploadSession.create!(
       {
-        token: SecureRandom.urlsafe_base64(24),
+        token_digest: IngenicUploadSession.token_digest(SecureRandom.urlsafe_base64(24)),
         user_id: user.id,
         original_filename: "sdk.zip",
         expected_size: 4,
@@ -35,11 +35,11 @@ describe Jobs::IngenicUploadCleanup do
 
   it "sweeps the part file of an upload nobody finished" do
     session = old_session
-    Ingenic::FileStorage.append(Ingenic::FileStorage.staging_relative(session.token), "part")
+    Ingenic::FileStorage.append(Ingenic::FileStorage.staging_relative(session.token_digest), "part")
 
     described_class.new.execute({})
 
-    expect(File.exist?(Ingenic::FileStorage.staging_path(session.token))).to eq(false)
+    expect(File.exist?(Ingenic::FileStorage.staging_path(session.token_digest))).to eq(false)
     expect(IngenicUploadSession.find_by(id: session.id)).to be_nil
   end
 
@@ -66,11 +66,11 @@ describe Jobs::IngenicUploadCleanup do
 
   it "leaves a recent upload alone" do
     session = session_for
-    Ingenic::FileStorage.append(Ingenic::FileStorage.staging_relative(session.token), "part")
+    Ingenic::FileStorage.append(Ingenic::FileStorage.staging_relative(session.token_digest), "part")
 
     described_class.new.execute({})
 
-    expect(File.exist?(Ingenic::FileStorage.staging_path(session.token))).to eq(true)
+    expect(File.exist?(Ingenic::FileStorage.staging_path(session.token_digest))).to eq(true)
     expect(IngenicUploadSession.find_by(id: session.id)).to be_present
   end
 end

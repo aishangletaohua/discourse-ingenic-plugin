@@ -20,7 +20,22 @@ class IngenicUploadSession < ActiveRecord::Base
 
   belongs_to :user, optional: true
 
-  validates :token, presence: true, uniqueness: true
+  # The browser holds the token; this table holds only its digest. Finding a
+  # session from the token the browser sends is therefore a lookup by digest,
+  # and the part file is named from the digest too, so nothing on disk or in
+  # the database can be turned back into the handle the endpoints accept.
+  def self.token_digest(token)
+    Digest::SHA256.hexdigest(token.to_s)
+  end
+
+  def self.find_by_token(token, user_id: nil)
+    return nil if token.blank?
+
+    scope = user_id.nil? ? all : where(user_id: user_id)
+    scope.find_by(token_digest: token_digest(token))
+  end
+
+  validates :token_digest, presence: true, uniqueness: true
   validates :user_id, presence: true
   validates :original_filename, presence: true
   validates :expected_size, numericality: { only_integer: true, greater_than: 0 }
@@ -49,6 +64,6 @@ class IngenicUploadSession < ActiveRecord::Base
   end
 
   def staging_relative
-    storage.staging_relative(token)
+    storage.staging_relative(token_digest)
   end
 end

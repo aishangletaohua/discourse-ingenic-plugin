@@ -49,14 +49,15 @@ module Ingenic
       { path: relative, sha256: digest.hexdigest, size: byte_size }
     end
 
-    # Where the chunks of one session are appended. The name comes from a
-    # server-generated token, never from the uploaded filename.
-    def staging_relative(token)
-      File.join(STAGING_DIRECTORY, "#{token}.part")
+    # Where the chunks of one session are appended. The name is the digest of
+    # the server-issued token: stable for the life of the session, and not the
+    # handle the endpoints accept if the file name is ever seen.
+    def staging_relative(token_digest)
+      File.join(STAGING_DIRECTORY, "#{token_digest}.part")
     end
 
-    def staging_path(token)
-      absolute_path(staging_relative(token))
+    def staging_path(token_digest)
+      absolute_path(staging_relative(token_digest))
     end
 
     # Appends one request's bytes. The caller has already checked that the
@@ -139,10 +140,10 @@ module Ingenic
       File.delete(path) if path.file?
     end
 
-    # The same sweep for an unfinished chunked upload, named by its token
-    # rather than by a path the caller assembled.
-    def delete_staging(token)
-      delete(staging_relative(token))
+    # The same sweep for an unfinished chunked upload, named by its token's
+    # digest rather than by a path the caller assembled.
+    def delete_staging(token_digest)
+      delete(staging_relative(token_digest))
     rescue SystemCallError
       nil
     end

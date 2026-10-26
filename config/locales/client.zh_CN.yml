@@ -397,6 +397,7 @@ zh_CN:
         all_resources: "全部资源"
         loading: "加载中…"
         empty: "暂无下载记录。"
+        anonymised: "已匿名"
         columns:
           taken_at: "下载时间"
           account: "账号"

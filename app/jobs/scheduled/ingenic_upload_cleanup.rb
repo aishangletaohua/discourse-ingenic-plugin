@@ -25,7 +25,7 @@ module Jobs
         # operator may be about to link. Only the row is stale there, and it
         # exists so a browser that missed the answer can ask again.
         if session.pending?
-          session.storage.delete_staging(session.token)
+          session.storage.delete_staging(session.token_digest)
         elsif !session.files?
           session.storage.delete(session.storage_path)
         end

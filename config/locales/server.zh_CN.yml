@@ -6,6 +6,7 @@ zh_CN:
     ingenic_docs_discussion_category: "当文档页面没有关联主题时，「在论坛中讨论」链接所使用的分类标识。"
     ingenic_download_storage_path: "存放已上传 SDK 和固件文件的目录。留空则使用 <app>/ingenic-downloads。必须位于 public/ 之外。"
     ingenic_download_admin_email: "开发者申请受访问限制的下载时接收通知的邮箱地址。"
+    ingenic_download_log_retention_months: "下载记录保留「谁取走了文件」的月数。记录本身会作为计数保留；设为 0 则永久保留账号、地址与浏览器信息。"
     ingenic_file_manager_path: "存放官方文件库的目录。留空则使用 <app>/ingenic-files。必须位于 public/ 之外。"
     ingenic_file_manager_extensions: "官方文件库允许上传的文件扩展名。"
     ingenic_developer_form_fields: "描述开发者资料表单的 JSON 数组。留空则使用内置字段。"
