@@ -1739,7 +1739,7 @@ module Admin
         "id" => log.id,
         "created_at" => log.created_at.iso8601,
         "user_id" => log.user_id,
-        "username" => log.user&.username,
+        "username" => log.username.presence || log.user&.username,
         "download_id" => log.download_id,
         "resource_name" => log.resource_name,
         "version" => log.version,

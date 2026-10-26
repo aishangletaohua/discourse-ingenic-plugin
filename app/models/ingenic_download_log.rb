@@ -8,13 +8,16 @@
 # only remaining record that the gated file was collected, and by which account.
 #
 # Append-only: there is no updated_at, because nothing here is ever edited. The
-# resource name and version are copied in rather than read through the
-# association, so the log still reads correctly after a resource is renamed or
-# withdrawn — a record of what was handed over should not change retroactively.
+# resource name, version and account name are copied in rather than read
+# through the associations, so the log still reads correctly after a resource
+# is renamed, withdrawn, or an account is deleted — a record of what was handed
+# over should not change retroactively.
 class IngenicDownloadLog < ActiveRecord::Base
   self.table_name = "ingenic_download_logs"
 
-  belongs_to :user
+  # Optional because the account can be deleted out from under a log that is
+  # kept; the copied `username` is what the row still says.
+  belongs_to :user, optional: true
   belongs_to :download, class_name: "IngenicDownload"
 
   validates :resource_name, presence: true
@@ -33,6 +36,7 @@ class IngenicDownloadLog < ActiveRecord::Base
   def self.record!(user:, download:, request: nil)
     create!(
       user_id: user.id,
+      username: user.username,
       download_id: download.id,
       resource_name: download.name,
       version: download.version,

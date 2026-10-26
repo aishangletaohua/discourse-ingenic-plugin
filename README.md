@@ -473,12 +473,16 @@ by its version count.
 
 A member can be deleted. Every reference to `users` here either **nullifies** —
 the row stays with the account blanked, which is what a ledger entry, an
-application, a grant and a bounty do — or **cascades**, where the row is about
-the person rather than about the forum: a developer profile, a cached balance, a
-permission granted to someone who no longer exists. Plain references would make
-deleting an active member fail with a foreign key violation, in an admin screen
-that has no way to explain itself. Where the account is blanked the screens show
-*a deleted account* rather than a blank. `Ingenic::Points.record` writes a
+application, a grant, a bounty and a delivery log do — or **cascades**, where the
+row is about the person rather than about the forum: a developer profile, a
+cached balance, a permission granted to someone who no longer exists, a score
+that is theirs. A delivery log copies the account name into the row when the
+file is handed over, the same way it copies the resource name and version, so
+blanking the account does not lose the answer to *who took this file*. Plain
+references would make deleting an active member fail with a foreign key
+violation, in an admin screen that has no way to explain itself. Where the
+account is blanked the screens show *a deleted account* rather than a blank.
+`Ingenic::Points.record` writes a
 movement with no account behind it for the two paths that meet this: the
 reversal of a deleted member's award, and the refund of a bounty they left
 standing — the escrow is a ledger row, so the movement that closes it has to be
@@ -491,6 +495,17 @@ see, and accepting an answer looks one up by the post's topic — so a bounty
 standing on nothing is not a record of anything. The cascade is paired with a
 `before_destroy` callback on `Topic` that closes the standing offers first, which
 is what keeps it from destroying escrowed points: `Ingenic::Bounties.refund_for_topic!`.
+
+The database repeats the vocabularies the models define. A management feature,
+an access level, a board kind, a request status, a bounty state, a tag colour
+family and a point rule's event each have a check constraint listing exactly the
+values the code has a branch for, so a console session or an import cannot write
+a row the screens would silently misread. A download carries at most one
+checksum — the hand-entered one for a resource hosted elsewhere, or the
+server-computed one for an uploaded file, never both. A settled bounty's accepted
+answer is a real reference, and clears itself when the post is deleted for good.
+`spec/db/schema_rules_spec.rb` writes past the models on purpose, to keep these
+rules from drifting away from the code.
 
 Content rows carry one `locale`, so additional languages can be enabled later
 without a schema migration. Codes are Discourse's own (`zh_CN`, `pt_BR`),
