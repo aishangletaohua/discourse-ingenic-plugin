@@ -522,7 +522,7 @@ are what still has to be run on a real instance.
 
 ## Known risks
 
-- **Visual judgement is the site owner's.** The migrations, the specs (621
+- **Visual judgement is the site owner's.** The migrations, the specs (626
   examples) and the HTTP paths have all been run against a Discourse development
   container, and every screen and write is exercised over HTTP by the audit. No
   message has been sent — the development container has no mail server — so the
