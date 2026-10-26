@@ -3,6 +3,7 @@ import { tracked } from "@glimmer/tracking";
 import { action } from "@ember/object";
 import { on } from "@ember/modifier";
 import { fn, get } from "@ember/helper";
+import { run } from "@ember/runloop";
 import { ajax } from "../../lib/ingenic-content-api";
 import DNativeSelect from "discourse/ui-kit/d-native-select";
 import { i18n } from "discourse-i18n";
@@ -62,6 +63,9 @@ export default class IngenicDownloadManager extends Component {
   // so a second save of the same form resumes rather than starts again.
   @tracked upload = null;
   @tracked uploadProgress = 0;
+  // Whether the chunks are moving, as opposed to the save that follows them.
+  // The form is busy either way; only one of those has a percentage to show.
+  @tracked uploading = false;
 
   // The classification list is editable, so it arrives with the listing rather
   // than being a fixed set here. An empty list is a normal state: nothing has
@@ -254,6 +258,7 @@ export default class IngenicDownloadManager extends Component {
 
     try {
       if (this.chosenFile) {
+        this.uploading = true;
         const token = await this.#uploadChunked(this.chosenFile);
         form.set("upload_token", token);
       }
@@ -280,6 +285,7 @@ export default class IngenicDownloadManager extends Component {
       this.error = this.#errorMessage(failure);
     } finally {
       this.busy = false;
+      this.uploading = false;
     }
   }
 
@@ -334,6 +340,7 @@ export default class IngenicDownloadManager extends Component {
             data: piece,
             processData: false,
             contentType: "application/octet-stream",
+            xhr: () => this.#chunkProgressXhr(offset, size),
           }
         );
         offset = response.upload.received_size;
@@ -361,6 +368,29 @@ export default class IngenicDownloadManager extends Component {
 
     this.uploadProgress = 100;
     return session.token;
+  }
+
+  // Progress within one piece. Waiting for each piece's response alone would
+  // move the bar once per eight megabytes, which on a slow line is minutes of
+  // stillness between updates. jQuery builds the request object unless it is
+  // handed one, and only a hand-built XMLHttpRequest exposes the upload half
+  // of it; Discourse's ajax() passes its options straight through to $.ajax.
+  #chunkProgressXhr(offset, size) {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable || size <= 0) {
+        return;
+      }
+
+      const sent = offset + event.loaded;
+
+      run(() => {
+        this.uploadProgress = Math.min(100, Math.round((sent / size) * 100));
+      });
+    });
+
+    return xhr;
   }
 
   // An upload the form no longer needs. Sent without waiting: the screen is
@@ -551,10 +581,15 @@ export default class IngenicDownloadManager extends Component {
             </p>
           {{/if}}
 
-          {{#if this.busy}}
-            <p class="ingenic-admin-form__hint">
-              {{i18n "ingenic.downloads.fields.upload_progress" progress=this.uploadProgress}}
-            </p>
+          {{! A multi-gigabyte file spends a long time on the wire; without a
+              moving bar the form reads as frozen and invites a reload. }}
+          {{#if this.uploading}}
+            <div class="ingenic-admin-progress">
+              <progress max="100" value={{this.uploadProgress}}></progress>
+              <span class="ingenic-admin-progress__label">
+                {{i18n "ingenic.downloads.fields.upload_progress" progress=this.uploadProgress}}
+              </span>
+            </div>
           {{/if}}
 
           <p class="ingenic-admin-form__hint">
