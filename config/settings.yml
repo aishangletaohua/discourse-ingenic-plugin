@@ -131,22 +131,28 @@ plugins:
     type: integer
     description: "Months a download log keeps who took the file; the row itself is kept. 0 keeps the details forever."
 
-  # The developer information form, as a JSON array. This is the form a visitor
-  # fills in for the 'login and information' tier and above. Replacing it
-  # changes the form, the validation and the admin's view of an answer together,
-  # so the three cannot disagree.
+  # Extra questions appended to the developer information form, as a JSON
+  # array. This is the form a visitor fills in for the 'login and information'
+  # tier and above.
+  #
+  # The core questions are fixed in code: who they are (company, student or
+  # individual developer), name, country, email, intended use and project
+  # stage, plus the company or school questions that follow from the identity.
+  # They are what the profile columns and the access rules are built around, so
+  # this setting adds to them and cannot remove or rename them.
   #
   # [
-  #   { "key": "full_name", "label": "Full name", "type": "text", "required": true },
-  #   { "key": "use_case",  "label": "Intended use", "type": "textarea", "required": true }
+  #   { "key": "team_size", "label": "Team size", "type": "text", "required": false }
   # ]
   #
-  # "type" is text or textarea. Leave empty to use the built-in developer form.
+  # "type" is text or textarea. A question whose key asks for a phone number, a
+  # chat handle, a postal address or a government identifier is ignored: the
+  # form does not collect those.
   ingenic_developer_form_fields:
     default: ""
     type: string
     multiline: true
-    description: "JSON array describing the developer information form. Leave empty for the built-in set of fields."
+    description: "JSON array of extra questions for the developer information form. The core questions are fixed."
 
   # Groups whose members wear an official identity badge beside their username.
   # One group name per entry, spelled as the group is spelled on its own page.

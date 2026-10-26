@@ -159,7 +159,7 @@ https://github.com/aishangletaohua/discourse-ingenic-theme.git
 | `ingenic_file_manager_path` | 官方文件库所在的目录，必须位于 `public/` 之外；留空则使用 `<app>/ingenic-files` |
 | `ingenic_file_manager_extensions` | 文件库接受的扩展名；留空使用自带列表 |
 | `ingenic_download_admin_email` | 接收下载申请通知的邮箱 |
-| `ingenic_developer_form_fields` | JSON 配置；留空则使用内置的开发者信息表单 |
+| `ingenic_developer_form_fields` | JSON 配置；在固定的身份表单之上追加问题 |
 | `ingenic_official_groups` | 需要显示官方认证图标的群组名称，例如 `admins` |
 | `ingenic_points_enabled` | 开启；如果还没准备好上线可以关闭 |
 | `ingenic_points_exclude_staff` | 开启 |
@@ -186,23 +186,24 @@ https://github.com/aishangletaohua/discourse-ingenic-theme.git
 `ingenic_download_admin_email` 是收到下载申请时发信的目标地址。留空时申请记录
 仍然会写入并在后台申请列表中显示，只是不会发出邮件通知。
 
-`ingenic_developer_form_fields` 用于替换内置的开发者信息表单，格式为 JSON 数组，
+`ingenic_developer_form_fields` 在开发者信息表单之上追加问题，格式为 JSON 数组，
 每一项包含 `key`、`label`、`type`、`required`，其中 `type` 取值为 `text` 或
 `textarea`：
 
 ```json
-[
-  { "key": "full_name", "label": "Full name", "type": "text", "required": true },
-  { "key": "use_case",  "label": "Intended use", "type": "textarea", "required": true }
-]
+[{ "key": "team_size", "label": "Team size", "type": "text", "required": false }]
 ```
 
-访客看到的表单、提交时的必填校验、后台查看答案的展示都来自这一份配置，因此三者
-不会互相不一致。留空则使用内置字段。如果之后从配置中删除某个字段，已经填写的
-答案会保留而不会被清空。
+表单的核心问题固定：所有人先选择身份（公司、学生或个人开发者），再填写姓名、
+国家或地区、联系邮箱、用途和项目进展；公司补充公司名称和职位，学生补充学校和
+专业，个人开发者不需要额外填写。资料表列和权限规则都围绕这些核心问题建立，因此
+本设置只能追加，不能删除或改名。访客看到的表单、提交时的必填校验、后台查看答案
+的展示都来自同一份定义。如果之后从配置中删除某个附加问题，已经填写的答案会保留
+而不会被清空。
 
-内置表单和上面的示例都不会询问手机号。账号本身已经有可用于联系的邮箱，而团队
-不会去看的字段只会让开发者更容易放弃填写表单。
+表单不询问手机号。账号本身已经有可用于联系的邮箱，而团队不会去看的字段只会让
+开发者更容易放弃填写表单。附加问题的 key 如果是在询问手机号、聊天账号、通讯地址
+或证件号码，读取配置时会被忽略。
 
 `ingenic_official_groups` 用于指定哪些群组的成员会在用户名旁显示官方认证图标。
 每行填一个群组名称，写法与该群组自己的页面一致；大小写和多余空格不影响结果。

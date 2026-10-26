@@ -255,7 +255,14 @@ describe Ingenic::ConfigExport do
         event: IngenicPointEntry::MANUAL,
         reason: "test",
       )
-      IngenicDeveloperProfile.create!(user: user, data: { name: "Someone" })
+      IngenicDeveloperProfile.create!(
+        user: user,
+        identity: "individual",
+        full_name: "Someone",
+        country: "UK",
+        contact_email: "someone@example.com",
+        use_case: "test",
+      )
 
       payload = payload_of_this_forum
 

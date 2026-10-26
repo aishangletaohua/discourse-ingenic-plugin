@@ -49,11 +49,10 @@ class IngenicDownloadsController < ::ApplicationController
     profile =
       IngenicDeveloperProfile.for(current_user) ||
         IngenicDeveloperProfile.new(user: current_user)
-    # Merged rather than replaced: the form is admin-configurable, and dropping
-    # a field from the configuration later should not erase what was already
-    # answered under it.
-    profile.data = profile.data.to_h.merge(answers)
-    profile.save!
+    profile.apply_answers(answers)
+    unless profile.save
+      return render_json_error(profile.errors.full_messages.join(" "), status: 422)
+    end
 
     render_json_dump(form: form_json, notice: I18n.t("ingenic.downloads.profile_saved"))
   end
@@ -441,20 +440,43 @@ class IngenicDownloadsController < ::ApplicationController
   def form_json
     fields =
       Ingenic::DeveloperForm.fields.map do |field|
-        {
+        json = {
           "key" => field[:key].to_s,
           "label" => field[:label],
           "type" => field[:type].to_s,
           "required" => field[:required] ? true : false,
         }
+
+        if field[:options].present?
+          json["options"] =
+            field[:options].map do |option|
+              {
+                "value" => Ingenic::DeveloperForm.option_value(option),
+                "label" => Ingenic::DeveloperForm.option_label_text(option),
+              }
+            end
+        end
+
+        # A question that belongs to one identity carries the condition so the
+        # form can hide it, instead of asking a student for a company and then
+        # rejecting the answer it never wanted.
+        condition = field[:when]
+        if condition
+          json["when"] = {
+            "key" => condition[:key] || condition["key"],
+            "value" => condition[:value] || condition["value"],
+          }
+        end
+
+        json
       end
 
     profile = IngenicDeveloperProfile.for(current_user)
 
     {
       "fields" => fields,
-      "values" => profile ? profile.data.to_h : {},
-      "completed" => profile.present?,
+      "values" => profile ? profile.answers : {},
+      "completed" => profile&.complete? || false,
     }
   end
 end

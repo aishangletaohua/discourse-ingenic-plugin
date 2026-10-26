@@ -118,7 +118,12 @@ module Ingenic
     def clearance_result
       return Result.new(state: :anonymous, download: download) if user.nil?
       return Result.new(state: :granted, download: download) if download.login_only?
-      return Result.new(state: :needs_profile, download: download) if profile.nil?
+      # A stored profile written before the form gained a question is not a
+      # completed one; the visitor is sent back to the form rather than through
+      # it.
+      if profile.nil? || !profile.complete?
+        return Result.new(state: :needs_profile, download: download)
+      end
       return Result.new(state: :granted, download: download) if download.form_required?
 
       # Approval tier: an active grant is the whole answer. Everything below it

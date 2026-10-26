@@ -221,7 +221,7 @@ register_homepage(
 | `ingenic_docs_discussion_category` | 页面没有关联话题时，「在论坛讨论」使用的分类 |
 | `ingenic_download_storage_path` | 上传的 SDK 和固件存放位置，必须在 `public/` 之外 |
 | `ingenic_download_admin_email` | 接收受限下载申请的邮箱 |
-| `ingenic_developer_form_fields` | 描述开发者信息表单的 JSON 数组 |
+| `ingenic_developer_form_fields` | 开发者信息表单的附加问题（JSON 数组）；按身份分支的核心问题固定 |
 | `ingenic_points_enabled` | 积分系统总开关；关闭后流水保持完整 |
 | `ingenic_points_exclude_staff` | 管理员和版主是否获得积分 |
 | `ingenic_bounties_enabled` | 悬赏总开关。关闭后停止新悬赏，仍会退回到期的悬赏 |
@@ -244,7 +244,7 @@ ingenic_doc_versions        某个芯片的版本，其中一个标记为 `lates
 ingenic_doc_pages           版本实际改动过的页面，parent_id 构成目录树
 ingenic_downloads           可下载资源、访问级别和 point_cost
 ingenic_download_categories 下载列表的分类，按语言区分
-ingenic_developer_profiles  开发者信息表单，每个账号一份
+ingenic_developer_profiles  开发者资料：身份、联系方式及公司或学校信息
 ingenic_download_requests   申请及其审核状态
 ingenic_download_grants     审批结果，按账号、按资源
 ingenic_boards              开发板，归属到某个芯片

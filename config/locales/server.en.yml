@@ -9,7 +9,7 @@ en:
     ingenic_download_log_retention_months: "Months a delivery log keeps who took the file. The row itself stays as a count; 0 keeps the account, address and browser forever."
     ingenic_file_manager_path: "Directory holding the official file library. Empty uses <app>/ingenic-files. Must be outside public/."
     ingenic_file_manager_extensions: "File extensions the official file library accepts."
-    ingenic_developer_form_fields: "JSON array describing the developer information form. Empty uses the built-in fields."
+    ingenic_developer_form_fields: "JSON array of extra questions for the developer information form. The core questions are fixed."
     ingenic_official_groups: "Groups whose members wear an official identity badge beside their username. A member already wearing a badge of their own keeps it."
     ingenic_points_enabled: "Award points for contributions, and let a resource cost points to unlock. Switching it off keeps every balance where it is."
     ingenic_points_exclude_staff: "Administrators and moderators do not earn points. A like from one still counts for the member who wrote the post."
@@ -70,6 +70,23 @@ en:
       one_principal: "Name exactly one account or one group, not both and not neither."
     developer_form:
       missing: "%{field} is required."
+      invalid_email: "%{field} is not a valid email address."
+      invalid_option: "%{field} is not one of the offered answers."
+      fields:
+        identity: "I am a"
+        full_name: "Full name"
+        country: "Country or region"
+        contact_email: "Contact email"
+        use_case: "Intended use"
+        project_stage: "Project stage"
+        company: "Company"
+        job_title: "Job title"
+        school: "School"
+        major: "Field of study"
+      identities:
+        company: "Company"
+        student: "Student"
+        individual: "Individual developer"
     downloads:
       not_available: "This file is not available."
       not_signed_in: "Sign in to download this file."

@@ -9,7 +9,7 @@ zh_CN:
     ingenic_download_log_retention_months: "下载记录保留「谁取走了文件」的月数。记录本身会作为计数保留；设为 0 则永久保留账号、地址与浏览器信息。"
     ingenic_file_manager_path: "存放官方文件库的目录。留空则使用 <app>/ingenic-files。必须位于 public/ 之外。"
     ingenic_file_manager_extensions: "官方文件库允许上传的文件扩展名。"
-    ingenic_developer_form_fields: "描述开发者资料表单的 JSON 数组。留空则使用内置字段。"
+    ingenic_developer_form_fields: "开发者资料表单的附加问题（JSON 数组）。核心问题固定，不可在此删改。"
     ingenic_official_groups: "成员用户名旁显示官方身份标识的用户组。已拥有自身标识的成员将保留原有标识。"
     ingenic_points_enabled: "为贡献发放积分，并允许资源消耗积分解锁。关闭后所有积分余额保持不变。"
     ingenic_points_exclude_staff: "管理员和版主不会获得积分。他们的点赞仍会计入发帖用户。"
@@ -70,6 +70,23 @@ zh_CN:
       one_principal: "请只指定一个账号或一个用户组，两者不能同时填写，也不能都为空。"
     developer_form:
       missing: "%{field}为必填项。"
+      invalid_email: "%{field}不是有效的邮箱地址。"
+      invalid_option: "%{field}的取值无效。"
+      fields:
+        identity: "您的身份"
+        full_name: "姓名"
+        country: "国家及地区"
+        contact_email: "联系邮箱"
+        use_case: "用途（项目）"
+        project_stage: "项目进展"
+        company: "公司名称"
+        job_title: "职位"
+        school: "学校"
+        major: "专业"
+      identities:
+        company: "公司"
+        student: "学生"
+        individual: "个人开发者"
     downloads:
       not_available: "该文件不可用。"
       not_signed_in: "请登录后下载该文件。"

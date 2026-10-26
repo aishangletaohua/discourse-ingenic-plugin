@@ -413,7 +413,7 @@ copy of the category list.
 | `ingenic_docs_discussion_category` | Category used for "Discuss in forum" when a page has no linked topic |
 | `ingenic_download_storage_path` | Where uploaded SDKs and firmware are written. Must be outside `public/` |
 | `ingenic_download_admin_email` | Address that receives an application for a restricted download |
-| `ingenic_developer_form_fields` | JSON array describing the developer information form |
+| `ingenic_developer_form_fields` | JSON array of extra questions for the developer information form; the identity-based core is fixed |
 | `ingenic_points_enabled` | Master switch for the points system; off leaves the ledger intact |
 | `ingenic_points_exclude_staff` | Whether administrators and moderators earn points |
 | `ingenic_bounties_enabled` | Master switch for bounties. Off stops new offers and still refunds the standing ones |
@@ -443,7 +443,8 @@ ingenic_doc_pages         the pages a version actually changed, with parent_id
                           forming the contents tree
 ingenic_downloads         downloadable resources, their access level and point_cost
 ingenic_download_categories  the shelves the download list is filtered by, per language
-ingenic_developer_profiles  the developer information form, one per account
+ingenic_developer_profiles  the developer's answers: identity, contact details
+                          and company or school information
 ingenic_download_requests   applications, with their review state
 ingenic_download_grants     approvals, per account and per resource
 ingenic_boards            development boards, filed against a chip

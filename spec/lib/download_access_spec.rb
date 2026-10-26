@@ -43,7 +43,14 @@ describe Ingenic::DownloadAccess do
   end
 
   def with_profile(user)
-    IngenicDeveloperProfile.create!(user: user, data: { "full_name" => "Ada" })
+    IngenicDeveloperProfile.create!(
+      user: user,
+      identity: "individual",
+      full_name: "Ada",
+      country: "UK",
+      contact_email: "ada@example.com",
+      use_case: "Set-top boxes",
+    )
     user
   end
 
@@ -74,6 +81,19 @@ describe Ingenic::DownloadAccess do
       download = resource(IngenicDownload::APPROVAL_REQUIRED)
 
       expect(state_for(with_profile(user), download)).to eq(:needs_request)
+    end
+
+    # A profile written before the form gained a question is not an answered
+    # one. Letting it through would open the file while the new question has
+    # never been asked.
+    it "sends an account with an incomplete stored profile back to the form" do
+      download = resource(IngenicDownload::FORM_REQUIRED)
+      IngenicDeveloperProfile.new(user: user, identity: "individual", full_name: "Ada").save!(
+        validate: false,
+      )
+
+      expect(IngenicDeveloperProfile.for(user)).not_to be_complete
+      expect(state_for(user, download)).to eq(:needs_profile)
     end
   end
 

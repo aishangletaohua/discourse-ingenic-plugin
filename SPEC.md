@@ -208,10 +208,14 @@ Three tiers, stored as `ingenic_downloads.access_level`:
 | `login_form_request` | Signs in, submits the form, applies for that resource | Signed in, with a profile **and** a live grant for that resource |
 
 The developer information form is one record per account, shared by every gated
-resource, and its fields are configured by `ingenic_developer_form_fields` — so
-the form, its validation and the admin's view of an answer are generated from
-one description and cannot disagree. Left empty, a built-in developer field set
-is used.
+resource. It branches on identity: everyone is asked their name, country or
+region, contact email, intended use and project stage; a company adds its name
+and the applicant's job title, a student adds the school and field of study, and
+an individual developer adds nothing. The core questions are fixed in code — the
+profile columns and the conditional database checks are built around them —
+while `ingenic_developer_form_fields` adds extra questions and cannot remove or
+rename the core ones. A question asking for a phone number, a chat handle, a
+postal address or a government identifier is ignored.
 
 An application is recorded in `ingenic_download_requests` and emailed to
 `ingenic_download_admin_email`. Approving writes an `ingenic_download_grants`
@@ -528,11 +532,11 @@ are what still has to be run on a real instance.
   message has been sent — the development container has no mail server — so the
   request-to-download flow is covered by specs up to the point a message would
   leave.
-- **The Chinese forum's signup form could not be read.** `forum.ingenic.com` is
-  behind a login, so the field list behind "sign in and fill in your details"
-  is a generic developer set rather than a copy of theirs. It is configurable
-  through `ingenic_developer_form_fields`, so matching theirs is a settings edit
-  once someone can read the original.
+- **The developer form is the owner's design, not a copy of the Chinese
+  forum's.** `forum.ingenic.com` is behind a login, so the form follows the
+  identity-based specification (company, student, individual developer) given
+  for this site. Further questions can be added through
+  `ingenic_developer_form_fields` once someone can read the original.
 - **The board-store reference URL does not resolve.** The address supplied
   (`forum.ingeinc.com`) is a typo for a domain that does not exist, so the
   board card's fields were designed from the Chinese forum's board module

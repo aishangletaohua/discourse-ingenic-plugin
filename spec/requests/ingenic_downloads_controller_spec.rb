@@ -36,13 +36,12 @@ describe IngenicDownloadsController do
   def with_profile(owner = nil)
     IngenicDeveloperProfile.create!(
       user: owner || user,
-      data: {
-        "full_name" => "Ada",
-        "company" => "Acme",
-        "country" => "UK",
-        "contact_email" => "ada@example.com",
-        "use_case" => "Set-top boxes",
-      },
+      identity: "company",
+      full_name: "Ada",
+      company: "Acme",
+      country: "UK",
+      contact_email: "ada@example.com",
+      use_case: "Set-top boxes",
     )
   end
 
@@ -163,54 +162,170 @@ describe IngenicDownloadsController do
   describe "POST /ingenic/downloads/profile" do
     before { sign_in(user) }
 
-    it "stores the answers" do
-      expect {
-        post "/ingenic/downloads/profile.json",
-             params: {
-               profile: {
-                 full_name: "Ada",
-                 company: "Acme",
-                 country: "UK",
-                 contact_email: "ada@example.com",
-                 use_case: "Set-top boxes",
-               },
-             }
-      }.to change(IngenicDeveloperProfile, :count).by(1)
+    def save(profile)
+      post "/ingenic/downloads/profile.json", params: { profile: profile }
+    end
 
+    def universal(identity, **extra)
+      {
+        identity: identity,
+        full_name: "Ada",
+        country: "UK",
+        contact_email: "ada@example.com",
+        use_case: "Set-top boxes",
+      }.merge(extra)
+    end
+
+    it "stores a company's answers" do
+      expect { save(universal("company", company: "Acme", job_title: "Engineer")) }.to change(
+        IngenicDeveloperProfile,
+        :count,
+      ).by(1)
+
+      profile = IngenicDeveloperProfile.for(user)
       expect(response.status).to eq(200)
       expect(response.parsed_body["form"]["completed"]).to eq(true)
-      expect(IngenicDeveloperProfile.for(user).value_for("company")).to eq("Acme")
+      expect(profile.identity).to eq("company")
+      expect(profile.company).to eq("Acme")
+      expect(profile.value_for("job_title")).to eq("Engineer")
+      # The universal answers have columns now, so the document is empty rather
+      # than holding a second copy of them.
+      expect(profile.data).to eq({})
+    end
+
+    it "asks a company for its name" do
+      save(universal("company"))
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"].first).to include(
+        I18n.t("ingenic.developer_form.fields.company"),
+      )
+      expect(IngenicDeveloperProfile.for(user)).to be_nil
+    end
+
+    it "asks a student for a school" do
+      save(universal("student"))
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"].first).to include(
+        I18n.t("ingenic.developer_form.fields.school"),
+      )
+      expect(IngenicDeveloperProfile.for(user)).to be_nil
+    end
+
+    it "asks an individual developer for nothing more" do
+      save(universal("individual"))
+
+      expect(response.status).to eq(200)
+      profile = IngenicDeveloperProfile.for(user)
+      expect(profile.identity).to eq("individual")
+      expect(profile.company).to be_nil
+      expect(profile.school).to be_nil
+    end
+
+    it "clears the company answers when the identity changes" do
+      save(universal("company", company: "Acme", job_title: "Engineer"))
+      save(universal("individual"))
+
+      profile = IngenicDeveloperProfile.for(user)
+      expect(profile.identity).to eq("individual")
+      expect(profile.company).to be_nil
+      expect(profile.job_title).to be_nil
+    end
+
+    it "clears the school answers when the identity changes" do
+      save(universal("student", school: "Cambridge", major: "Engineering"))
+      save(universal("individual"))
+
+      profile = IngenicDeveloperProfile.for(user)
+      expect(profile.school).to be_nil
+      expect(profile.major).to be_nil
     end
 
     it "refuses a form with a required answer missing" do
-      post "/ingenic/downloads/profile.json", params: { profile: { full_name: "Ada" } }
+      save(full_name: "Ada")
 
       expect(response.status).to eq(422)
       expect(IngenicDeveloperProfile.for(user)).to be_nil
     end
 
-    it "keeps only the answers the form asks for" do
-      post "/ingenic/downloads/profile.json",
-           params: {
-             profile: {
-               full_name: "Ada",
-               company: "Acme",
-               country: "UK",
-               contact_email: "ada@example.com",
-               use_case: "Set-top boxes",
-               phone: "+44 20 7946 0000",
-               admin: "true",
-               injected: "<script>",
-             },
-           }
+    it "refuses an answer that is not a valid email address" do
+      save(universal("individual", contact_email: "not-an-email"))
 
-      expect(IngenicDeveloperProfile.for(user).data.keys).not_to include(
-        "admin",
-        "injected",
-        # Sent by a browser holding an older copy of the form, and dropped for
-        # the same reason as the rest: the form is the definition of the answer.
-        "phone",
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"].first).to include(
+        I18n.t(
+          "ingenic.developer_form.invalid_email",
+          field: I18n.t("ingenic.developer_form.fields.contact_email"),
+        ),
       )
+    end
+
+    it "refuses an identity it does not offer" do
+      save(universal("partner"))
+
+      expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"].first).to include(
+        I18n.t(
+          "ingenic.developer_form.invalid_option",
+          field: I18n.t("ingenic.developer_form.fields.identity"),
+        ),
+      )
+    end
+
+    it "keeps only the answers the form asks for" do
+      save(
+        universal("company", company: "Acme").merge(
+          phone: "+44 20 7946 0000",
+          admin: "true",
+          injected: "<script>",
+        ),
+      )
+
+      profile = IngenicDeveloperProfile.for(user)
+      expect(profile.data.keys).not_to include("admin", "injected", "phone")
+      # A core answer lives in its column, never in the document.
+      expect(profile.data).not_to include("company")
+    end
+
+    it "offers the identity choices and says which questions follow from them" do
+      get "/ingenic/downloads.json"
+
+      fields = response.parsed_body["form"]["fields"].index_by { |field| field["key"] }
+      identity = fields["identity"]
+      expect(identity["type"]).to eq("select")
+      expect(identity["options"].map { |option| option["value"] }).to eq(
+        %w[company student individual],
+      )
+      expect(fields["company"]["when"]).to eq({ "key" => "identity", "value" => "company" })
+      expect(fields["school"]["when"]).to eq({ "key" => "identity", "value" => "student" })
+      expect(fields["full_name"]["when"]).to be_nil
+    end
+
+    context "when the site adds its own questions" do
+      before do
+        SiteSetting.ingenic_developer_form_fields = [
+          { "key" => "team_size", "label" => "Team size", "type" => "text" },
+          { "key" => "phone_number", "label" => "Phone", "type" => "text" },
+        ].to_json
+      end
+
+      it "adds the question but refuses one that asks for a phone number" do
+        get "/ingenic/downloads.json"
+
+        keys = response.parsed_body["form"]["fields"].map { |field| field["key"] }
+        expect(keys).to include("team_size")
+        expect(keys).not_to include("phone_number")
+      end
+
+      it "stores the extra answer beside the core columns" do
+        save(universal("individual", team_size: "12"))
+
+        expect(response.status).to eq(200)
+        profile = IngenicDeveloperProfile.for(user)
+        expect(profile.value_for("team_size")).to eq("12")
+        expect(profile.data).to eq("team_size" => "12")
+      end
     end
   end
 

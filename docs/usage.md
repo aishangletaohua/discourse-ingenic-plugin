@@ -294,10 +294,13 @@ Every resource is published at one of three levels:
 | Signed in with developer information | **Add your details** the first time | Fill in the developer form once; it is reused for every gated download |
 | Signed in with information and approval | **Apply for access** | Fill in the form, send an application, wait for the team to approve |
 
-The developer form asks for the fields the team configured — by default full
-name, company, job title, country or region, contact email, intended use,
-project stage, estimated annual volume and anything else. It is stored with your
-account, not with one download.
+The developer form first asks who you are — a company, a student or an
+individual developer — and then the questions that follow from it. Everyone
+gives full name, country or region, contact email, intended use and project
+stage; a company adds its name and your job title, a student adds the school and
+field of study, and an individual developer adds nothing. The answers are
+stored with your account, not with one download. The team can add further
+questions in the site settings, but the core questions are fixed.
 
 An application is visible in the administrator queue and is emailed to the
 team's configured address. When it is approved you receive an email and can
@@ -838,7 +841,7 @@ The settings that matter most are under **Admin → Settings** (search for
 | `ingenic_file_manager_path` | Where the official file library lives; must be outside `public/` |
 | `ingenic_file_manager_extensions` | Extensions the library accepts |
 | `ingenic_download_admin_email` | Address notified when an application is submitted |
-| `ingenic_developer_form_fields` | JSON description of the developer information form |
+| `ingenic_developer_form_fields` | Extra questions for the developer information form; the core questions are fixed |
 | `ingenic_official_groups` | Groups whose members wear the official identity badge |
 | `ingenic_points_enabled` | Turns earning and spending on or off without clearing balances |
 | `ingenic_points_exclude_staff` | Whether staff are excluded from earning points (on by default) |

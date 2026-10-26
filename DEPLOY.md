@@ -159,7 +159,7 @@ The theme is not a component and does not need one.
 | `ingenic_file_manager_path` | where the official file library lives, outside `public/`; empty means `<app>/ingenic-files` |
 | `ingenic_file_manager_extensions` | extensions the library accepts; empty uses the shipped list |
 | `ingenic_download_admin_email` | the address that should receive download applications |
-| `ingenic_developer_form_fields` | JSON; empty uses the built-in developer form |
+| `ingenic_developer_form_fields` | JSON; extra questions on top of the fixed identity-based form |
 | `ingenic_official_groups` | the groups whose members should wear the official badge, e.g. `admins` |
 | `ingenic_points_enabled` | on, unless you are not ready for it yet |
 | `ingenic_points_exclude_staff` | on |
@@ -191,26 +191,29 @@ images and raw firmware images.
 resource is sent. Left empty, applications are still recorded and shown in the
 admin queue — nobody is emailed about them.
 
-`ingenic_developer_form_fields` replaces the built-in developer form. It is a
-JSON array of `{ "key", "label", "type", "required" }`, where `type` is `text`
-or `textarea`:
+`ingenic_developer_form_fields` adds questions on top of the developer form. It
+is a JSON array of `{ "key", "label", "type", "required" }`, where `type` is
+`text` or `textarea`:
 
 ```json
-[
-  { "key": "full_name", "label": "Full name", "type": "text", "required": true },
-  { "key": "use_case",  "label": "Intended use", "type": "textarea", "required": true }
-]
+[{ "key": "team_size", "label": "Team size", "type": "text", "required": false }]
 ```
 
-The form the visitor sees, the validation on submit and the admin's view of an
-answer all come from this one definition, so the three cannot disagree. Leave
-it empty for the built-in set. Answers to a field that is later removed from
-the configuration are kept rather than erased, so dropping a question does not
-destroy what was already answered under it.
+The core form is fixed: everyone is asked their identity (company, student or
+individual developer), full name, country or region, contact email, intended
+use and project stage; a company is then asked its name and the applicant's job
+title, a student the school and field of study, and an individual developer
+nothing more. These are the questions the profile columns and the access rules
+are built around, so this setting cannot remove or rename them. The form the
+visitor sees, the validation on submit and the admin's view of an answer all
+come from the same definition. Answers to an extra question that is later
+removed are kept rather than erased.
 
-No telephone number is asked for, in the built-in form or in the example
-above. An account already has an email address the team can write to, and a
-field nobody reads is one more reason for a developer to abandon the form.
+No telephone number is asked for. An account already has an email address the
+team can write to, and a field nobody reads is one more reason for a developer
+to abandon the form. An extra question whose key asks for a phone number, a chat
+handle, a postal address or a government identifier is ignored when the setting
+is read.
 
 `ingenic_official_groups` names the groups whose members wear an official
 identity badge beside their username. One group name per entry, spelled as the
