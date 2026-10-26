@@ -145,7 +145,44 @@ describe "the file library" do
       expect(file["url"]).to eq("/ingenic/files/sdk-1.0.zip")
       expect(file["sha256"]).to eq(Digest::SHA256.hexdigest(content))
       expect(Pathname.new(storage_dir).join("sdk-1.0.zip").read).to eq(content)
-      expect(IngenicUploadSession.find_by(token: token)).to be_nil
+      expect(IngenicUploadSession.find_by(token: token)).to be_completed
+    end
+
+    it "answers a repeated completion with the same file" do
+      content = "firmware-" * 1000
+      token = open_upload("sdk.zip", content).parsed_body["upload"]["token"]
+      send_piece(token, 0, content)
+
+      params = {
+        directory: "",
+        filename: "sdk-1.0.zip",
+      }
+
+      post "/admin/plugins/discourse-ingenic/files/uploads/#{token}/complete.json", params: params
+      first = response.parsed_body["file"]
+
+      post "/admin/plugins/discourse-ingenic/files/uploads/#{token}/complete.json", params: params
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["file"]).to eq(first)
+      expect(Ingenic::FileStorage.exist?("sdk-1.0.zip")).to eq(true)
+      expect(Pathname.new(storage_dir).join("sdk-1.0.zip").read).to eq(content)
+    end
+
+    it "refuses a piece that announces more than one chunk before reading it" do
+      token = open_upload("sdk.zip", "bytes").parsed_body["upload"]["token"]
+
+      post "/admin/plugins/discourse-ingenic/files/uploads/#{token}/chunks.json?offset=0",
+           params: "x",
+           headers: {
+             "CONTENT_LENGTH" => (9.megabytes).to_s,
+             "CONTENT_TYPE" => "application/octet-stream",
+           }
+
+      expect(response.status).to eq(413)
+      expect(response.parsed_body["errors"].first).to eq(
+        I18n.t("ingenic.errors.upload_chunk_too_large"),
+      )
     end
 
     it "refuses a checksum that does not match and leaves nothing behind" do

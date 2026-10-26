@@ -16,19 +16,17 @@ module Jobs
       return unless SiteSetting.ingenic_enabled
 
       IngenicUploadSession.stale(24.hours.ago).find_each do |session|
-        # A completed session's file has already been moved beside the
-        # library's files, so the staging path no longer exists; deleting the
-        # wrong one is how a finished upload would disappear.
-        #
-        # File-manager sessions are destroyed as soon as their upload is
-        # finalised, so one that is still here is pending and only has a part
-        # file to sweep — in the file manager's own root, not the downloads'.
-        #
         # A part file's name begins with a dot, which the library's public path
         # rules refuse; `delete_staging` is the one door that reaches it.
+        #
+        # A completed download upload that no resource adopted is garbage, so
+        # its file is swept with the row. A completed file-manager upload,
+        # though, is not garbage: its bytes are already a library file that an
+        # operator may be about to link. Only the row is stale there, and it
+        # exists so a browser that missed the answer can ask again.
         if session.pending?
           session.storage.delete_staging(session.token)
-        else
+        elsif !session.files?
           session.storage.delete(session.storage_path)
         end
         session.destroy!

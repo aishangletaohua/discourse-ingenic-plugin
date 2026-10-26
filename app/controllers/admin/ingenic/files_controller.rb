@@ -110,6 +110,16 @@ module Admin
         session = owned_upload_session
         return render_upload_error(:upload_missing) unless session&.pending?
 
+        # Read only after the size is known: the body is buffered whole, and a
+        # request that announces far more than one piece would otherwise take
+        # that many bytes of memory before the check below could refuse it.
+        if request.content_length.to_i > MAX_CHUNK_SIZE
+          return(
+            render json: { errors: [I18n.t("ingenic.errors.upload_chunk_too_large")] },
+                   status: 413
+          )
+        end
+
         bytes = request.body.read.to_s
         offset = params[:offset].to_i
 
@@ -146,38 +156,54 @@ module Admin
 
       def complete_upload
         session = owned_upload_session
-        return render_upload_error(:upload_missing) unless session&.pending?
+        return render_upload_error(:upload_missing) unless session
 
-        unless session.received_size == session.expected_size
-          return(
-            render json: {
-                     errors: [I18n.t("ingenic.errors.upload_incomplete")],
-                     received_size: session.received_size,
-                   },
-                   status: 422
+        session.with_lock do
+          # A retry after a response the browser never received arrives once
+          # the first request has finished. The row remembers where the file
+          # landed, so answering the same file beats reporting a missing
+          # upload for bytes that are already in the library.
+          unless session.pending?
+            if file_landed?(session)
+              return render_completed_file(session)
+            end
+
+            session.destroy!
+            return render_upload_error(:upload_missing)
+          end
+
+          unless session.received_size == session.expected_size
+            return(
+              render json: {
+                       errors: [I18n.t("ingenic.errors.upload_incomplete")],
+                       received_size: session.received_size,
+                     },
+                     status: 422
+            )
+          end
+
+          directory = ::Ingenic::FileStorage.normalize_relative(params[:directory])
+          filename = params[:filename].presence || session.original_filename
+
+          stored = ::Ingenic::FileStorage.finalize(session.staging_relative, directory, filename)
+
+          if params[:sha256].present? && params[:sha256].to_s.downcase != stored[:sha256]
+            ::Ingenic::FileStorage.delete(stored[:relative])
+            session.destroy!
+            return render_upload_error(:upload_checksum)
+          end
+
+          # The bytes are a library file now. The row stays long enough for a
+          # browser that never saw this answer to ask again; the cleanup pass
+          # drops it without touching the file, which is no longer staging.
+          session.update!(
+            status: "completed",
+            sha256: stored[:sha256],
+            storage_path: stored[:relative],
           )
         end
 
-        directory = ::Ingenic::FileStorage.normalize_relative(params[:directory])
-        filename = params[:filename].presence || session.original_filename
-
-        stored = ::Ingenic::FileStorage.finalize(session.staging_relative, directory, filename)
-
-        if params[:sha256].present? && params[:sha256].to_s.downcase != stored[:sha256]
-          ::Ingenic::FileStorage.delete(stored[:relative])
-          session.destroy!
-          return render_upload_error(:upload_checksum)
-        end
-
-        # The session has done its job: the bytes are in the library, and the
-        # cleanup pass should never have a reason to look at this row again.
-        session.destroy!
-
-        render_json_dump(
-          file:
-            entry_json(stored[:relative], ::Ingenic::FileStorage.absolute_path(stored[:relative]))
-              .merge(sha256: stored[:sha256]),
-        )
+        render_completed_file(session)
       end
 
       def destroy_upload
@@ -208,6 +234,23 @@ module Admin
           received_size: session.received_size,
           status: session.status,
         }
+      end
+
+      # A finished library upload whose file is still there. A session that
+      # says it completed but whose file an operator has since renamed or
+      # deleted is only a stale row.
+      def file_landed?(session)
+        session.storage_path.present? && ::Ingenic::FileStorage.exist?(session.storage_path)
+      end
+
+      def render_completed_file(session)
+        render_json_dump(
+          file:
+            entry_json(
+              session.storage_path,
+              ::Ingenic::FileStorage.existing_path(session.storage_path),
+            ).merge(sha256: session.sha256),
+        )
       end
 
       def entry_json(relative, path)
