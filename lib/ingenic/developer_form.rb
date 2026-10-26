@@ -86,7 +86,7 @@ module Ingenic
     # deliberately does not collect, kept here so that re-adding one is a code
     # change with a reason rather than a settings edit without one.
     PRIVATE_KEY =
-      /phone|mobile|whatsapp|wechat|weixin|telephone|\btel\b|fax|passport|id_?(?:number|card)|address|\Aqq\z/i
+      /phone|mobile|whatsapp|wechat|weixin|telephone|\btel\b|fax|passport|id_?(?:number|card)|address|qq/i
 
     module_function
 

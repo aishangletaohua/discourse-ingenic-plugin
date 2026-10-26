@@ -307,15 +307,17 @@ describe IngenicDownloadsController do
         SiteSetting.ingenic_developer_form_fields = [
           { "key" => "team_size", "label" => "Team size", "type" => "text" },
           { "key" => "phone_number", "label" => "Phone", "type" => "text" },
+          { "key" => "wechat_id", "label" => "WeChat", "type" => "text" },
+          { "key" => "qq_number", "label" => "QQ", "type" => "text" },
         ].to_json
       end
 
-      it "adds the question but refuses one that asks for a phone number" do
+      it "adds the question but refuses ones that ask for a phone number, WeChat or QQ" do
         get "/ingenic/downloads.json"
 
         keys = response.parsed_body["form"]["fields"].map { |field| field["key"] }
         expect(keys).to include("team_size")
-        expect(keys).not_to include("phone_number")
+        expect(keys).not_to include("phone_number", "wechat_id", "qq_number")
       end
 
       it "stores the extra answer beside the core columns" do

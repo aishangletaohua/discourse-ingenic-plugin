@@ -67,13 +67,15 @@ describe Ingenic::DeveloperForm do
       { "key" => "full_name", "label" => "Name", "type" => "text" },
       { "key" => "team_size", "label" => "Team size", "type" => "text" },
       { "key" => "phone_number", "label" => "Phone", "type" => "text" },
+      { "key" => "wechat_id", "label" => "WeChat", "type" => "text" },
+      { "key" => "qq_number", "label" => "QQ", "type" => "text" },
     ].to_json
 
     keys = described_class.fields.map { |field| field[:key].to_s }
 
     expect(keys).to include("team_size")
     expect(keys.count("full_name")).to eq(1)
-    expect(keys).not_to include("phone_number")
+    expect(keys).not_to include("phone_number", "wechat_id", "qq_number")
   end
 
   it "reads the labels in the reader's language" do

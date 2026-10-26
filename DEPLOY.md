@@ -209,6 +209,12 @@ visitor sees, the validation on submit and the admin's view of an answer all
 come from the same definition. Answers to an extra question that is later
 removed are kept rather than erased.
 
+The two questions the original built-in form asked — estimated annual volume and
+anything else — were retired with the identity-based form, and the answers
+already given to them are deleted by the migration that introduces it. The
+sentence above is about extra questions a site adds and later drops; these two
+are gone for good.
+
 No telephone number is asked for. An account already has an email address the
 team can write to, and a field nobody reads is one more reason for a developer
 to abandon the form. An extra question whose key asks for a phone number, a chat
