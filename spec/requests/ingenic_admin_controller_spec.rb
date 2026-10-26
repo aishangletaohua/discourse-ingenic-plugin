@@ -361,6 +361,36 @@ describe Admin::IngenicController do
 
       expect(response.status).to eq(200)
     end
+
+    it "returns both matrices and the scope grants in one payload" do
+      custom = Fabricate(:group)
+      account = Fabricate(:user, username: "chip_owner")
+      IngenicFeaturePermission.create!(group: custom, feature: "downloads")
+      IngenicFeaturePermission.create!(user: account, feature: "boards")
+
+      get "/admin/plugins/discourse-ingenic/permissions.json"
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["features"]).to eq(IngenicFeaturePermission::FEATURES)
+
+      group_row =
+        response.parsed_body["groups"].find { |group| group["id"] == custom.id }
+      account_row =
+        response.parsed_body["users"].find { |user| user["id"] == account.id }
+
+      expect(group_row["features"]).to eq(["downloads"])
+      expect(account_row["features"]).to eq(["boards"])
+      expect(response.parsed_body["groups"].map { |group| group["name"] })
+        .not_to include("everyone")
+    end
+
+    it "is not offered to a member" do
+      sign_in(Fabricate(:user))
+
+      get "/admin/plugins/discourse-ingenic/permissions.json"
+
+      expect(response.status).to eq(404)
+    end
   end
 
   # The admin-editable lists. Each one is a table the screens read and write, so
@@ -778,6 +808,59 @@ describe Admin::IngenicController do
     end
   end
 
+  # Each listing used to answer every signed-in manager with whatever their
+  # grants happened to filter to. An empty 200 still carried the parts of the
+  # screen that are not records — the chip picker, the categories — and it made
+  # "this manager may not see this screen" indistinguishable from "there is
+  # nothing on it yet".
+  describe "a listing outside a manager's screen" do
+    fab!(:manager) { Fabricate(:user) }
+
+    before do
+      IngenicFeaturePermission.create!(user: manager, feature: "downloads")
+      sign_in(manager)
+    end
+
+    it "refuses the documentation listing" do
+      get "/admin/plugins/discourse-ingenic/documentation.json"
+
+      expect(response.status).to eq(404)
+    end
+
+    it "refuses the boards listing" do
+      get "/admin/plugins/discourse-ingenic/boards.json"
+
+      expect(response.status).to eq(404)
+    end
+
+    it "answers the downloads listing, which is the screen they hold" do
+      get "/admin/plugins/discourse-ingenic/downloads.json"
+
+      expect(response.status).to eq(200)
+    end
+  end
+
+  describe "a listing a manager reaches through one record" do
+    fab!(:manager) { Fabricate(:user) }
+
+    before do
+      IngenicPermission.create!(
+        user: manager,
+        resource_type: "IngenicProduct",
+        resource_id: chip.id,
+        area: IngenicPermission::DOCUMENTATION,
+      )
+      sign_in(manager)
+    end
+
+    it "opens the documentation listing scoped to that chip" do
+      get "/admin/plugins/discourse-ingenic/documentation.json"
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["series"].map { |row| row["slug"] }).to eq(["t-series"])
+    end
+  end
+
   # The two new screens. Both decide who may do something, so both stay
   # administrator-only: delegating either would let its holder widen their own
   # grant.
@@ -822,62 +905,71 @@ describe Admin::IngenicController do
     end
   end
 
-  describe "GET /admin/plugins/discourse-ingenic/group-permissions" do
-    it "lists the custom groups and the screens" do
-      custom = Fabricate(:group)
-      IngenicGroupPermission.create!(group: custom, feature: "downloads")
-
-      get "/admin/plugins/discourse-ingenic/group-permissions.json"
-
-      expect(response.status).to eq(200)
-      expect(response.parsed_body["features"]).to eq(IngenicGroupPermission::FEATURES)
-      row = response.parsed_body["groups"].find { |group| group["id"] == custom.id }
-      expect(row["features"]).to eq(["downloads"])
-      expect(response.parsed_body["groups"].map { |group| group["name"] }).not_to include("everyone")
-    end
-
-    it "is not offered to a member" do
-      sign_in(Fabricate(:user))
-
-      get "/admin/plugins/discourse-ingenic/group-permissions.json"
-
-      expect(response.status).to eq(404)
-    end
-  end
-
-  describe "PUT /admin/plugins/discourse-ingenic/group-permissions" do
-    it "replaces the matrix in one write" do
+  describe "PUT /admin/plugins/discourse-ingenic/feature-permissions" do
+    it "replaces both matrices in one write" do
       docs = Fabricate(:group)
       downloads = Fabricate(:group)
-      IngenicGroupPermission.create!(group: docs, feature: "documentation")
+      account = Fabricate(:user)
+      IngenicFeaturePermission.create!(group: docs, feature: "documentation")
+      IngenicFeaturePermission.create!(user: account, feature: "documentation")
 
-      put "/admin/plugins/discourse-ingenic/group-permissions.json",
+      put "/admin/plugins/discourse-ingenic/feature-permissions.json",
           params: {
-            grants: JSON.generate(
-              docs.id => ["documentation"],
-              downloads.id => ["downloads", "points"],
-            ),
+            grants:
+              JSON.generate(
+                [
+                  { type: "group", id: docs.id, features: ["documentation"] },
+                  { type: "group", id: downloads.id, features: %w[downloads points] },
+                  { type: "user", id: account.id, features: %w[downloads files] },
+                ],
+              ),
           }
 
       expect(response.status).to eq(204)
-      expect(IngenicGroupPermission.where(group: docs).pluck(:feature)).to eq(["documentation"])
-      expect(IngenicGroupPermission.where(group: downloads).pluck(:feature))
+      expect(IngenicFeaturePermission.where(group: docs).pluck(:feature)).to eq(["documentation"])
+      expect(IngenicFeaturePermission.where(group: downloads).pluck(:feature))
         .to contain_exactly("downloads", "points")
+      expect(IngenicFeaturePermission.where(user: account).pluck(:feature))
+        .to contain_exactly("downloads", "files")
+    end
+
+    it "takes a removed account's grant away with the same write" do
+      account = Fabricate(:user)
+      IngenicFeaturePermission.create!(user: account, feature: "downloads")
+
+      put "/admin/plugins/discourse-ingenic/feature-permissions.json",
+          params: { grants: JSON.generate([]) }
+
+      expect(response.status).to eq(204)
+      expect(IngenicFeaturePermission.count).to eq(0)
     end
 
     it "refuses an automatic group and an unknown feature" do
       custom = Fabricate(:group)
 
-      put "/admin/plugins/discourse-ingenic/group-permissions.json",
+      put "/admin/plugins/discourse-ingenic/feature-permissions.json",
           params: {
-            grants: JSON.generate(
-              Group::AUTO_GROUPS[:everyone] => ["downloads"],
-              custom.id => ["everything"],
-            ),
+            grants:
+              JSON.generate(
+                [
+                  { type: "group", id: Group::AUTO_GROUPS[:everyone], features: ["downloads"] },
+                  { type: "group", id: custom.id, features: ["everything"] },
+                ],
+              ),
           }
 
       expect(response.status).to eq(204)
-      expect(IngenicGroupPermission.count).to eq(0)
+      expect(IngenicFeaturePermission.count).to eq(0)
+    end
+
+    it "refuses a payload that is not a list instead of clearing every grant" do
+      IngenicFeaturePermission.create!(user: Fabricate(:user), feature: "downloads")
+
+      put "/admin/plugins/discourse-ingenic/feature-permissions.json",
+          params: { grants: JSON.generate("downloads" => true) }
+
+      expect(response.status).to eq(400)
+      expect(IngenicFeaturePermission.count).to eq(1)
     end
   end
 

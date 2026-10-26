@@ -57,10 +57,10 @@ describe Ingenic::PermissionResolver do
     expect(described_class.new(user).can_manage_permissions?).to eq(true)
   end
 
-  describe "group feature grants" do
+  describe "feature grants" do
     it "lets a group manage every record on the screen it was given" do
       group.add(user)
-      IngenicGroupPermission.create!(group: group, feature: "documentation")
+      IngenicFeaturePermission.create!(group: group, feature: "documentation")
 
       resolver = described_class.new(user)
 
@@ -72,7 +72,7 @@ describe Ingenic::PermissionResolver do
 
     it "keeps the other screens out of the grant" do
       group.add(user)
-      IngenicGroupPermission.create!(group: group, feature: "documentation")
+      IngenicFeaturePermission.create!(group: group, feature: "documentation")
 
       resolver = described_class.new(user)
 
@@ -82,16 +82,33 @@ describe Ingenic::PermissionResolver do
 
     it "leaves a user outside the group with nothing" do
       other = Fabricate(:user)
-      IngenicGroupPermission.create!(group: group, feature: "documentation")
+      IngenicFeaturePermission.create!(group: group, feature: "documentation")
 
       expect(described_class.new(other).can_manage?(family)).to eq(false)
     end
 
     it "counts as content management for the navigation" do
       group.add(user)
-      IngenicGroupPermission.create!(group: group, feature: "points")
+      IngenicFeaturePermission.create!(group: group, feature: "points")
 
       expect(described_class.new(user).can_manage_any_content?).to eq(true)
+    end
+
+    it "lets one account hold a screen without joining a group" do
+      IngenicFeaturePermission.create!(user: user, feature: "downloads")
+
+      resolver = described_class.new(user)
+
+      expect(resolver.can_manage_feature?("downloads")).to eq(true)
+      expect(resolver.can_manage_any_content?).to eq(true)
+      expect(resolver.can_manage_any_area?("downloads")).to eq(true)
+      expect(resolver.can_manage_any_area?("documentation")).to eq(false)
+    end
+
+    it "does not lend one account's grant to another account" do
+      IngenicFeaturePermission.create!(user: user, feature: "downloads")
+
+      expect(described_class.new(Fabricate(:user)).can_manage_feature?("downloads")).to eq(false)
     end
   end
 
@@ -166,7 +183,7 @@ describe Ingenic::PermissionResolver do
 
     it "does not treat a whole-screen grant in another area as this one" do
       group.add(user)
-      IngenicGroupPermission.create!(group: group, feature: "downloads")
+      IngenicFeaturePermission.create!(group: group, feature: "downloads")
 
       resolver = described_class.new(user)
 

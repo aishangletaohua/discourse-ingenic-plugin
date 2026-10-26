@@ -260,6 +260,13 @@ screens also appear in the plugin's admin navigation for an administrator. The
 workbench exists because a granted member is not an administrator and has no
 admin route to stand on.
 
+A grant opens one screen, not its neighbours. The listing endpoints check the
+area before they answer, so a downloads manager asking for the documentation or
+boards listing gets the forum's 404 rather than an empty 200 that still carries
+the chip picker and the catalogue. A per-record grant counts as opening its
+screen: the holder of T33's manual can open the documentation table and sees
+that product, while a manager with no documentation grant at all cannot.
+
 The Permission matrix grants a whole management screen to a custom group:
 documentation, development boards, downloads, official files, points or site
 content. It is the coarse layer — a tick says "every product", not "this product". The per-record
@@ -442,7 +449,7 @@ ingenic_footer_columns    footer link columns, per language
 ingenic_footer_links      the links inside a footer column (language follows the column)
 ingenic_site_pages        standalone pages behind the footer links, per language
 ingenic_permissions       scoped grants to a user or group
-ingenic_group_permissions a whole management screen, granted to a group
+ingenic_feature_permissions a whole management screen, granted to an account or a group
 ingenic_tag_colours       explicit colour-family assignments per tag name
 ingenic_point_rules       what each action is worth, and what to call it
 ingenic_point_entries     the ledger: one append-only row per movement

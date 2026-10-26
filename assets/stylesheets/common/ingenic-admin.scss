@@ -1165,6 +1165,60 @@
   }
 }
 
+// The permission page is two matrices and a scope tree on one page. The
+// headings mark where one decision ends and the next begins, so the page is
+// read as three questions rather than one long table.
+.ingenic-permission-section {
+  margin-bottom: 2rem;
+
+  &__title {
+    margin: 1.75rem 0 0.5rem;
+    font-size: var(--font-up-1);
+  }
+
+  &__title--scope {
+    margin-top: 2.5rem;
+  }
+}
+
+// The account search. Accounts are searched by name because the forum's
+// account table is the whole membership; the field is the question "who?",
+// not a list to scroll.
+.ingenic-account-picker {
+  position: relative;
+  max-width: 32rem;
+  margin-bottom: 0.75rem;
+
+  &__input {
+    width: 100%;
+  }
+
+  &__results {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.25rem);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0.25rem;
+    list-style: none;
+    background: var(--secondary);
+    border: 1px solid var(--primary-low);
+    border-radius: var(--d-border-radius);
+    box-shadow: var(--shadow-card);
+
+    li {
+      margin: 0;
+    }
+
+    .btn {
+      width: 100%;
+      justify-content: flex-start;
+      text-align: left;
+    }
+  }
+}
+
 // Section permissions. Sections down the side, groups across the top. The
 // select carries the whole meaning of a cell, so it is wide enough to read at a
 // glance rather than as a truncated word.

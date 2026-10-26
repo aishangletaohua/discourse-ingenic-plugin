@@ -38,14 +38,31 @@ module Ingenic
       @user&.admin?
     end
 
-    # Whether a group this account belongs to was given the whole screen. The
-    # `everyone` auto-group is included for the same reason it is in `group_ids`
-    # below: an administrator who grants it to everyone means it.
+    # The whole-screen grants this account holds, from either principal: its
+    # own rows or any group it belongs to. One query rather than one per
+    # feature, because the serializer asks for all six on every page load and
+    # the navigation decides what to offer from the answer.
+    #
+    # The `everyone` auto-group is included for the same reason it is in
+    # `group_ids` below: an administrator who grants it to everyone means it.
+    def features
+      return @features if defined?(@features)
+
+      @features =
+        if !@user
+          []
+        elsif admin?
+          IngenicFeaturePermission::FEATURES
+        else
+          feature_grants.distinct.pluck(:feature)
+        end
+    end
+
     def can_manage_feature?(feature)
       return true if admin?
       return false unless @user
 
-      IngenicGroupPermission.where(group_id: group_ids, feature: feature).exists?
+      features.include?(feature.to_s)
     end
 
     def can_manage?(record)
@@ -137,7 +154,7 @@ module Ingenic
       return true if admin?
       return false unless @user
 
-      return true if IngenicGroupPermission.where(group_id: group_ids).exists?
+      return true if feature_grants.exists?
 
       IngenicPermission.where(permission: "manage")
         .where("user_id = :user_id OR group_id IN (:group_ids)", user_id: @user.id, group_ids: group_ids)
@@ -183,6 +200,15 @@ module Ingenic
       # which is a 500 for a plain member opening a screen they should simply
       # have been kept out of.
       @group_ids ||= @user.groups.pluck(:id) + [Group::AUTO_GROUPS[:everyone]]
+    end
+
+    # Every whole-screen row that applies to this account. Used by both
+    # `features` and `can_manage_any_content?`, so the two cannot disagree
+    # about what counts as a grant.
+    def feature_grants
+      IngenicFeaturePermission
+        .where(user_id: @user.id)
+        .or(IngenicFeaturePermission.where(group_id: group_ids))
     end
 
     def grants_for(resource_type, area)

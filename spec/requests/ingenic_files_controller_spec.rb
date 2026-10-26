@@ -224,7 +224,7 @@ describe "the file library" do
     it "opens it for a group granted the files screen, and only that screen" do
       group = Fabricate(:group)
       group.add(user)
-      IngenicGroupPermission.create!(group: group, feature: "files")
+      IngenicFeaturePermission.create!(group: group, feature: "files")
       sign_in(user)
 
       get "/admin/plugins/discourse-ingenic/files.json"
@@ -237,7 +237,7 @@ describe "the file library" do
     it "offers the tab on the workbench only to that group" do
       group = Fabricate(:group)
       group.add(user)
-      IngenicGroupPermission.create!(group: group, feature: "files")
+      IngenicFeaturePermission.create!(group: group, feature: "files")
       sign_in(user)
 
       get "/ingenic/manage.json"

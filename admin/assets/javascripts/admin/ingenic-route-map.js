@@ -12,5 +12,6 @@ export default {
     this.route("files", { path: "files" });
     this.route("points", { path: "points" });
     this.route("site", { path: "site" });
+    this.route("settings", { path: "settings" });
   },
 };

@@ -34,9 +34,20 @@ module Admin
 
       # A coarse check for screens whose records are not filed under a product
       # or a board: the download queue, the points ledger, the site blocks. The
-      # feature is one of `IngenicGroupPermission::FEATURES`.
+      # feature is one of `IngenicFeaturePermission::FEATURES`.
       def authorize_ingenic_feature!(feature)
         allowed = ::Ingenic::PermissionResolver.new(current_user).can_manage_feature?(feature)
+        raise Discourse::NotFound unless allowed
+      end
+
+      # A screen's listing. The screen-wide grant opens it, and so does a grant
+      # over any one record on it: a manager trusted with T33's manual has to be
+      # able to open the documentation table to reach it. What this refuses is
+      # the manager of a *different* screen — a downloads-only manager asking
+      # for the documentation listing, which would otherwise answer with an
+      # empty 200 and the catalogue it should not be reading.
+      def authorize_ingenic_area!(area)
+        allowed = ::Ingenic::PermissionResolver.new(current_user).can_manage_any_area?(area)
         raise Discourse::NotFound unless allowed
       end
 

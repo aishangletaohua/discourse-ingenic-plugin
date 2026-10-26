@@ -61,7 +61,7 @@ require_relative "app/models/ingenic_developer_profile"
 require_relative "app/models/ingenic_board"
 require_relative "app/models/ingenic_permission"
 require_relative "app/models/ingenic_tag_colour"
-require_relative "app/models/ingenic_group_permission"
+require_relative "app/models/ingenic_feature_permission"
 require_relative "app/models/ingenic_promotion"
 require_relative "app/models/ingenic_social_link"
 require_relative "app/models/ingenic_header_link"
@@ -312,9 +312,9 @@ after_initialize do
   # to guess, and the guess that shipped before was "administrator", which left
   # a group granted the download screen with no link to it.
   add_to_serializer(:current_user, :ingenic_features) do
-    resolver = ::Ingenic::PermissionResolver.new(object)
-    ::IngenicGroupPermission::FEATURES.index_with do |feature|
-      resolver.can_manage_feature?(feature)
+    granted = ::Ingenic::PermissionResolver.new(object).features.to_set
+    ::IngenicFeaturePermission::FEATURES.index_with do |feature|
+      granted.include?(feature)
     end
   end
 
@@ -433,8 +433,7 @@ after_initialize do
       get "/permission-principals" => "admin/ingenic#permission_principals"
       post "/permissions" => "admin/ingenic#create_permission"
       delete "/permissions/:id" => "admin/ingenic#destroy_permission"
-      get "/group-permissions" => "admin/ingenic#group_permissions"
-      put "/group-permissions" => "admin/ingenic#update_group_permissions"
+      put "/feature-permissions" => "admin/ingenic#update_feature_permissions"
       get "/category-permissions" => "admin/ingenic#category_permissions"
       put "/category-permissions" => "admin/ingenic#update_category_permissions"
       get "/tag-colours" => "admin/ingenic#tag_colours"

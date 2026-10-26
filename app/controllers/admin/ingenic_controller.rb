@@ -13,6 +13,8 @@ module Admin
     # language and is edited in that language, and switching the selector is
     # how the other language is written. Nothing here moves rows between them.
     def documentation
+      authorize_ingenic_area!("documentation")
+
       render_json_dump(
         series:
           visible_series
@@ -195,6 +197,8 @@ module Admin
     # Boards ----------------------------------------------------------------
 
     def board_list
+      authorize_ingenic_area!("boards")
+
       boards =
         ::Ingenic::PermissionResolver
           .new(current_user)
@@ -246,6 +250,8 @@ module Admin
     # Downloads -------------------------------------------------------------
 
     def download_list
+      authorize_ingenic_area!("downloads")
+
       downloads =
         ::Ingenic::PermissionResolver
           .new(current_user)
@@ -975,8 +981,18 @@ module Admin
 
     # Permissions -----------------------------------------------------------
 
+    # One page, one request: who may manage a whole screen, who may manage one
+    # chip, and the catalogue the second question is asked about. The matrices
+    # and the scope tree are two halves of the same decision, and splitting
+    # them across two pages was how an administrator could grant a screen and
+    # then wonder why one product still did not appear.
     def permissions
       authorize_ingenic!(permissions: true)
+
+      feature_grants = IngenicFeaturePermission.all.to_a
+      group_features = feature_grants.select(&:group_id).group_by(&:group_id)
+      user_features = feature_grants.select(&:user_id).group_by(&:user_id)
+
       render_json_dump(
         permissions:
           IngenicPermission
@@ -993,6 +1009,30 @@ module Admin
                 "name" => product.name,
                 "kind" => product.kind,
                 "parent_id" => product.parent_id,
+              }
+            end,
+        features: IngenicFeaturePermission::FEATURES,
+        groups:
+          IngenicFeaturePermission.assignable_groups.map do |group|
+            {
+              "id" => group.id,
+              "name" => group.name,
+              "full_name" => group.full_name,
+              "members" => group.users.count,
+              "features" => Array(group_features[group.id]).map(&:feature),
+            }
+          end,
+        users:
+          User
+            .where(id: user_features.keys)
+            .order(:username)
+            .map do |user|
+              {
+                "id" => user.id,
+                "username" => user.username,
+                "name" => user.name,
+                "avatar_template" => user.avatar_template,
+                "features" => Array(user_features[user.id]).map(&:feature),
               }
             end,
       )
@@ -1015,7 +1055,7 @@ module Admin
       # Only groups the matrix can actually grant to. Offering every automatic
       # group in this picker produced a grant the matrix would then refuse to
       # show, which reads as a permission that silently did nothing.
-      groups = IngenicGroupPermission.assignable_groups
+      groups = IngenicFeaturePermission.assignable_groups
       groups = groups.where("name ILIKE ?", pattern) if query.present?
       groups = groups.order(:name).limit(20)
 
@@ -1092,54 +1132,54 @@ module Admin
       head :no_content
     end
 
-    # Permissions matrix -----------------------------------------------------
-
-    # The coarse half of permissions: which group may reach which screen. The
-    # per-record grants on the `permissions` endpoint stay separate and narrower.
-    def group_permissions
+    # The coarse half of permissions: who may reach which screen, whether the
+    # grant was made to an account or to a group.
+    #
+    # The page sends a complete snapshot of both matrices, so the write
+    # replaces the table rather than diffing it: one save button, one
+    # transaction, and no half-saved state where a group gained a screen and
+    # the account that was removed in the same click kept one. Principals the
+    # form never showed are not in the snapshot, which is why the form lists
+    # every custom group and every account that currently holds a grant.
+    def update_feature_permissions
       authorize_admin_only!
-      grants = IngenicGroupPermission.all.group_by(&:group_id)
+      entries = parse_json_array_param(:grants)
 
-      render_json_dump(
-        groups:
-          IngenicGroupPermission.assignable_groups.map do |group|
-            {
-              id: group.id,
-              name: group.name,
-              full_name: group.full_name,
-              members: group.users.count,
-              features: Array(grants[group.id]).map(&:feature),
-            }
-          end,
-        features: IngenicGroupPermission::FEATURES,
-      )
-    end
-
-    def update_group_permissions
-      authorize_admin_only!
-      payload = parse_json_param(:grants)
-      raise Discourse::InvalidParameters.new(:grants) unless payload.is_a?(Hash)
-
-      valid_group_ids = IngenicGroupPermission.assignable_groups.pluck(:id).to_set
+      valid_group_ids = IngenicFeaturePermission.assignable_groups.pluck(:id).to_set
+      valid_user_ids =
+        User.where(
+          id:
+            entries
+              .select { |entry| entry.is_a?(Hash) && entry["type"].to_s == "user" }
+              .filter_map { |entry| entry["id"].presence },
+        ).pluck(:id).to_set
 
       desired = Set.new
-      payload.each do |group_id, features|
-        group_id = group_id.to_i
-        next unless valid_group_ids.include?(group_id)
+      entries.each do |entry|
+        next unless entry.is_a?(Hash)
 
-        Array(features).each do |feature|
-          desired << [group_id, feature.to_s] if IngenicGroupPermission::FEATURES.include?(feature.to_s)
+        id = entry["id"].to_i
+        features =
+          Array(entry["features"]).map(&:to_s) & IngenicFeaturePermission::FEATURES
+
+        case entry["type"].to_s
+        when "group"
+          next unless valid_group_ids.include?(id)
+          features.each { |feature| desired << [id, nil, feature] }
+        when "user"
+          next unless valid_user_ids.include?(id)
+          features.each { |feature| desired << [nil, id, feature] }
         end
       end
 
-      IngenicGroupPermission.transaction do
-        existing = IngenicGroupPermission.pluck(:id, :group_id, :feature)
-        keep = existing.select { |_id, group_id, feature| desired.include?([group_id, feature]) }
-        IngenicGroupPermission.where.not(id: keep.map(&:first)).delete_all
-
-        have = keep.map { |_id, group_id, feature| [group_id, feature] }.to_set
-        (desired - have).each do |group_id, feature|
-          IngenicGroupPermission.create!(group_id: group_id, feature: feature)
+      IngenicFeaturePermission.transaction do
+        IngenicFeaturePermission.delete_all
+        desired.each do |group_id, user_id, feature|
+          IngenicFeaturePermission.create!(
+            group_id: group_id,
+            user_id: user_id,
+            feature: feature,
+          )
         end
       end
 
@@ -1255,6 +1295,21 @@ module Admin
     # A matrix arrives as one nested object, which a form encoding turns into
     # strings; accepting either shape keeps the endpoint usable from both the
     # page and a console.
+    # The matrices arrive as a JSON array, either as the raw string a form
+    # encoding sends or as an array of Parameters from a JSON body. Anything
+    # else is refused rather than read as "no grants", because treating a
+    # malformed save as an empty snapshot would revoke every grant on the page.
+    def parse_json_array_param(key)
+      value = params[key]
+      value = value.map(&:to_unsafe_h) if value.is_a?(Array) && value.first.is_a?(ActionController::Parameters)
+      value = JSON.parse(value) if value.is_a?(String)
+      raise Discourse::InvalidParameters.new(key) unless value.is_a?(Array)
+
+      value
+    rescue JSON::ParserError
+      raise Discourse::InvalidParameters.new(key)
+    end
+
     def parse_json_param(key)
       value = params[key]
       # A JSON object body reaches `params` as Parameters, not Hash; a form
