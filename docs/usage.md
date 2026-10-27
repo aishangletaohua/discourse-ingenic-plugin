@@ -548,6 +548,9 @@ tool is attached. It offers two independent switches:
 Neither switch lives in Discourse AI's agent editor, because Forum Helper is a
 system agent: that editor can neither show it nor save changes to it.
 
+A step-by-step walkthrough — what each switch changes, when to use which, and
+how to restore them — is in [assistant-and-mcp.md](assistant-and-mcp.md).
+
 ### 10.3 Reading the developer centre from outside
 
 An approved MCP client can also read the developer centre itself, through the
@@ -593,6 +596,10 @@ A registered tool is not a reachable one. An administrator has to:
 
 Clients then connect exactly as described in §10.1; no plugin-specific endpoint
 is involved.
+
+The handover — endpoint, per-tool grants, client commands, example calls, what
+happens when access changes, and a troubleshooting table — is in
+[assistant-and-mcp.md](assistant-and-mcp.md).
 
 ## 11. Administrator guide
 
