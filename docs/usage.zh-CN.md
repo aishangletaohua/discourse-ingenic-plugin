@@ -337,6 +337,13 @@ Discourse 自带的**标签**与**聊天**分组在此站点不显示。标签�
 
 该工具在 AI 机器人的工具列表里名为 **search_ingenic**。由于 Discourse AI 的系统智能体把工具列表写在代码里而不是数据库里，插件自动把它加进了 Forum Helper；自建智能体也可以手动选用。未安装 discourse-ai 时这一段不会加载，助手行为与之前相同。
 
+管理员可以在 **后台 → 插件 → Ingenic → 设置** 看见并关掉它。该区块列出三项状态：助手是否在回答、AI 机器人功能是否开启、开发者专区工具是否已接入，并提供两个互相独立的开关：
+
+- **允许 Forum Helper 回答问题**：停用或重新启用智能体本身。不会删除任何东西，重新打开即恢复。
+- **允许 Forum Helper 检索在线文档、SDK 下载和开发板**：对应 `ingenic_assistant_search_enabled` 站点设置。关掉后它仍是一个普通的论坛助手，只从论坛作答。
+
+这两个开关不在 Discourse AI 的智能体编辑器里，因为 Forum Helper 是系统智能体：那个编辑器既看不到它，也保存不了对它的修改。
+
 ### 10.3 让外部工具读取开发者资源
 
 已获授权的 MCP 客户端也可以通过同一个 `/mcp` 端点读取开发者资源。插件注册了五个只读工具：
@@ -355,7 +362,17 @@ Discourse 自带的**标签**与**聊天**分组在此站点不显示。标签�
 
 1. 在 **管理 → 设置 → MCP** 打开 MCP 服务器；
 2. 在 **管理 → MCP → Capabilities** 启用五个 **Ingenic** 工具；
-3. 在 **管理 → MCP → Access** 把 **`mcp:developer-centre:read`** 授予可以读取开发者资源的分组。这个范围与 `mcp:content:read` 分开是刻意的：能读文档的客户端不应该顺带读到论坛帖子，反之亦然。
+3. 在 **管理 → MCP → Access** 把需要的范围授予分组。每个工具都有自己的范围，所以可以只给一个工具、不给其余：
+
+   | 工具 | 范围 |
+   | --- | --- |
+   | `ingenic_search` | `mcp:developer-centre:search` |
+   | `ingenic_list_documentation` | `mcp:developer-centre:documentation` |
+   | `ingenic_read_documentation_page` | `mcp:developer-centre:documentation-page` |
+   | `ingenic_list_downloads` | `mcp:developer-centre:downloads` |
+   | `ingenic_list_boards` | `mcp:developer-centre:boards` |
+
+   授权对象永远是**用户组**，不是某个人：组里的成员都可用，离开组就失去。这些范围与 `mcp:content:read` 分开是刻意的：能读文档的客户端不应该顺带读到论坛帖子，反之亦然。此前对单一 `mcp:developer-centre:read` 范围的授权已经失效——该范围已不存在，请在 Access 页面重新授权。
 
 之后客户端按 §10.1 的方式连接即可，不涉及插件专用的端点。
 
@@ -377,6 +394,7 @@ Discourse 自带的**标签**与**聊天**分组在此站点不显示。标签�
 | 官方文件 | `/admin/plugins/discourse-ingenic/files` | SDK 压缩包、PDF 和图片：文件夹、上传、预览、链接 |
 | 积分 | `/admin/plugins/discourse-ingenic/points` | 规则、调整、余额、流水 |
 | 站点内容 | `/admin/plugins/discourse-ingenic/site` | 首页布局、首页卡片、推广位、外链按钮、合作平台、页脚、独立页面 |
+| 设置 | `/admin/plugins/discourse-ingenic/settings` | AI 助手的状态与开关，以及插件站点设置的入口 |
 
 范围管理员只能看到被授权的文档、开发板、下载资源和官方文件库，入口在 `/ingenic/manage`。申请队列、授权列表、下载记录、积分和站点内容仍然只有管理员可用。权限、权限矩阵、版块权限和标签配色四个页面也只有管理员可用，因为它们决定的都是「谁还能做什么」。服务端强制执行这一点；隐藏按钮不是边界。
 

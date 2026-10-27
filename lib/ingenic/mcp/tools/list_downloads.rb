@@ -19,7 +19,8 @@ module Ingenic
           download centre at `url` to claim it.
         TEXT
 
-        REQUIRED_SCOPES = [Ingenic::Mcp::SCOPE].freeze
+        SCOPE = Ingenic::Mcp.scope("downloads")
+        REQUIRED_SCOPES = [SCOPE].freeze
 
         INPUT_SCHEMA = {
           type: "object",

@@ -1,4 +1,5 @@
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
+import IngenicAssistantSettings from "../../../../admin/components/ingenic-assistant-settings";
 import getURL from "discourse/lib/get-url";
 import { i18n } from "discourse-i18n";
 
@@ -24,6 +25,8 @@ const Settings = <template>
         {{i18n "ingenic.settings.texts"}}
       </a>
     </div>
+
+    <IngenicAssistantSettings />
   </div>
 </template>;
 

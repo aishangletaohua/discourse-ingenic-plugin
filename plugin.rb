@@ -104,6 +104,7 @@ require_relative "app/jobs/scheduled/ingenic_download_log_retention"
 require_relative "app/controllers/admin/ingenic/base_controller"
 require_relative "app/controllers/admin/ingenic_controller"
 require_relative "app/controllers/admin/ingenic/files_controller"
+require_relative "app/controllers/admin/ingenic/assistant_controller"
 require_relative "app/controllers/ingenic_files_controller"
 require_relative "app/controllers/ingenic_docs_controller"
 require_relative "app/controllers/ingenic_downloads_controller"
@@ -558,6 +559,11 @@ after_initialize do
       post "/section-cards" => "admin/ingenic#create_section_card"
       put "/section-cards/:id" => "admin/ingenic#update_section_card"
       delete "/section-cards/:id" => "admin/ingenic#destroy_section_card"
+
+      # Forum Helper. It is a system agent, so Discourse AI's own editor cannot
+      # show it or switch it off; this is the screen that can.
+      get "/assistant" => "admin/ingenic/assistant#show"
+      put "/assistant" => "admin/ingenic/assistant#update"
 
       post "/social-links" => "admin/ingenic#create_social_link"
       put "/social-links/:id" => "admin/ingenic#update_social_link"

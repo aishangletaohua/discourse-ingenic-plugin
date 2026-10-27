@@ -17,7 +17,8 @@ module Ingenic
           relevance and carry the page address a person would open.
         TEXT
 
-        REQUIRED_SCOPES = [Ingenic::Mcp::SCOPE].freeze
+        SCOPE = Ingenic::Mcp.scope("search")
+        REQUIRED_SCOPES = [SCOPE].freeze
 
         INPUT_SCHEMA = {
           type: "object",

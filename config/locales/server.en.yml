@@ -99,6 +99,7 @@ en:
       category_needs_grant: "%{category} would be left with no group, and a category with no group is open to everyone. Give at least one group a permission."
       missing_resource: "Deleted record"
       one_principal: "Name exactly one account or one group, not both and not neither."
+      assistant_unavailable: "Discourse AI is not installed, so there is no assistant to switch."
     developer_form:
       missing: "%{field} is required."
       invalid_email: "%{field} is not a valid email address."

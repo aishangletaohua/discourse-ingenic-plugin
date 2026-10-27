@@ -68,8 +68,26 @@ describe "Ingenic MCP tools" do
       )
 
       primitive = DiscourseMcp.registry.find(:tool, "ingenic_search")
-      expect(primitive.required_scopes).to eq([Ingenic::Mcp::SCOPE])
+      expect(primitive.required_scopes).to eq(["mcp:developer-centre:search"])
       expect(primitive.annotations["readOnlyHint"]).to eq(true)
+    end
+
+    it "gives every tool a scope of its own, so a grant names one tool" do
+      scopes =
+        DiscourseMcp.registry
+          .all(:tool)
+          .select { |tool| tool.identifier.start_with?("ingenic_") }
+          .to_h { |tool| [tool.identifier, tool.required_scopes] }
+
+      expect(scopes).to eq(
+        "ingenic_search" => ["mcp:developer-centre:search"],
+        "ingenic_list_documentation" => ["mcp:developer-centre:documentation"],
+        "ingenic_read_documentation_page" => [
+          "mcp:developer-centre:documentation-page",
+        ],
+        "ingenic_list_downloads" => ["mcp:developer-centre:downloads"],
+        "ingenic_list_boards" => ["mcp:developer-centre:boards"],
+      )
     end
 
     it "can run again without raising" do

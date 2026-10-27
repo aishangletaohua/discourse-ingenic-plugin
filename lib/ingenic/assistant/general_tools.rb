@@ -15,6 +15,7 @@ module Ingenic
     module GeneralTools
       def tools
         return super unless defined?(DiscourseAi::Agents::Tools::SearchIngenic)
+        return super if !SiteSetting.ingenic_assistant_search_enabled
 
         super | [DiscourseAi::Agents::Tools::SearchIngenic]
       end

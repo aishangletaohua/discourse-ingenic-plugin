@@ -16,7 +16,8 @@ module Ingenic
           did not edit it.
         TEXT
 
-        REQUIRED_SCOPES = [Ingenic::Mcp::SCOPE].freeze
+        SCOPE = Ingenic::Mcp.scope("documentation-page")
+        REQUIRED_SCOPES = [SCOPE].freeze
 
         NULLABLE_OBJECT = { type: %w[object null] }.freeze
 

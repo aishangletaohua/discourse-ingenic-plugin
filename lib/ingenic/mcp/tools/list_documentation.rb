@@ -23,7 +23,8 @@ module Ingenic
           withdrawn sections are not.
         TEXT
 
-        REQUIRED_SCOPES = [Ingenic::Mcp::SCOPE].freeze
+        SCOPE = Ingenic::Mcp.scope("documentation")
+        REQUIRED_SCOPES = [SCOPE].freeze
 
         NULLABLE_OBJECT = { type: %w[object null] }.freeze
 

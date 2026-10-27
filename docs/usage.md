@@ -534,6 +534,20 @@ list in code rather than in the database; a custom agent can be given the same
 tool by hand. If discourse-ai is not installed, nothing here is loaded and the
 assistant behaves as it did before.
 
+An administrator can see all of this and switch it off under **Admin → Plugins →
+Ingenic → Settings**. The block there reports whether the assistant is
+answering, whether the AI bot feature is on, and whether the developer-centre
+tool is attached. It offers two independent switches:
+
+- **Let Forum Helper answer** disables or re-enables the agent itself. Nothing
+  is deleted; switching it back on restores the assistant.
+- **Let Forum Helper read the documentation, downloads and boards** is the
+  `ingenic_assistant_search_enabled` site setting. Switching it off leaves an
+  ordinary forum assistant behind, one that still answers from the forum.
+
+Neither switch lives in Discourse AI's agent editor, because Forum Helper is a
+system agent: that editor can neither show it nor save changes to it.
+
 ### 10.3 Reading the developer centre from outside
 
 An approved MCP client can also read the developer centre itself, through the
@@ -559,10 +573,23 @@ A registered tool is not a reachable one. An administrator has to:
 
 1. turn the MCP server on under **Admin → Settings → MCP**;
 2. enable the five **Ingenic** tools under **Admin → MCP → Capabilities**;
-3. grant **`mcp:developer-centre:read`** to the group whose members may read the
-   developer centre under **Admin → MCP → Access**. This scope is separate from
-   `mcp:content:read` on purpose: a client allowed to read the documentation has
-   no business reading the forum's posts, and vice versa.
+3. grant the scopes the client needs under **Admin → MCP → Access**. Each tool
+   has a scope of its own, so a group can be given one tool without the others:
+
+   | Tool | Scope |
+   | --- | --- |
+   | `ingenic_search` | `mcp:developer-centre:search` |
+   | `ingenic_list_documentation` | `mcp:developer-centre:documentation` |
+   | `ingenic_read_documentation_page` | `mcp:developer-centre:documentation-page` |
+   | `ingenic_list_downloads` | `mcp:developer-centre:downloads` |
+   | `ingenic_list_boards` | `mcp:developer-centre:boards` |
+
+   Grants name a group, never an individual account: every member of the group
+   has the tools, and a member who leaves loses them. The scopes are separate
+   from `mcp:content:read` on purpose: a client allowed to read the
+   documentation has no business reading the forum's posts, and vice versa.
+   A grant made against the earlier single `mcp:developer-centre:read` scope no
+   longer applies — that scope is gone, so re-grant on the Access screen.
 
 Clients then connect exactly as described in §10.1; no plugin-specific endpoint
 is involved.
@@ -591,6 +618,7 @@ screen also has its own address, which is what to bookmark or link to:
 | Official files | `/admin/plugins/discourse-ingenic/files` | SDK archives, PDFs and images: folders, uploads, previews, links |
 | Points | `/admin/plugins/discourse-ingenic/points` | Rules, adjustments, balances, movements |
 | Site content | `/admin/plugins/discourse-ingenic/site` | Home layout, home cards, promotions, external buttons, partner platforms, footer, standalone pages |
+| Settings | `/admin/plugins/discourse-ingenic/settings` | The AI assistant's state and switches, plus links to the plugin's site settings |
 
 Scoped managers see the documentation, boards, downloads and file library they
 were granted, at `/ingenic/manage`.

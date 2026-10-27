@@ -295,3 +295,14 @@ plugins:
     default: 30
     min: 1
     client: false
+
+  # Whether the forum's own AI assistant knows about the developer centre.
+  #
+  # Forum Helper is a system agent: its tool list is written in Ruby, so this
+  # cannot be a checkbox in the AI agent editor. The switch lives here and is
+  # mirrored on the plugin's Settings screen, next to the agent's own state.
+  # Switching it off leaves the agent alone — it simply stops seeing the
+  # documentation, downloads and boards.
+  ingenic_assistant_search_enabled:
+    default: true
+    client: false

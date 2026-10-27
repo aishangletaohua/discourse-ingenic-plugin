@@ -92,6 +92,7 @@ zh_CN:
       category_needs_grant: "%{category} 将没有任何用户组，而没有任何用户组的分类会对所有人开放。请至少给一个组设置权限。"
       missing_resource: "记录已删除"
       one_principal: "请只指定一个账号或一个用户组，两者不能同时填写，也不能都为空。"
+      assistant_unavailable: "未安装 Discourse AI，没有可切换的助手。"
     developer_form:
       missing: "%{field}为必填项。"
       invalid_email: "%{field}不是有效的邮箱地址。"

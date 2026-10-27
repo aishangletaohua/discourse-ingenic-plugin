@@ -17,7 +17,8 @@ module Ingenic
           the reader to those links.
         TEXT
 
-        REQUIRED_SCOPES = [Ingenic::Mcp::SCOPE].freeze
+        SCOPE = Ingenic::Mcp.scope("boards")
+        REQUIRED_SCOPES = [SCOPE].freeze
 
         INPUT_SCHEMA = {
           type: "object",

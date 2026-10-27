@@ -2,12 +2,18 @@
 
 module Ingenic
   module Mcp
-    # One scope for everything the developer centre exposes over MCP. The tools
-    # are read-only and all three catalogues are public on the site, so a single
-    # scope keeps an administrator's grant list short — but it is deliberately
-    # not `mcp:content:read`: an integration that is allowed to read the
+    # Every tool carries its own scope, so an administrator can hand the
+    # documentation to everybody and the SDK catalogue to one partner group
+    # without handing over both. They share a prefix for the same reason: the
+    # MCP access screen groups scopes by name, and these belong together.
+    #
+    # None of them is `mcp:content:read`: an integration allowed to read the
     # developer centre has no business reading posts, and vice versa.
-    SCOPE = "mcp:developer-centre:read"
+    SCOPE_PREFIX = "mcp:developer-centre"
+
+    def self.scope(name)
+      "#{SCOPE_PREFIX}:#{name}"
+    end
 
     # Raised by Ingenic::Mcp::Catalog when a name in the arguments resolves to
     # nothing. The catalogue does not know how to phrase a tool error, and the
