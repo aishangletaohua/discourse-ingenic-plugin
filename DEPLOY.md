@@ -971,7 +971,7 @@ running server itself, over HTTP, rather than by reading the code:
 
 - the migrations ran, in the development database and in the test one, creating
   the tables, the foreign keys and the partial unique index the ledger relies on
-- the plugin's spec suite passes: 711 examples, 0 failures
+- the plugin's spec suite passes: 717 examples, 0 failures
 - `rake ingenic:seed_categories` ran against a real installation and built the
   three-level tree with the permissions it says it has — including moving an
   Open Source that an earlier version had placed under Technical Discussions
