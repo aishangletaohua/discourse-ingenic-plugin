@@ -247,7 +247,17 @@ previous and next follow the same reading order. **Discuss in forum** opens the
 topic linked to the page, or the site's documentation discussion category when
 no topic is linked.
 
-### 5.4 Sharing links
+### 5.4 Scrolling the reader
+
+The middle article pane has its own scroll area. As you scroll the article, the
+current heading is highlighted in **On this page** on the right. When that
+heading would move beyond the visible part of the right-hand rail, the rail
+scrolls just enough to keep it visible; this works both downward and upward.
+The article position does not jump. You can also click any heading in the rail
+to jump directly to that section. On a phone, use the **Contents** button to
+show or hide the contents tree before reading.
+
+### 5.5 Sharing links
 
 Documentation addresses are shareable and refreshable:
 
@@ -263,7 +273,7 @@ Each level fills in from the one before when it is omitted, so a short link
 still lands on real content. The reader replaces a short address with the
 canonical one, so what you copy from the address bar is the full path.
 
-### 5.5 On a phone
+### 5.6 On a phone
 
 The control column collapses into the reader's mobile layout; the contents tree
 and product picker remain reachable, and the page body takes the full width.
