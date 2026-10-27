@@ -22,7 +22,6 @@ describe IngenicDownload do
         product: chip,
         locale: "en",
         access_level: IngenicDownload::LOGIN_ONLY,
-        file_url: "https://example.com/sdk.tgz",
       }.merge(attrs),
     )
   end
@@ -48,5 +47,58 @@ describe IngenicDownload do
 
     expect(record).to be_valid
     expect(record.product).to be_nil
+  end
+
+  # The card exists before its first file does: an admin names the resource and
+  # uploads a picture, then adds versions. Nothing is listed until one of them
+  # is published, because a card with nothing behind it is not a download.
+  describe "what makes a resource downloadable" do
+    it "is not downloadable with no versions" do
+      record = download
+      record.save!
+
+      expect(record).not_to be_downloadable
+      expect(record.published_versions).to eq([])
+    end
+
+    it "is not downloadable while every version is unpublished" do
+      record = download
+      record.save!
+      record.versions.create!(version: "1.0", file_url: "https://example.com/a.tgz", published: false)
+
+      expect(record.reload).not_to be_downloadable
+    end
+
+    it "is downloadable once one version is published" do
+      record = download
+      record.save!
+      record.versions.create!(version: "1.0", file_url: "https://example.com/a.tgz")
+
+      expect(record.reload).to be_downloadable
+    end
+
+    it "offers its published versions newest-first in their chosen order" do
+      record = download
+      record.save!
+      old = record.versions.create!(version: "1.0", file_url: "https://example.com/a.tgz", position: 1)
+      new = record.versions.create!(version: "2.0", file_url: "https://example.com/b.tgz", position: 0)
+      hidden =
+        record.versions.create!(
+          version: "3.0-beta",
+          file_url: "https://example.com/c.tgz",
+          published: false,
+        )
+
+      expect(record.reload.published_versions).to eq([new, old])
+      expect(record.versions).to include(hidden)
+    end
+  end
+
+  it "takes its versions with it when the resource goes" do
+    record = download
+    record.save!
+    record.versions.create!(version: "1.0", file_url: "https://example.com/a.tgz")
+
+    expect { record.destroy! }.to change(IngenicDownloadVersion, :count).by(-1)
   end
 end

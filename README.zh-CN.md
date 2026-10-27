@@ -32,7 +32,11 @@ English: [README.md](README.md).
 
 ## 访问级别
 
-每条下载记录带有三个级别之一：
+一条下载资源就是一张卡片：名称、图片、芯片、分类和一套访问规则。文件作为版本挂在卡片下，每个版本有自己的版本号、描述、平台、大小、校验值和发布日期。新增一个发布版本是编辑这张卡片，而不是再造一张；审批是针对卡片的，所以一次通过覆盖该资源的所有版本，包括之后才发布的版本。
+
+卡片横排：左边是上传的图片，中间是所选版本的描述，右边只有一个**下载**按钮。版本选择器改变描述和按钮交付的文件。按钮只有一种，区别只在文件发出前服务端要求什么，说明写在按钮下方。
+
+每张卡片带有三个级别之一：
 
 | 级别 | 访客要做什么 | 服务端要求 |
 | --- | --- | --- |
@@ -172,8 +176,8 @@ cd /var/discourse
 | GET | `/ingenic/docs` | 第一个已发布的系列、它的第一个芯片，以及该芯片的默认版本 |
 | GET | `/ingenic/docs/*path` | `/<series>[/<chip>[/<version>[/<page>]]]` —— 省略的层级由上一级补全 |
 | GET | `/ingenic/docs-search` | 跨文档全文检索 |
-| GET | `/ingenic/downloads` | 下载记录；接受 `product`、`kind`、`version`、`platform` |
-| GET | `/ingenic/downloads/:id/file` | 文件本身，权限校验通过后流式返回 |
+| GET | `/ingenic/downloads` | 下载卡片及其版本；接受 `family`、`series`、`product`、`category` |
+| GET | `/ingenic/downloads/:id/file` | 文件本身，权限校验通过后流式返回；`version_id` 指定版本，未指定时用最新的已发布版本 |
 | POST | `/ingenic/downloads/profile` | 保存开发者信息表单（需登录） |
 | POST | `/ingenic/downloads/:id/request` | 申请受限资源（需登录） |
 | GET | `/ingenic/boards` | 已发布的开发板；接受 `series` 和 `chip` |
@@ -242,7 +246,9 @@ ingenic_products            公共产品目录：系列和芯片，按语言区�
                             文档、开发板和下载都引用它，谁也不拥有它。
 ingenic_doc_versions        某个芯片的版本，其中一个标记为 `latest`
 ingenic_doc_pages           版本实际改动过的页面，parent_id 构成目录树
-ingenic_downloads           可下载资源、访问级别和 point_cost
+ingenic_downloads           下载卡片：名称、图片、芯片、分类、访问级别和 point_cost
+ingenic_download_versions   卡片下的文件，各自带版本号、描述、平台、大小、校验值、
+                            发布日期和发布状态
 ingenic_download_categories 下载列表的分类，按语言区分
 ingenic_developer_profiles  开发者资料：身份、联系方式及公司或学校信息
 ingenic_download_requests   申请及其审核状态
@@ -280,7 +286,7 @@ ingenic_bounties            某个会员在某个话题上的悬赏，以及它�
 
 话题是另一种引用。`ingenic_bounties.topic_id` **级联删除**，因为悬赏的每一种读法都要经过它的话题——话题页问有什么悬赏，悬赏板通过访客可见的话题找到悬赏，采纳答案也按帖子的所属话题查找——所以一条不挂在任何东西上的悬赏不记录任何事。级联与 `Topic` 上的 `before_destroy` 回调配合，先关闭有效悬赏，从而不会销毁托管的积分：`Ingenic::Bounties.refund_for_topic!`。
 
-数据库重复了模型定义的那几套取值。管理页面、访问级别、开发板类型、申请状态、悬赏状态、标签颜色系列和积分规则的事件，各自有一条检查约束，只允许代码真正有分支的那些值，所以控制台会话或导入脚本写不进界面会悄悄读错的行。一条下载资源最多只有一个校验值——外部托管资源的手工填写值，或上传文件的服务器计算值，不会两者都有。已结算悬赏的采纳答案是一条真正的外键，帖子被永久删除时会自动清空。`spec/db/schema_rules_spec.rb` 故意绕过模型直接写库，防止这些规则与代码走散。
+数据库重复了模型定义的那几套取值。管理页面、访问级别、开发板类型、申请状态、悬赏状态、标签颜色系列和积分规则的事件，各自有一条检查约束，只允许代码真正有分支的那些值，所以控制台会话或导入脚本写不进界面会悄悄读错的行。一个下载版本最多只有一个校验值——外部托管文件的手工填写值，或上传文件的服务器计算值，不会两者都有。已结算悬赏的采纳答案是一条真正的外键，帖子被永久删除时会自动清空。`spec/db/schema_rules_spec.rb` 故意绕过模型直接写库，防止这些规则与代码走散。
 
 每种语言有自己的一套产品、版本、页面、开发板、下载和站点内容，所以以后启用更多语言不需要迁移表结构。语言代码使用 Discourse 自己的（`zh_CN`、`pt_BR`），因为它们要与 `I18n.locale`——读者在偏好设置里选择的语言——比较。
 

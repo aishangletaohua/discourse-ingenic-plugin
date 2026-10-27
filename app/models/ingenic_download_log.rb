@@ -33,13 +33,16 @@ class IngenicDownloadLog < ActiveRecord::Base
   # Never raises: a failure to write the record must not turn a download the
   # visitor is entitled to into an error page. The alternative — losing the
   # audit row silently — is the lesser problem, and it is logged.
-  def self.record!(user:, download:, request: nil)
+  def self.record!(user:, download:, version: nil, request: nil)
     create!(
       user_id: user.id,
       username: user.username,
       download_id: download.id,
       resource_name: download.name,
-      version: download.version,
+      # Copied from the version that was actually handed over. A resource's
+      # label can change and a version can be withdrawn, but this row still
+      # says which file left the server.
+      version: version&.version,
       ip_address: request&.remote_ip,
       user_agent: request&.user_agent&.first(255),
       locale: I18n.locale.to_s,

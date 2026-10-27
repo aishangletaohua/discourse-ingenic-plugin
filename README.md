@@ -55,7 +55,20 @@ version. Installation instructions below use it explicitly.
 
 ## Access tiers
 
-Each download record carries one of three levels:
+A download resource is the card: its name, picture, chip, category and one
+access rule. The files hang under it as versions, each with its own label,
+description, platform, size, checksum and release date. Adding a release is an
+edit to the card, not a second card — and because the approval is the card's,
+one approval covers every version of that resource, including releases published
+later.
+
+The card draws horizontally: the uploaded picture on the left, the selected
+version's description in the middle, one **Download** button on the right. The
+version selector changes the description and the file behind the button. There
+is no second kind of button: what differs is only what the server asks for
+before the file leaves, described below the button.
+
+Each resource carries one of three levels:
 
 | Level | What a visitor does | What the server requires |
 | --- | --- | --- |
@@ -340,8 +353,8 @@ Public, read-only except where noted:
 | GET | `/ingenic/docs` | The first published series, its first chip, and that chip's default version |
 | GET | `/ingenic/docs/*path` | `/<series>[/<chip>[/<version>[/<page>]]]` — each level filled in from the one before when omitted |
 | GET | `/ingenic/docs-search` | Full-text search across the documentation |
-| GET | `/ingenic/downloads` | Download records; accepts `product`, `kind`, `version`, `platform` |
-| GET | `/ingenic/downloads/:id/file` | The file itself, streamed after the access check |
+| GET | `/ingenic/downloads` | Download cards and their versions; accepts `family`, `series`, `product`, `category` |
+| GET | `/ingenic/downloads/:id/file` | The file itself, streamed after the access check; `version_id` picks a release, the newest published one otherwise |
 | POST | `/ingenic/downloads/profile` | Stores the developer information form (signed in) |
 | POST | `/ingenic/downloads/:id/request` | Applies for an access-restricted resource (signed in) |
 | GET | `/ingenic/boards` | Published development boards; accepts `series` and `chip` |
@@ -441,7 +454,9 @@ ingenic_products          the shared catalogue: series and chips, per language,
 ingenic_doc_versions      versions of a chip, one flagged `latest`
 ingenic_doc_pages         the pages a version actually changed, with parent_id
                           forming the contents tree
-ingenic_downloads         downloadable resources, their access level and point_cost
+ingenic_downloads         the cards: name, picture, chip, category, access level and point_cost
+ingenic_download_versions  the files under a card, each with its own label, description,
+                          platform, size, checksum, release date and publish flag
 ingenic_download_categories  the shelves the download list is filtered by, per language
 ingenic_developer_profiles  the developer's answers: identity, contact details
                           and company or school information
@@ -515,8 +530,8 @@ The database repeats the vocabularies the models define. A management feature,
 an access level, a board kind, a request status, a bounty state, a tag colour
 family and a point rule's event each have a check constraint listing exactly the
 values the code has a branch for, so a console session or an import cannot write
-a row the screens would silently misread. A download carries at most one
-checksum — the hand-entered one for a resource hosted elsewhere, or the
+a row the screens would silently misread. A download version carries at
+most one checksum — the hand-entered one for a file hosted elsewhere, or the
 server-computed one for an uploaded file, never both. A settled bounty's accepted
 answer is a real reference, and clears itself when the post is deleted for good.
 `spec/db/schema_rules_spec.rb` writes past the models on purpose, to keep these

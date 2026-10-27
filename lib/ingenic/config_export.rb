@@ -153,30 +153,44 @@ module Ingenic
     end
 
     def downloads
-      IngenicDownload.includes(:category, :product).order(:position, :name).map do |download|
-        {
-          "name" => download.name,
-          "product_slug" => download.product&.slug,
-          "product_locale" => download.product&.locale,
-          "category" => download.category&.name,
-          "version" => download.version,
-          "locale" => download.locale,
-          "description" => download.description,
-          "platform" => download.platform,
-          "architecture" => download.architecture,
-          "access_level" => download.access_level,
-          "point_cost" => download.point_cost,
-          "file_url" => download.file_url,
-          "file_size" => download.file_size,
-          "sha256" => download.sha256,
-          "storage_path" => download.storage_path,
-          "original_filename" => download.original_filename,
-          "file_sha256" => download.file_sha256,
-          "released_on" => download.released_on&.iso8601,
-          "published" => download.published,
-          "position" => download.position,
-        }
-      end
+      IngenicDownload
+        .includes(:category, :product, :versions)
+        .order(:position, :name)
+        .map do |download|
+          {
+            "name" => download.name,
+            "family" => download.family,
+            "product_slug" => download.product&.slug,
+            "product_locale" => download.product&.locale,
+            "category" => download.category&.name,
+            "locale" => download.locale,
+            "access_level" => download.access_level,
+            "point_cost" => download.point_cost,
+            "published" => download.published,
+            "position" => download.position,
+            # Files travel under the card. The picture does not: an upload id
+            # names a row in this forum's uploads table, not a file the other
+            # site can fetch, so it is left for the destination to set.
+            "versions" =>
+              download.versions.ordered.map do |version|
+                {
+                  "version" => version.version,
+                  "description" => version.description,
+                  "platform" => version.platform,
+                  "architecture" => version.architecture,
+                  "file_url" => version.file_url,
+                  "file_size" => version.file_size,
+                  "sha256" => version.sha256,
+                  "storage_path" => version.storage_path,
+                  "original_filename" => version.original_filename,
+                  "file_sha256" => version.file_sha256,
+                  "released_on" => version.released_on&.iso8601,
+                  "published" => version.published,
+                  "position" => version.position,
+                }
+              end,
+          }
+        end
     end
 
     def boards
@@ -470,10 +484,12 @@ module Ingenic
       end
     end
 
-    # Keyed on the name as well as the product, category, version and language:
-    # a version can legitimately have more than one file under it — an SDK and
-    # its release notes, say — and keying on the version alone would fold them
-    # into one row.
+    # Keyed on the product, category, language and name: that is the card. Its
+    # files are then found under it by version label, so importing a catalogue
+    # twice replaces each release in place rather than adding a second copy.
+    #
+    # An older export has the file fields on the row itself and no "versions"
+    # key. It is read as a card with one version, which is exactly what it was.
     def apply_downloads(rows, report)
       rows.each do |row|
         product = product_for(row)
@@ -481,33 +497,57 @@ module Ingenic
           row["category"].presence &&
             IngenicDownloadCategory.find_by(name: row["category"], locale: locale_of(row))
 
-        upsert(
-          report,
-          IngenicDownload,
-          {
-            product_id: product&.id,
-            category_id: category&.id,
-            version: row["version"],
-            locale: product&.locale || locale_of(row),
-            name: row["name"],
-          },
-        ) do |download|
-          download.description = row["description"]
-          download.platform = row["platform"]
-          download.architecture = row["architecture"]
-          download.access_level = row["access_level"].presence || IngenicDownload::LOGIN_ONLY
-          download.point_cost = row["point_cost"].to_i
-          download.file_url = row["file_url"]
-          download.file_size = row["file_size"]
-          download.sha256 = row["sha256"]
-          download.storage_path = row["storage_path"]
-          download.original_filename = row["original_filename"]
-          download.file_sha256 = row["file_sha256"]
-          download.released_on = row["released_on"]
-          download.published = row.fetch("published", true)
-          download.position = row["position"].to_i
+        download =
+          upsert(
+            report,
+            IngenicDownload,
+            {
+              product_id: product&.id,
+              category_id: category&.id,
+              locale: product&.locale || locale_of(row),
+              name: row["name"],
+            },
+          ) do |record|
+            # Files exported before the catalogue had families carry no
+            # "family" key. A row filed under a chip was a chip resource; one
+            # without a chip was an algorithm.
+            record.family =
+              row["family"].presence ||
+                (product ? IngenicDownload::FAMILY_CHIP : IngenicDownload::FAMILY_ALGORITHM)
+            record.access_level = row["access_level"].presence || IngenicDownload::LOGIN_ONLY
+            record.point_cost = row["point_cost"].to_i
+            record.published = row.fetch("published", true)
+            record.position = row["position"].to_i
+          end
+
+        Array(row["versions"].presence || [row]).each_with_index do |entry, index|
+          apply_download_version(download, entry, index)
         end
       end
+    end
+
+    def apply_download_version(download, row, index)
+      version =
+        download.versions.find_or_initialize_by(
+          version: row["version"].to_s.strip.presence,
+        )
+
+      version.description = row["description"]
+      version.platform = row["platform"]
+      version.architecture = row["architecture"]
+      version.file_url = row["file_url"]
+      version.file_size = row["file_size"]
+      version.sha256 = row["sha256"]
+      version.storage_path = row["storage_path"]
+      version.original_filename = row["original_filename"]
+      version.file_sha256 = row["file_sha256"]
+      version.released_on = row["released_on"]
+      version.published = row.fetch("published", true)
+      version.position = row["position"] || index
+      version.save!
+    rescue ActiveRecord::RecordInvalid => e
+      raise ImportError,
+            "Download version #{row["version"].inspect} under #{download.name.inspect} was refused: #{e.record.errors.full_messages.join("; ")}"
     end
 
     def apply_boards(rows, report)

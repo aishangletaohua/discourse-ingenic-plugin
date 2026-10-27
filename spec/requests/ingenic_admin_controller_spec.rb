@@ -678,8 +678,7 @@ describe Admin::IngenicController do
           name: "T33 SDK",
           product: chip,
           locale: "en",
-          category: category,
-          file_url: "https://example.com/sdk.tgz",
+          category: category
         )
 
       delete "/admin/plugins/discourse-ingenic/download-categories/#{category.id}.json"
@@ -694,8 +693,7 @@ describe Admin::IngenicController do
       download = IngenicDownload.create!(
         name: "T33 SDK",
         product: chip,
-        locale: "en",
-        file_url: "https://example.com/sdk.tgz",
+        locale: "en"
       )
       IngenicDownloadLog.create!(user: admin, download: download, resource_name: download.name)
 
@@ -729,8 +727,7 @@ describe Admin::IngenicController do
         name: "T33 SDK",
         product: chip,
         locale: "en",
-        access_level: IngenicDownload::APPROVAL_REQUIRED,
-        file_url: "https://example.com/sdk.tgz",
+        access_level: IngenicDownload::APPROVAL_REQUIRED
       )
     end
     fab!(:application) do
@@ -790,8 +787,7 @@ describe Admin::IngenicController do
       download = IngenicDownload.create!(
         name: "T33 SDK",
         product: chip,
-        locale: "en",
-        file_url: "https://example.com/sdk.tgz",
+        locale: "en"
       )
       IngenicPermission.create!(
         user: manager,
@@ -805,6 +801,166 @@ describe Admin::IngenicController do
       expect(response.status).to eq(200)
       expect(response.parsed_body["downloads"].map { |row| row["id"] }).to eq([download.id])
       expect(response.parsed_body["can_read_log"]).to eq(false)
+    end
+  end
+
+  describe "the card and its versions" do
+    def create_resource(**attrs)
+      post "/admin/plugins/discourse-ingenic/downloads.json",
+           params: {
+             name: "T33 SDK",
+             family: "chip",
+             product_id: chip.id,
+             access_level: IngenicDownload::LOGIN_ONLY,
+           }.merge(attrs)
+      response.parsed_body["download"]
+    end
+
+    def add_version(download, **attrs)
+      post "/admin/plugins/discourse-ingenic/downloads/#{download["id"]}/versions.json",
+           params: {
+             version: "1.0",
+             file_url: "https://example.com/sdk.tgz",
+           }.merge(attrs)
+    end
+
+    it "creates a card before it has a file, and says it has no versions" do
+      download = create_resource
+
+      expect(response.status).to eq(200)
+      expect(download["name"]).to eq("T33 SDK")
+      expect(download["versions"]).to eq([])
+      expect(download["image_url"]).to be_nil
+    end
+
+    it "adds a version under the card, with what that release says about itself" do
+      download = create_resource
+
+      add_version(
+        download,
+        version: "2.0",
+        description: "Adds the new ISP and a smaller boot image.",
+        platform: "Linux",
+        architecture: "mips",
+        file_size: "1.2 GB",
+        released_on: "2026-06-01",
+      )
+
+      expect(response.status).to eq(200)
+      version = response.parsed_body["version"]
+      expect(version["version"]).to eq("2.0")
+      expect(version["description"]).to include("new ISP")
+      expect(version["platform"]).to eq("Linux")
+      expect(version["released_on"]).to eq("2026-06-01")
+      expect(response.parsed_body["download"]["versions"].map { |row| row["version"] }).to eq(["2.0"])
+    end
+
+    it "refuses a second version with the same label on one card" do
+      download = create_resource
+      add_version(download)
+
+      add_version(download)
+
+      expect(response.status).to eq(422)
+    end
+
+    it "changes the description the card shows for one version" do
+      download = create_resource
+      add_version(download, version: "1.0", description: "First cut.")
+      version = IngenicDownloadVersion.find(response.parsed_body["version"]["id"])
+
+      put "/admin/plugins/discourse-ingenic/downloads/#{download["id"]}/versions/#{version.id}.json",
+          params: {
+            description: "First cut, rebuilt with a newer toolchain.",
+            published: false,
+          }
+
+      expect(response.status).to eq(200)
+      version.reload
+      expect(version.description).to include("newer toolchain")
+      expect(version.published).to eq(false)
+    end
+
+    it "removes a version and the file it kept" do
+      directory = Dir.mktmpdir("ingenic-version")
+      SiteSetting.ingenic_download_storage_path = directory
+      stored = Ingenic::DownloadStorage.store(
+        ActionDispatch::Http::UploadedFile.new(
+          tempfile: Tempfile.new("sdk").tap do |file|
+            file.binmode
+            file.write("firmware")
+            file.rewind
+          end,
+          filename: "sdk.bin",
+        ),
+      )
+      download = create_resource
+      version =
+        IngenicDownloadVersion.create!(
+          download_id: download["id"],
+          version: "1.0",
+          storage_path: stored[:path],
+          original_filename: "sdk.bin",
+        )
+      path = Pathname.new(directory).join(version.storage_path)
+      expect(path).to exist
+
+      delete "/admin/plugins/discourse-ingenic/downloads/#{download["id"]}/versions/#{version.id}.json"
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["download"]["versions"]).to eq([])
+      expect(path).not_to exist
+    ensure
+      FileUtils.remove_entry(directory) if directory && File.exist?(directory)
+    end
+
+    it "will not reach a version through another card" do
+      mine = create_resource(name: "Mine")
+      theirs = create_resource(name: "Theirs")
+      add_version(theirs)
+      version = IngenicDownloadVersion.find(response.parsed_body["version"]["id"])
+
+      put "/admin/plugins/discourse-ingenic/downloads/#{mine["id"]}/versions/#{version.id}.json",
+          params: {
+            description: "borrowed",
+          }
+
+      expect(response.status).to eq(404)
+      expect(version.reload.description).to be_nil
+    end
+
+    it "puts an uploaded picture on the card" do
+      upload = Fabricate(:upload, extension: "png")
+
+      download = create_resource(image_upload_id: upload.id)
+
+      expect(response.status).to eq(200)
+      expect(download["image_upload_id"]).to eq(upload.id)
+      expect(download["image_url"]).to be_present
+      expect(download["image_url"]).to eq(upload.url)
+    end
+
+    it "refuses a file that is not a picture" do
+      upload = Fabricate(:upload, extension: "zip")
+
+      download = create_resource(image_upload_id: upload.id)
+
+      expect(response.status).to eq(422)
+      expect(IngenicDownload.find_by(name: "T33 SDK")).to be_nil
+    end
+
+    it "takes the picture off when the picker is cleared" do
+      upload = Fabricate(:upload, extension: "png")
+      download = create_resource(image_upload_id: upload.id)
+
+      put "/admin/plugins/discourse-ingenic/downloads/#{download["id"]}.json",
+          params: {
+            image_upload_id: "",
+          }
+
+      expect(response.status).to eq(200)
+      expect(response.parsed_body["download"]["image_upload_id"]).to be_nil
+      expect(response.parsed_body["download"]["image_url"]).to be_nil
     end
   end
 
@@ -1151,14 +1307,21 @@ describe Admin::IngenicController do
            params: {
              name: "SDK bundle",
              family: "algorithm",
+           }
+      expect(response.status).to eq(200)
+      download = IngenicDownload.find(response.parsed_body["download"]["id"])
+
+      post "/admin/plugins/discourse-ingenic/downloads/#{download.id}/versions.json",
+           params: {
+             version: "1.0",
              upload_token: token,
            }
 
       expect(response.status).to eq(200)
-      download = IngenicDownload.find(response.parsed_body["download"]["id"])
-      expect(download.original_filename).to eq("sdk.bin")
-      expect(download.file_sha256).to eq(Digest::SHA256.hexdigest(content))
-      stored = Pathname.new(storage_dir).join(download.storage_path)
+      version = IngenicDownloadVersion.find(response.parsed_body["version"]["id"])
+      expect(version.original_filename).to eq("sdk.bin")
+      expect(version.file_sha256).to eq(Digest::SHA256.hexdigest(content))
+      stored = Pathname.new(storage_dir).join(version.storage_path)
       expect(stored.read).to eq(content)
 
       # The finished upload is consumed by the row that names it.

@@ -22,31 +22,44 @@ const BLANK = {
   family: "chip",
   product_id: "",
   category_id: "",
-  version: "",
   name: "",
+  image_upload_id: "",
+  image_url: null,
+  access_level: "public_login",
+  point_cost: 0,
+  position: 0,
+  published: false,
+  versions: [],
+};
+
+// A version of a saved resource. Published by default: it is being added to a
+// card the team already decided to offer.
+const BLANK_VERSION = {
+  version: "",
   description: "",
   platform: "",
   architecture: "",
-  access_level: "public_login",
-  point_cost: 0,
   file_url: "",
   file_size: "",
   sha256: "",
   released_on: "",
+  published: true,
   position: 0,
-  published: false,
 };
 
 /**
- * SDK and firmware resources: the list, and the form that creates and edits
- * them, including the upload.
+ * SDK and firmware resources: the card, and the versions filed under it.
  *
- * The file is not part of the form body. It goes to the upload endpoints in
- * pieces, because a three-gigabyte firmware image cannot be one request and a
- * ten-megabyte proxy limit is not something the browser can argue with; the
- * form carries the token of the finished upload instead. The server decides
- * between the upload and the URL, and clears the URL when a file arrives, so
- * the form does not have to arbitrate between them.
+ * The card is what the access rule, the applications and the grants belong to;
+ * a version is one file with its own description and download. A resource is
+ * saved first, then versions are added under it — which is also the order the
+ * server enforces, since a version has to belong to a card.
+ *
+ * A version file goes to the upload endpoints in pieces, because a
+ * three-gigabyte firmware image cannot be one request and a ten-megabyte proxy
+ * limit is not something the browser can argue with; the form carries the
+ * token of the finished upload instead. The card's picture is small enough for
+ * core's ordinary image upload.
  */
 export default class IngenicDownloadManager extends Component {
   @tracked records = this.args.downloads ?? [];
@@ -54,8 +67,15 @@ export default class IngenicDownloadManager extends Component {
   @tracked busy = false;
   @tracked message = null;
   @tracked error = null;
-  // The file that has been chosen but not saved yet. A browser will not
-  // let a filename be written into a file input, so the name is kept here
+
+  // The picture is uploaded on its own, through core's image endpoint, and
+  // only its id is saved with the card.
+  @tracked imageBusy = false;
+
+  // The version being edited. Null when the version form is closed.
+  @tracked versionDraft = null;
+  // The version file that has been chosen but not saved yet. A browser will
+  // not let a filename be written into a file input, so the name is kept here
   // and drawn in the form rather than by the control; the File itself is
   // what the upload reads from.
   @tracked chosenFile = null;
@@ -109,32 +129,32 @@ export default class IngenicDownloadManager extends Component {
       chip.series_name ? `${chip.series_name} › ${chip.name}` : chip.name;
   }
 
-  // An uploaded file carries its own digest; the legacy column is what a
-  // hand-entered URL used to come with. Showing whichever exists is what
-  // keeps this field from reading blank on a file the server hashed.
-  get checksum() {
-    return this.draft?.file_sha256 || this.draft?.sha256 || "";
-  }
-
-  // What the row already holds. The file input cannot say it - a browser
+  // What the card already holds. The file input cannot say it - a browser
   // will not let a filename be written into one - so the form says it.
   get storedFileLabel() {
-    const name = this.draft?.original_filename;
+    const name = this.versionDraft?.original_filename;
 
     if (!name) {
       return null;
     }
 
-    return this.draft?.file_size ? `${name} (${this.draft.file_size})` : name;
+    return this.versionDraft?.file_size
+      ? `${name} (${this.versionDraft.file_size})`
+      : name;
+  }
+
+  // An uploaded file carries its own digest; the other column is what a
+  // hand-entered URL came with. Showing whichever exists keeps this field
+  // from reading blank on a file the server hashed.
+  get versionChecksum() {
+    return this.versionDraft?.file_sha256 || this.versionDraft?.sha256 || "";
   }
 
   @action
   startNew() {
     this.#abortPendingUpload();
     this.draft = { ...BLANK };
-    this.chosenFile = null;
-    this.upload = null;
-    this.uploadProgress = 0;
+    this.#resetVersionForm();
     this.message = null;
     this.error = null;
   }
@@ -144,12 +164,13 @@ export default class IngenicDownloadManager extends Component {
     this.#abortPendingUpload();
     this.draft = {
       ...record,
-      file_url: record.file_url ?? "",
       product_id: record.product_id ?? "",
+      category_id: record.category_id ?? "",
+      image_upload_id: record.image_upload_id ?? "",
+      image_url: record.image_url ?? null,
+      versions: record.versions ?? [],
     };
-    this.chosenFile = null;
-    this.upload = null;
-    this.uploadProgress = 0;
+    this.#resetVersionForm();
     this.message = null;
     this.error = null;
   }
@@ -158,9 +179,7 @@ export default class IngenicDownloadManager extends Component {
   cancel() {
     this.#abortPendingUpload();
     this.draft = null;
-    this.chosenFile = null;
-    this.upload = null;
-    this.uploadProgress = 0;
+    this.#resetVersionForm();
     this.message = null;
     this.error = null;
   }
@@ -194,6 +213,159 @@ export default class IngenicDownloadManager extends Component {
     this.draft = { ...this.draft, access_level: value };
   }
 
+  // The text fields are bound one way, and a re-render puts the draft back
+  // into them, over whatever was typed: the draft never heard about the
+  // typing. Keeping it in step as the form is filled in is what stops a click
+  // on a select - or a save the server refuses - from emptying the form.
+  @action
+  field(event) {
+    const { name, type, value, checked } = event.target;
+
+    // The selects keep the draft in step in their own handlers, and a file
+    // input's value is a fake path rather than a filename.
+    if (!name || type === "file" || type.startsWith("select")) {
+      return;
+    }
+
+    this.draft[name] = type === "checkbox" ? checked : value;
+  }
+
+  // The card's picture. Core's image endpoint validates the extension and
+  // stores the upload; the card only remembers its id, so a replacement can
+  // be a different file without the resource knowing anything about it.
+  @action
+  async pickImage(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    this.imageBusy = true;
+    this.error = null;
+
+    const data = new FormData();
+    data.append("upload_type", "composer");
+    data.append("files[]", file);
+
+    try {
+      const upload = await ajax("/uploads.json", {
+        type: "POST",
+        data,
+        processData: false,
+        contentType: false,
+      });
+
+      if (upload?.id) {
+        this.draft = {
+          ...this.draft,
+          image_upload_id: upload.id,
+          image_url: upload.url,
+        };
+      }
+    } catch (failure) {
+      this.error = this.#errorMessage(failure);
+    } finally {
+      this.imageBusy = false;
+    }
+  }
+
+  @action
+  removeImage() {
+    this.draft = { ...this.draft, image_upload_id: "", image_url: null };
+  }
+
+  @action
+  async save(event) {
+    event.preventDefault();
+    this.busy = true;
+    this.message = null;
+    this.error = null;
+
+    const form = new FormData(event.target);
+    // Checkboxes are absent from FormData when unchecked, which the server reads
+    // as "leave it alone" — the opposite of what unchecking means here.
+    form.set("published", String(event.target.elements.published.checked));
+    // The picture travels as an upload id, and clearing it has to arrive as an
+    // empty value rather than as a missing key.
+    form.set("image_upload_id", this.draft.image_upload_id ?? "");
+
+    const id = this.draft.id;
+
+    try {
+      const response = await ajax(id ? `${ENDPOINT}/${id}` : ENDPOINT, {
+        type: id ? "PUT" : "POST",
+        data: form,
+        // Both are required for a multipart body: jQuery would otherwise
+        // url-encode the FormData and drop the browser's boundary header.
+        processData: false,
+        contentType: false,
+      });
+
+      const saved = response.download;
+      this.#replaceRecord(saved);
+      // The form stays open: a resource is created so that versions can be
+      // added under it, and closing it here would make the admin find the
+      // card again in the list to do that.
+      this.draft = saved;
+      this.message = i18n("ingenic.saved");
+    } catch (failure) {
+      this.error = this.#errorMessage(failure);
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  // Versions --------------------------------------------------------------
+
+  @action
+  startVersion() {
+    this.#abortPendingUpload();
+    this.versionDraft = {
+      ...BLANK_VERSION,
+      position: this.draft.versions?.length ?? 0,
+    };
+    this.chosenFile = null;
+    this.upload = null;
+    this.uploadProgress = 0;
+    this.message = null;
+    this.error = null;
+  }
+
+  @action
+  editVersion(version) {
+    this.#abortPendingUpload();
+    this.versionDraft = {
+      ...version,
+      file_url: version.file_url ?? "",
+      released_on: version.released_on ?? "",
+      description: version.description ?? "",
+    };
+    this.chosenFile = null;
+    this.upload = null;
+    this.uploadProgress = 0;
+    this.message = null;
+    this.error = null;
+  }
+
+  @action
+  cancelVersion() {
+    this.#abortPendingUpload();
+    this.#resetVersionForm();
+    this.error = null;
+  }
+
+  @action
+  versionField(event) {
+    const { name, type, value, checked } = event.target;
+
+    if (!name || type === "file") {
+      return;
+    }
+
+    this.versionDraft[name] = type === "checkbox" ? checked : value;
+  }
+
   // A chosen file is not a draft value: it is the browser's FileList on
   // the control. The File is kept so the upload can read it; the name is what
   // the form draws, because a browser will not let one be written back into
@@ -223,38 +395,20 @@ export default class IngenicDownloadManager extends Component {
     };
   }
 
-  // The text fields are bound one way, and a re-render puts the draft back
-  // into them, over whatever was typed: the draft never heard about the
-  // typing. Keeping it in step as the form is filled in is what stops a click
-  // on a select - or a save the server refuses - from emptying the form.
   @action
-  field(event) {
-    const { name, type, value, checked } = event.target;
-
-    // The selects keep the draft in step in their own handlers, and a file
-    // input's value is a fake path rather than a filename.
-    if (!name || type === "file" || type.startsWith("select")) {
-      return;
-    }
-
-    this.draft[name] = type === "checkbox" ? checked : value;
-  }
-
-  @action
-  async save(event) {
+  async saveVersion(event) {
     event.preventDefault();
     this.busy = true;
     this.message = null;
     this.error = null;
 
+    const parent = this.draft;
     const form = new FormData(event.target);
-    // Checkboxes are absent from FormData when unchecked, which the server reads
-    // as "leave it alone" — the opposite of what unchecking means here.
     form.set("published", String(event.target.elements.published.checked));
     // The file travels through the upload endpoints, not inside this body.
     form.delete("file");
 
-    const id = this.draft.id;
+    const id = this.versionDraft.id;
 
     try {
       if (this.chosenFile) {
@@ -263,29 +417,54 @@ export default class IngenicDownloadManager extends Component {
         form.set("upload_token", token);
       }
 
-      const response = await ajax(id ? `${ENDPOINT}/${id}` : ENDPOINT, {
-        type: id ? "PUT" : "POST",
-        data: form,
-        // Both are required for a multipart body: jQuery would otherwise
-        // url-encode the FormData and drop the browser's boundary header.
-        processData: false,
-        contentType: false,
-      });
+      const response = await ajax(
+        id
+          ? `${ENDPOINT}/${parent.id}/versions/${id}`
+          : `${ENDPOINT}/${parent.id}/versions`,
+        {
+          type: id ? "PUT" : "POST",
+          data: form,
+          processData: false,
+          contentType: false,
+        }
+      );
 
-      const saved = response.download;
-      this.records = id
-        ? this.records.map((record) => (record.id === saved.id ? saved : record))
-        : [...this.records, saved];
-      this.draft = null;
-      this.chosenFile = null;
-      this.upload = null;
-      this.uploadProgress = 0;
+      this.#replaceRecord(response.download);
+      this.draft = response.download;
+      this.#resetVersionForm();
       this.message = i18n("ingenic.saved");
     } catch (failure) {
       this.error = this.#errorMessage(failure);
     } finally {
       this.busy = false;
       this.uploading = false;
+    }
+  }
+
+  @action
+  async deleteVersion(version) {
+    const label = version.version || "—";
+
+    if (
+      !window.confirm(
+        i18n("ingenic.downloads.delete_version_confirm", { version: label })
+      )
+    ) {
+      return;
+    }
+
+    this.error = null;
+
+    try {
+      const response = await ajax(
+        `${ENDPOINT}/${this.draft.id}/versions/${version.id}`,
+        { type: "DELETE" }
+      );
+      this.#replaceRecord(response.download);
+      this.draft = response.download;
+      this.message = i18n("ingenic.saved");
+    } catch (failure) {
+      this.error = this.#errorMessage(failure);
     }
   }
 
@@ -393,6 +572,13 @@ export default class IngenicDownloadManager extends Component {
     return xhr;
   }
 
+  #resetVersionForm() {
+    this.versionDraft = null;
+    this.chosenFile = null;
+    this.upload = null;
+    this.uploadProgress = 0;
+  }
+
   // An upload the form no longer needs. Sent without waiting: the screen is
   // moving on, and a session that survives this call is cleaned up by the
   // scheduled job a day later anyway.
@@ -402,6 +588,16 @@ export default class IngenicDownloadManager extends Component {
     }
 
     ajax(`${UPLOADS}/${this.upload.token}`, { type: "DELETE" }).catch(() => {});
+  }
+
+  #replaceRecord(record) {
+    this.records = this.records.map((item) =>
+      item.id === record.id ? record : item
+    );
+
+    if (!this.records.some((item) => item.id === record.id)) {
+      this.records = [...this.records, record];
+    }
   }
 
   @action
@@ -510,21 +706,6 @@ export default class IngenicDownloadManager extends Component {
           </label>
 
           <label>
-            <span>{{i18n "ingenic.downloads.fields.version"}}</span>
-            <input name="version" value={{this.draft.version}} />
-          </label>
-
-          <label>
-            <span>{{i18n "ingenic.downloads.fields.platform"}}</span>
-            <input name="platform" value={{this.draft.platform}} />
-          </label>
-
-          <label>
-            <span>{{i18n "ingenic.downloads.fields.architecture"}}</span>
-            <input name="architecture" value={{this.draft.architecture}} />
-          </label>
-
-          <label>
             <span>{{i18n "ingenic.downloads.fields.access_level"}}</span>
             <DNativeSelect
               name="access_level"
@@ -555,79 +736,41 @@ export default class IngenicDownloadManager extends Component {
           </p>
 
           <label class="ingenic-admin-upload">
-            <span>{{i18n "ingenic.downloads.fields.file"}}</span>
-            {{! The control is kept for what it does - a click anywhere
-                in this label opens the picker - and taken out of the
-                layout: a browser prints its own caption beside a file
-                input and no property sets that text. }}
+            <span>{{i18n "ingenic.downloads.fields.image"}}</span>
             <input
               class="ingenic-admin-upload__input"
               type="file"
-              name="file"
-              {{on "change" this.pickFile}}
+              accept="image/*"
+              name="image"
+              {{on "change" this.pickImage}}
             />
             <span class="ingenic-admin-upload__button">
-              {{i18n "ingenic.downloads.fields.choose_file"}}
+              {{i18n "ingenic.downloads.fields.choose_image"}}
             </span>
           </label>
 
-          {{#if this.chosenFile}}
+          <p class="ingenic-admin-form__hint">
+            {{i18n "ingenic.downloads.fields.image_hint"}}
+          </p>
+
+          {{#if this.imageBusy}}
             <p class="ingenic-admin-form__hint">
-              {{i18n "ingenic.downloads.fields.replacing_file" file=this.chosenFile.name}}
-            </p>
-          {{else if this.storedFileLabel}}
-            <p class="ingenic-admin-form__hint">
-              {{i18n "ingenic.downloads.fields.stored_file" file=this.storedFileLabel}}
+              {{i18n "ingenic.downloads.fields.image_uploading"}}
             </p>
           {{/if}}
 
-          {{! A multi-gigabyte file spends a long time on the wire; without a
-              moving bar the form reads as frozen and invites a reload. }}
-          {{#if this.uploading}}
-            <div class="ingenic-admin-progress">
-              <progress max="100" value={{this.uploadProgress}}></progress>
-              <span class="ingenic-admin-progress__label">
-                {{i18n "ingenic.downloads.fields.upload_progress" progress=this.uploadProgress}}
-              </span>
+          {{#if this.draft.image_url}}
+            <div class="ingenic-admin-image">
+              <img src={{this.draft.image_url}} alt="" />
+              <button class="btn btn-small" type="button" {{on "click" this.removeImage}}>
+                {{i18n "ingenic.downloads.fields.remove_image"}}
+              </button>
             </div>
           {{/if}}
-
-          <p class="ingenic-admin-form__hint">
-            {{i18n "ingenic.downloads.fields.file_hint"}}
-          </p>
-
-          <label>
-            <span>{{i18n "ingenic.downloads.fields.file_url"}}</span>
-            <input name="file_url" value={{this.draft.file_url}} />
-          </label>
-
-          <label>
-            <span>{{i18n "ingenic.downloads.fields.file_size"}}</span>
-            <input name="file_size" value={{this.draft.file_size}} />
-          </label>
-
-          <label>
-            <span>{{i18n "ingenic.downloads.fields.sha256"}}</span>
-            <input name="sha256" value={{this.checksum}} />
-          </label>
-
-          <p class="ingenic-admin-form__hint">
-            {{i18n "ingenic.downloads.fields.sha256_hint"}}
-          </p>
-
-          <label>
-            <span>{{i18n "ingenic.downloads.fields.released_on"}}</span>
-            <input type="date" name="released_on" value={{this.draft.released_on}} />
-          </label>
 
           <label>
             <span>{{i18n "ingenic.downloads.fields.position"}}</span>
             <input type="number" name="position" value={{this.draft.position}} />
-          </label>
-
-          <label>
-            <span>{{i18n "ingenic.downloads.fields.description"}}</span>
-            <textarea name="description">{{this.draft.description}}</textarea>
           </label>
 
           <label class="checkbox-label">
@@ -644,32 +787,204 @@ export default class IngenicDownloadManager extends Component {
             </button>
           </div>
         </form>
+
+        {{#if this.draft.id}}
+          <section class="ingenic-download-versions">
+            <header class="ingenic-download-versions__header">
+              <div>
+                <h3>{{i18n "ingenic.downloads.versions_title"}}</h3>
+                <p class="ingenic-admin-form__hint">
+                  {{i18n "ingenic.downloads.versions_hint"}}
+                </p>
+              </div>
+              {{#unless this.versionDraft}}
+                <button class="btn" type="button" {{on "click" this.startVersion}}>
+                  {{i18n "ingenic.downloads.add_version"}}
+                </button>
+              {{/unless}}
+            </header>
+
+            {{#if this.versionDraft}}
+              <form class="ingenic-admin-form" {{on "submit" this.saveVersion}} {{on "input" this.versionField}}>
+                <h4>
+                  {{#if this.versionDraft.id}}
+                    {{i18n "ingenic.downloads.edit_version"}}
+                  {{else}}
+                    {{i18n "ingenic.downloads.new_version"}}
+                  {{/if}}
+                </h4>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.version"}}</span>
+                  <input name="version" value={{this.versionDraft.version}} />
+                </label>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.platform"}}</span>
+                  <input name="platform" value={{this.versionDraft.platform}} />
+                </label>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.architecture"}}</span>
+                  <input name="architecture" value={{this.versionDraft.architecture}} />
+                </label>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.released_on"}}</span>
+                  <input type="date" name="released_on" value={{this.versionDraft.released_on}} />
+                </label>
+
+                <label class="ingenic-admin-upload">
+                  <span>{{i18n "ingenic.downloads.fields.file"}}</span>
+                  {{! The control is kept for what it does - a click anywhere
+                      in this label opens the picker - and taken out of the
+                      layout: a browser prints its own caption beside a file
+                      input and no property sets that text. }}
+                  <input
+                    class="ingenic-admin-upload__input"
+                    type="file"
+                    name="file"
+                    {{on "change" this.pickFile}}
+                  />
+                  <span class="ingenic-admin-upload__button">
+                    {{i18n "ingenic.downloads.fields.choose_file"}}
+                  </span>
+                </label>
+
+                {{#if this.chosenFile}}
+                  <p class="ingenic-admin-form__hint">
+                    {{i18n "ingenic.downloads.fields.replacing_file" file=this.chosenFile.name}}
+                  </p>
+                {{else if this.storedFileLabel}}
+                  <p class="ingenic-admin-form__hint">
+                    {{i18n "ingenic.downloads.fields.stored_file" file=this.storedFileLabel}}
+                  </p>
+                {{/if}}
+
+                {{! A multi-gigabyte file spends a long time on the wire; without a
+                    moving bar the form reads as frozen and invites a reload. }}
+                {{#if this.uploading}}
+                  <div class="ingenic-admin-progress">
+                    <progress max="100" value={{this.uploadProgress}}></progress>
+                    <span class="ingenic-admin-progress__label">
+                      {{i18n "ingenic.downloads.fields.upload_progress" progress=this.uploadProgress}}
+                    </span>
+                  </div>
+                {{/if}}
+
+                <p class="ingenic-admin-form__hint">
+                  {{i18n "ingenic.downloads.fields.file_hint"}}
+                </p>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.file_url"}}</span>
+                  <input name="file_url" value={{this.versionDraft.file_url}} />
+                </label>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.file_size"}}</span>
+                  <input name="file_size" value={{this.versionDraft.file_size}} />
+                </label>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.sha256"}}</span>
+                  <input name="sha256" value={{this.versionChecksum}} />
+                </label>
+
+                <p class="ingenic-admin-form__hint">
+                  {{i18n "ingenic.downloads.fields.sha256_hint"}}
+                </p>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.position"}}</span>
+                  <input type="number" name="position" value={{this.versionDraft.position}} />
+                </label>
+
+                <label>
+                  <span>{{i18n "ingenic.downloads.fields.description"}}</span>
+                  <textarea name="description">{{this.versionDraft.description}}</textarea>
+                </label>
+
+                <label class="checkbox-label">
+                  <input type="checkbox" name="published" checked={{this.versionDraft.published}} />
+                  <span>{{i18n "ingenic.downloads.fields.published"}}</span>
+                </label>
+
+                <div class="ingenic-admin__toolbar">
+                  <button class="btn btn-primary" type="submit" disabled={{this.busy}}>
+                    {{i18n "ingenic.save"}}
+                  </button>
+                  <button class="btn" type="button" {{on "click" this.cancelVersion}}>
+                    {{i18n "ingenic.cancel"}}
+                  </button>
+                </div>
+              </form>
+            {{/if}}
+
+            <div class="ingenic-admin-list">
+              {{#each this.draft.versions as |version|}}
+                <section class="ingenic-admin-list__row">
+                  <div>
+                    <strong>{{#if version.version}}{{version.version}}{{else}}—{{/if}}</strong>
+                    <div class="ingenic-admin-list__meta">
+                      {{#if version.platform}}· {{version.platform}}{{/if}}
+                      {{#if version.architecture}}· {{version.architecture}}{{/if}}
+                      {{#if version.file_size}}· {{version.file_size}}{{/if}}
+                      {{#if version.released_on}}· {{version.released_on}}{{/if}}
+                      {{#if version.stored}}· {{i18n "ingenic.downloads.stored"}}{{/if}}
+                      {{#unless version.published}}· {{i18n "ingenic.downloads.withdrawn"}}{{/unless}}
+                    </div>
+                    {{#if version.description}}
+                      <p class="ingenic-admin-list__meta">{{version.description}}</p>
+                    {{/if}}
+                  </div>
+                  <div class="ingenic-admin__toolbar">
+                    <button class="btn" type="button" {{on "click" (fn this.editVersion version)}}>
+                      {{i18n "ingenic.edit"}}
+                    </button>
+                    <button
+                      class="btn btn-danger"
+                      type="button"
+                      {{on "click" (fn this.deleteVersion version)}}
+                    >
+                      {{i18n "ingenic.downloads.delete_version"}}
+                    </button>
+                  </div>
+                </section>
+              {{else}}
+                <p>{{i18n "ingenic.downloads.no_versions"}}</p>
+              {{/each}}
+            </div>
+          </section>
+        {{/if}}
       {{/if}}
 
       <div class="ingenic-admin-list">
         {{#each this.records as |record|}}
           <section class="ingenic-admin-list__row">
-            <div>
-              <strong>{{record.name}}</strong>
-              <div class="ingenic-admin-list__meta">
-                {{record.product_name}}
-                {{#if record.category_name}}· {{record.category_name}}{{/if}}
-                {{#if record.version}}· {{record.version}}{{/if}}
-                · {{i18n (get this.accessLevelKeys record.access_level)}}
-                {{#if record.point_cost}}
-                  · {{i18n "ingenic.downloads.costs_points" points=record.point_cost}}
-                {{/if}}
-                {{#if record.stored}}
-                  · {{i18n "ingenic.downloads.stored"}}
-                {{/if}}
-                {{#unless record.published}}
-                  · {{i18n "ingenic.downloads.withdrawn"}}
-                {{/unless}}
-              </div>
-              <div class="ingenic-admin-list__meta">
-                {{i18n "ingenic.downloads.pending_count" count=record.pending_requests}}
-                ·
-                {{i18n "ingenic.downloads.grant_count" count=record.active_grants}}
+            <div class="ingenic-admin-list__resource">
+              {{#if record.image_url}}
+                <img class="ingenic-admin-list__thumb" src={{record.image_url}} alt="" />
+              {{/if}}
+              <div>
+                <strong>{{record.name}}</strong>
+                <div class="ingenic-admin-list__meta">
+                  {{record.product_name}}
+                  {{#if record.category_name}}· {{record.category_name}}{{/if}}
+                  · {{i18n "ingenic.downloads.version_count" count=(get record.versions "length")}}
+                  · {{i18n (get this.accessLevelKeys record.access_level)}}
+                  {{#if record.point_cost}}
+                    · {{i18n "ingenic.downloads.costs_points" points=record.point_cost}}
+                  {{/if}}
+                  {{#unless record.published}}
+                    · {{i18n "ingenic.downloads.withdrawn"}}
+                  {{/unless}}
+                </div>
+                <div class="ingenic-admin-list__meta">
+                  {{i18n "ingenic.downloads.pending_count" count=record.pending_requests}}
+                  ·
+                  {{i18n "ingenic.downloads.grant_count" count=record.active_grants}}
+                </div>
               </div>
             </div>
             <div class="ingenic-admin__toolbar">

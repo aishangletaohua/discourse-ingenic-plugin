@@ -21,7 +21,10 @@ class IngenicDownloadMailer < ActionMailer::Base
       applicant_name: request.user.name.presence || request.user.username,
       resource_name: request.download.name,
       resource_product: request.download.product&.name,
-      resource_version: request.download.version,
+      # The application is for the resource, not for one release. The newest
+      # published version is what the reader is looking at when they apply;
+      # approval covers every version under the card.
+      resource_version: request.download.versions.published.ordered.first&.version,
       applicant_message: request.message,
       profile_summary: profile_summary(request.user),
       review_url: "#{Discourse.base_url}/admin/plugins/discourse-ingenic/downloads",

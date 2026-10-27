@@ -9,7 +9,6 @@ describe IngenicDownloadMailer do
       name: "T33 SDK",
       family: IngenicDownload::FAMILY_ALGORITHM,
       access_level: IngenicDownload::LOGIN_ONLY,
-      file_url: "https://example.com/sdk.zip",
       locale: "en",
     )
   end

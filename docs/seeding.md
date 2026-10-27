@@ -211,29 +211,62 @@ usual case is to pick one rather than create one.
 sdk = IngenicDownloadCategory.find_or_create_by!(name: "sdk", locale: "en")
 ```
 
-A resource either points at a file held elsewhere or has one uploaded against
-it. For a file held elsewhere:
+A resource is the card: its name, chip, classification, picture and access
+rule. The files hang under it as versions, and the card offers whichever
+version the visitor selects. Create the card first:
 
 ```ruby
-IngenicDownload.create!(
+sdk_210 = IngenicDownload.create!(
   product: chip,
   category: sdk,
-  version: "2.1.0",
   locale: "en",
-  name: "T32Pro SDK 2.1.0",
+  name: "T32Pro SDK",
+  access_level: "public_login",
+  published: true,
+)
+```
+
+Nothing is downloadable until a version exists. A version either points at a
+file held elsewhere or has one uploaded against it; for a file held elsewhere:
+
+```ruby
+sdk_210.versions.create!(
+  version: "2.1.0",
   description: "Linux SDK including toolchain and examples.",
   platform: "Linux",
   architecture: "x86_64",
-  access_level: "public_login",
   file_url: "https://download.ingenic.com/t32pro/sdk-2.1.0-en.tar.gz",
   file_size: "1.4 GB",
   file_sha256: "0000000000000000000000000000000000000000000000000000000000000000",
   released_on: Date.new(2026, 9, 1),
+  published: true,
+)
+```
+
+A second release is a second row under the same card, with its own
+description, file and release date:
+
+```ruby
+sdk_210.versions.create!(
+  version: "2.2.0",
+  description: "Adds the T33 camera pipeline and a refreshed toolchain.",
+  platform: "Linux",
+  architecture: "x86_64",
+  file_url: "https://download.ingenic.com/t32pro/sdk-2.2.0-en.tar.gz",
+  file_size: "1.5 GB",
+  released_on: Date.new(2026, 10, 1),
+  published: true,
 )
 ```
 
 `product` is the chip row from the tree. A chip resource must name one; a
-resource is not filed against a series.
+resource is not filed against a series. The version label is unique per card,
+so two cards may each have a `1.0`; a draft version without a label is allowed,
+and the selector prints its release date instead.
+
+The access rule, points and applications belong to the card: approving an
+account for `T32Pro SDK` covers 2.1.0, 2.2.0 and every release filed under it
+later.
 
 `family` is the catalogue's top-level line: `chip` (the default) or
 `algorithm`. An algorithm is offered across chips and is not filed under one,
@@ -242,15 +275,20 @@ so it leaves `product` empty:
 ```ruby
 algorithms = IngenicDownloadCategory.find_or_create_by!(name: "algorithm", locale: "en")
 
-IngenicDownload.create!(
+h264 = IngenicDownload.create!(
   family: "algorithm",
   category: algorithms,
-  version: "2.1",
   locale: "en",
   name: "Smart H.264 encoder library",
-  platform: "Linux",
   access_level: "public_login",
+  published: true,
+)
+h264.versions.create!(
+  version: "2.1",
+  description: "Encoder library with the T-series rate-control patches.",
+  platform: "Linux",
   file_url: "https://download.ingenic.com/algorithms/h264-2.1.tar.gz",
+  published: true,
 )
 ```
 
@@ -267,10 +305,11 @@ have developer information on file) or `login_form_request` (sign in, have
 information on file, and have an application approved). The default is
 `public_login`.
 
-`file_url` is never sent to the browser by the listing, whatever the level —
-the page shows the plugin's own endpoint and the endpoint decides. Uploading
-instead is the better choice for anything gated: an address on object storage
-is an address anyone holding it can fetch.
+A version's `file_url` is never sent to the browser by the listing, whatever
+the level — the page shows the plugin's own endpoint and the endpoint decides.
+Delivery takes a `version_id`; without one the newest published version is
+served. Uploading instead is the better choice for anything gated: an address
+on object storage is an address anyone holding it can fetch.
 
 A file uploaded through the management page is written under
 `ingenic_download_storage_path` and recorded as `storage_path` plus
@@ -279,28 +318,47 @@ helper the controller uses:
 
 ```ruby
 stored = Ingenic::DownloadStorage.store(uploaded_file)
-resource.update!(
+sdk_210.versions.create!(
+  version: "2.3.0",
   storage_path: stored[:path],
   original_filename: uploaded_file.original_filename,
   file_sha256: stored[:sha256],
   file_size: stored[:size],
   file_url: nil,
+  published: true,
 )
 ```
 
-### Applications and grants
+A row cannot carry `file_sha256` and `sha256` at once. The former is the digest
+the server computed while storing the upload; the latter is a checksum typed
+beside an external URL.
 
-An application is a row in `ingenic_download_requests`; approving it issues a
-row in `ingenic_download_grants`. Grants have no end date: once an application
-is approved the resource stays available to that account. What says a file was
-actually collected is the log, not the grant.
+The card's picture is an upload as well, and is set by reference rather than by
+URL:
 
 ```ruby
-request = IngenicDownloadRequest.create!(user: someone, download: resource)
+sdk_210.update!(image_upload: Upload.find_by(id: upload_id))
+```
+
+Cards are drawn at a fixed 4:3 ratio and cropped to fit; a card with no upload
+draws the catalogue placeholder. A published card whose versions are all
+unpublished is left out of the listing — it has nothing to hand over.
+
+### Applications and grants
+
+An application is a row in `ingenic_download_requests`, filed against the card.
+Approving it issues the grant in the same transaction. Grants have no end date:
+once an application is approved the resource stays available to that account,
+including versions published afterwards. What says a file was actually
+collected is the log, not the grant.
+
+```ruby
+request = IngenicDownloadRequest.create!(user: someone, download: sdk_210)
 request.approve!(admin, note: "welcome")
 
-IngenicDownloadGrant.issue!(someone, resource, granted_by: admin)
-IngenicDownloadGrant.find_by(user: someone, download: resource).revoke!(admin)
+# Granting by hand, without an application, is the same act.
+IngenicDownloadGrant.issue!(someone, sdk_210, granted_by: admin)
+IngenicDownloadGrant.find_by(user: someone, download: sdk_210).revoke!(admin)
 ```
 
 The same actions are on **Ingenic → Downloads → Applications** and **Grants**,

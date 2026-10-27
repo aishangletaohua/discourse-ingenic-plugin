@@ -54,6 +54,7 @@ require_relative "app/models/ingenic_doc_version"
 require_relative "app/models/ingenic_doc_page"
 require_relative "app/models/ingenic_download_category"
 require_relative "app/models/ingenic_download"
+require_relative "app/models/ingenic_download_version"
 require_relative "app/models/ingenic_download_request"
 require_relative "app/models/ingenic_download_grant"
 require_relative "app/models/ingenic_download_log"
@@ -463,6 +464,9 @@ after_initialize do
       post "/downloads" => "admin/ingenic#create_download"
       put "/downloads/:id" => "admin/ingenic#update_download"
       delete "/downloads/:id" => "admin/ingenic#destroy_download"
+      post "/downloads/:id/versions" => "admin/ingenic#create_download_version"
+      put "/downloads/:id/versions/:version_id" => "admin/ingenic#update_download_version"
+      delete "/downloads/:id/versions/:version_id" => "admin/ingenic#destroy_download_version"
 
       # A file too large for one request. The browser opens a session, sends
       # the pieces, then names the finished upload when it saves the resource.

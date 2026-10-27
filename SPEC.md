@@ -199,6 +199,26 @@ reader.
 
 ### Downloads
 
+A resource is a card and its files are versions. `ingenic_downloads` holds what
+the visitor sees before choosing a file — name, uploaded picture, chip,
+category, publish flag and one access rule. `ingenic_download_versions` holds
+the releases: label, description, platform, architecture, size, checksum,
+release date and source (an uploaded file or an external URL). A card with no
+published version is not listed; a version that is unpublished is invisible to
+the catalogue and refused by the file endpoint.
+
+The card is horizontal: a 4:3 picture, the selected version's description in
+the middle, and one button on the right labelled **Download** for every access
+state. The version selector changes the description and the file the button
+points at. What varies is the hint under the button and what the server asks for
+first — sign-in, developer information, an application, or points — never the
+button's label.
+
+Requests, grants, points and delivery logs stay keyed to the resource, so one
+approval covers every version, including ones published afterwards. Delivery
+takes an optional `version_id`; it must belong to the card and be published, and
+the newest published version is used when none is named.
+
 Three tiers, stored as `ingenic_downloads.access_level`:
 
 | Level | Visitor | Server |
@@ -229,9 +249,11 @@ plugin does. Delivery goes through the controller, which checks access first and
 then streams the file with an explicit `Content-Type`, `Content-Length` and
 `Content-Disposition`.
 
-Metadata is recorded per record: kind, version, platform, architecture, size,
-SHA-256 and release date. Kinds: `sdk`, `firmware`, `manual`, `datasheet`,
-`toolchain`, `example`, `release_notes`, `other`.
+Metadata is recorded per version — label, description, platform, architecture,
+size, SHA-256 and release date — while the category is the card's. The admin
+creates the card first (picture included) and adds versions beneath it; the
+picture is an ordinary Discourse upload, kept by `image_upload_id` and cleared
+when the upload is deleted.
 
 A resource may also carry `point_cost`, 0 by default. The price is asked after
 the access level rather than instead of it, so a `login_form_request` resource

@@ -22,16 +22,18 @@ describe Ingenic::Points do
     IngenicPointBalance.total_for(user)
   end
 
-  # A resource somebody can buy. The file URL is never fetched: spending only
-  # needs a row to be the subject of the purchase.
+  # A resource somebody can buy. Spending only needs a row to be the subject of
+  # the purchase; the file under it is never fetched here.
   def make_download(name)
-    IngenicDownload.create!(
-      product: chip,
-      name: name,
-      locale: "en",
-      access_level: IngenicDownload::LOGIN_ONLY,
-      file_url: "https://example.com/#{name.parameterize}.zip",
-    )
+    download =
+      IngenicDownload.create!(
+        product: chip,
+        name: name,
+        locale: "en",
+        access_level: IngenicDownload::LOGIN_ONLY,
+      )
+    download.versions.create!(version: "1.0", file_url: "https://example.com/#{name.parameterize}.zip")
+    download
   end
 
   describe "the seeded rules" do

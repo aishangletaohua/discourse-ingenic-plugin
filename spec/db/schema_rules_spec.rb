@@ -24,7 +24,6 @@ describe "The Ingenic schema" do
       locale: "en",
       access_level: IngenicDownload::LOGIN_ONLY,
       family: IngenicDownload::FAMILY_ALGORITHM,
-      file_url: "https://example.com/sdk.tgz",
     )
   end
 
@@ -48,14 +47,48 @@ describe "The Ingenic schema" do
     expect(message).to include("ingenic_downloads_access_level_known")
   end
 
-  it "refuses two checksums on one resource" do
+  it "refuses two checksums on one version" do
+    download = resource
+
     message =
-      refusal(<<~SQL)
-        INSERT INTO ingenic_downloads (name, family, sha256, file_sha256, created_at, updated_at)
-        VALUES ('SDK', 'algorithm', 'by-hand', 'by-server', now(), now())
+      refusal(<<~SQL, download_id: download.id)
+        INSERT INTO ingenic_download_versions
+          (download_id, file_url, sha256, file_sha256, created_at, updated_at)
+        VALUES (:download_id, 'https://example.com/a.tgz', 'by-hand', 'by-server', now(), now())
       SQL
 
-    expect(message).to include("ingenic_downloads_one_checksum")
+    expect(message).to include("ingenic_download_versions_one_checksum")
+  end
+
+  it "refuses a version nobody could download from" do
+    download = resource
+
+    message =
+      refusal(<<~SQL, download_id: download.id)
+        INSERT INTO ingenic_download_versions (download_id, created_at, updated_at)
+        VALUES (:download_id, now(), now())
+      SQL
+
+    expect(message).to include("ingenic_download_versions_has_source")
+  end
+
+  it "takes the versions with the resource they belong to" do
+    download = resource
+    IngenicDownloadVersion.create!(download: download, version: "1.0", file_url: "https://example.com/a.tgz")
+
+    DB.exec("DELETE FROM ingenic_downloads WHERE id = :id", id: download.id)
+
+    expect(IngenicDownloadVersion.where(download_id: download.id).count).to eq(0)
+  end
+
+  it "clears a card's picture when the upload is deleted" do
+    upload = Fabricate(:upload, extension: "png")
+    download = resource
+    download.update!(image_upload_id: upload.id)
+
+    DB.exec("DELETE FROM uploads WHERE id = :id", id: upload.id)
+
+    expect(download.reload.image_upload_id).to be_nil
   end
 
   it "keeps the log, and the name of who took the file, when the account goes" do

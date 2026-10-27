@@ -21,6 +21,21 @@ class IngenicDownload < ActiveRecord::Base
   FAMILY_ALGORITHM = "algorithm"
   FAMILIES = [FAMILY_CHIP, FAMILY_ALGORITHM].freeze
 
+  # The files under this card. One row per release, each with its own
+  # description and download, while the access rule above is shared by all of
+  # them: approving an account for the resource approves it for every version
+  # the team publishes under it.
+  has_many :versions,
+           class_name: "IngenicDownloadVersion",
+           foreign_key: :download_id,
+           dependent: :destroy
+
+  # The picture on the card, uploaded from the management screen. A resource
+  # without one is drawn with the catalogue placeholder rather than with an
+  # empty box; an upload that is deleted elsewhere leaves the card in that same
+  # state instead of taking the resource with it.
+  belongs_to :image_upload, class_name: "Upload", optional: true
+
   has_many :requests,
            class_name: "IngenicDownloadRequest",
            foreign_key: :download_id,
@@ -59,14 +74,14 @@ class IngenicDownload < ActiveRecord::Base
   validate :chip_has_a_product
   validate :product_is_a_chip
   validate :product_locale_matches
-  validate :has_somewhere_to_download_from
+  validate :image_is_an_image
   # Not signed, for the same reason a point rule is not: a negative price is a
   # charge for arriving, and a member who cannot afford one would be refused a
   # file for having done nothing.
   validates :point_cost, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
   scope :published, -> { where(published: true) }
-  scope :ordered, -> { order(position: :asc, released_on: :desc, name: :asc) }
+  scope :ordered, -> { order(position: :asc, name: :asc) }
   scope :for_locale, ->(locale) { where(locale: locale) }
 
   def chip?
@@ -103,14 +118,25 @@ class IngenicDownload < ActiveRecord::Base
     category&.name
   end
 
-  # True when the bytes live on this server rather than behind a URL, which is
-  # the only case the plugin can actually gate.
-  def stored?
-    storage_path.present?
+  # What the listing draws: only versions the team has published, newest order
+  # first. A withdrawn version stays in the table so its delivery log still
+  # names something real.
+  def published_versions
+    versions.published.ordered.to_a
   end
 
-  def external?
-    !stored? && file_url.present? && file_url !~ %r{\A/}
+  # Whether the card can be offered at all. A published resource whose every
+  # version is withdrawn has nothing to hand over and is left out of the
+  # listing rather than shown with a button that cannot work.
+  def downloadable?
+    published_versions.any?
+  end
+
+  # The picture on the card. Read through the upload so a replacement at the
+  # same id is picked up without touching the resource; nil draws the
+  # placeholder.
+  def image_url
+    image_upload&.url
   end
 
   private
@@ -138,9 +164,13 @@ class IngenicDownload < ActiveRecord::Base
     errors.add(:locale, "must match the product's language")
   end
 
-  def has_somewhere_to_download_from
-    return if file_url.present? || storage_path.present?
+  # The card's picture is drawn at a fixed ratio, and a PDF or an archive in
+  # that slot is a broken image on the catalogue. The uploader already knows
+  # what it accepted; this is the server saying so as well.
+  def image_is_an_image
+    return if image_upload.nil?
+    return if FileHelper.is_supported_image?("image.#{image_upload.extension}")
 
-    errors.add(:base, "a resource needs either a file URL or an uploaded file")
+    errors.add(:image_upload, "must be an image")
   end
 end

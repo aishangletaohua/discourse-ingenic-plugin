@@ -27,7 +27,6 @@ describe IngenicPermission do
       family: IngenicDownload::FAMILY_CHIP,
       product: product,
       access_level: IngenicDownload::LOGIN_ONLY,
-      file_url: "https://example.com/sdk.zip",
     )
   end
 

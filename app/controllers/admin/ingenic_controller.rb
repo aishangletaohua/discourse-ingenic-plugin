@@ -257,7 +257,7 @@ module Admin
           .new(current_user)
           .visible_ids(IngenicDownload)
           .for_locale(content_locale)
-          .includes(:product)
+          .includes(:product, :versions)
           .ordered
       pending = IngenicDownloadRequest.pending.group(:download_id).count
       granted = IngenicDownloadGrant.active.group(:download_id).count
@@ -335,26 +335,9 @@ module Admin
       record = IngenicDownload.new(download_params)
       record.locale = record.product&.locale.presence || content_locale
       authorize_area_create!(record, "downloads")
-      uploaded = apply_upload(record)
 
-      begin
-        saved = record.save
-      rescue StandardError
-        # A refusal that raises - a foreign key, a constraint - never reaches
-        # the branch below, and the file this request just wrote would sit
-        # on disk with nothing naming it.
-        discard_upload(uploaded)
-        raise
-      end
-
-      if saved
-        consume_upload_session!
+      save_or_error(record) do
         render_json_dump(download: admin_download_json(record, *counts_for(record)))
-      else
-        # The bytes are already on disk by the time validation runs, and nothing
-        # will ever name them again if the row is refused.
-        discard_upload(uploaded)
-        render_record_error(record)
       end
     end
 
@@ -373,14 +356,57 @@ module Admin
         authorize_area_create!(record, "downloads")
       end
 
-      replaced = record.storage_path
-      uploaded = apply_upload(record)
+      save_or_error(record) do
+        render_json_dump(download: admin_download_json(record, *counts_for(record)))
+      end
+    end
+
+    # Versions --------------------------------------------------------------
+    #
+    # Files are managed under the resource, because the access rule, the
+    # applications and the grants all live there. Adding a release is an edit
+    # to the card, not a new card.
+
+    def create_download_version
+      download = IngenicDownload.find(params[:id])
+      authorize_ingenic!(download)
+
+      version = download.versions.new(download_version_params)
+      uploaded = apply_upload(version)
 
       begin
-        saved = record.save
+        saved = version.save
       rescue StandardError
-        # The row still points at the file it already had, so only the
-        # upload this request wrote is cleaned up.
+        # A constraint refusal never reaches the branch below, and the bytes
+        # this request wrote would be left on disk with nothing naming them.
+        discard_upload(uploaded)
+        raise
+      end
+
+      if saved
+        consume_upload_session!
+        render_json_dump(
+          version: admin_version_json(version),
+          download: admin_download_json(download, *counts_for(download)),
+        )
+      else
+        discard_upload(uploaded)
+        render_record_error(version)
+      end
+    end
+
+    def update_download_version
+      download = IngenicDownload.find(params[:id])
+      authorize_ingenic!(download)
+      version = download.versions.find(params[:version_id])
+
+      replaced = version.storage_path
+      version.assign_attributes(download_version_params)
+      uploaded = apply_upload(version)
+
+      begin
+        saved = version.save
+      rescue StandardError
         discard_upload(uploaded)
         raise
       end
@@ -388,12 +414,33 @@ module Admin
       if saved
         consume_upload_session!
         # Replacing an upload orphans the file it replaced.
-        ::Ingenic::DownloadStorage.delete(replaced) if replaced.present? && replaced != record.storage_path
-        render_json_dump(download: admin_download_json(record, *counts_for(record)))
+        if replaced.present? && replaced != version.storage_path
+          ::Ingenic::DownloadStorage.delete(replaced)
+        end
+
+        render_json_dump(
+          version: admin_version_json(version),
+          download: admin_download_json(download, *counts_for(download)),
+        )
       else
         discard_upload(uploaded)
-        render_record_error(record)
+        render_record_error(version)
       end
+    end
+
+    # A version is deleted rather than withdrawn: unlike the resource, nothing
+    # else points at it — requests, grants and logs are keyed to the card. The
+    # stored bytes go with it, so removing a release does not leave a
+    # multi-gigabyte file nobody can name.
+    def destroy_download_version
+      download = IngenicDownload.find(params[:id])
+      authorize_ingenic!(download)
+      version = download.versions.find(params[:version_id])
+
+      ::Ingenic::DownloadStorage.delete(version.storage_path) if version.stored?
+      version.destroy!
+
+      render_json_dump(download: admin_download_json(download, *counts_for(download)))
     end
 
     # Chunked uploads -------------------------------------------------------
@@ -1442,21 +1489,17 @@ module Admin
       permitted
     end
 
+    # The resource's own fields. The file, its checksum and its description
+    # belong to a version now; the card carries what the access rule and the
+    # picture are about.
     def download_params
       permitted =
         params.permit(
           :family,
           :product_id,
           :category_id,
-          :version,
           :name,
-          :description,
-          :platform,
-          :architecture,
-          :file_url,
-          :file_size,
-          :sha256,
-          :released_on,
+          :image_upload_id,
           :published,
           :position,
           :access_level,
@@ -1473,7 +1516,27 @@ module Admin
         category_id = permitted[:category_id].to_s
         permitted[:category_id] = nil if category_id.empty? || category_id == "__NONE__"
       end
+      # "Remove the picture" arrives as an empty string; the foreign key wants
+      # null, and a key the client did not send must stay untouched.
+      if permitted.key?(:image_upload_id)
+        permitted[:image_upload_id] = permitted[:image_upload_id].presence
+      end
       permitted
+    end
+
+    def download_version_params
+      params.permit(
+        :version,
+        :description,
+        :platform,
+        :architecture,
+        :file_url,
+        :file_size,
+        :sha256,
+        :released_on,
+        :published,
+        :position,
+      )
     end
 
     def permission_params
@@ -1695,34 +1758,51 @@ module Admin
           "family",
           "product_id",
           "category_id",
-          "version",
           "locale",
           "name",
-          "description",
-          "platform",
-          "architecture",
-          "file_url",
-          "file_size",
-          "original_filename",
-          "sha256",
-          "released_on",
+          "image_upload_id",
           "published",
           "position",
           "access_level",
           "point_cost",
-          "file_sha256",
         )
         .merge(
-          "stored" => download.stored?,
           # Read through the association rather than off a column, because the
           # name can be corrected in the category list without touching every
           # resource filed under it.
           "category_name" => download.category_name,
           "product_slug" => download.product&.slug,
           "product_name" => download.product&.name,
+          "image_url" => download.image_url,
           "pending_requests" => pending,
           "active_grants" => granted,
+          # Every version, published or not: the manager is editing the card,
+          # and a withdrawn release has to stay visible to be republished.
+          "versions" =>
+            download.versions.ordered.map { |version| admin_version_json(version) },
         )
+    end
+
+    def admin_version_json(version)
+      version
+        .attributes
+        .slice(
+          "id",
+          "download_id",
+          "version",
+          "description",
+          "platform",
+          "architecture",
+          "file_url",
+          "original_filename",
+          "file_size",
+          "file_sha256",
+          "sha256",
+          "released_on",
+          "published",
+          "position",
+        )
+        .merge("stored" => version.stored?, "checksum" => version.checksum)
     end
 
     def category_json(category)

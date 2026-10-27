@@ -201,27 +201,58 @@ overview.update!(topic_url: "/t/getting-started-with-t32pro/123")
 sdk = IngenicDownloadCategory.find_or_create_by!(name: "sdk", locale: "en")
 ```
 
-一个资源要么指向存放在别处的文件，要么自己带一个上传的文件。指向外部文件时：
+资源就是卡片：名称、型号、分类、图片和访问规则。文件作为版本挂在卡片下面，卡片
+展示访客选中的那个版本。先建卡片：
 
 ```ruby
-IngenicDownload.create!(
+sdk_card = IngenicDownload.create!(
   product: chip,
   category: sdk,
-  version: "2.1.0",
   locale: "en",
-  name: "T32Pro SDK 2.1.0",
+  name: "T32Pro SDK",
+  access_level: "public_login",
+  published: true,
+)
+```
+
+没有版本之前这张卡片不能下载。一个版本要么指向存放在别处的文件，要么自己带一个
+上传的文件；指向外部文件时：
+
+```ruby
+sdk_card.versions.create!(
+  version: "2.1.0",
   description: "Linux SDK including toolchain and examples.",
   platform: "Linux",
   architecture: "x86_64",
-  access_level: "public_login",
   file_url: "https://download.ingenic.com/t32pro/sdk-2.1.0-en.tar.gz",
   file_size: "1.4 GB",
   file_sha256: "0000000000000000000000000000000000000000000000000000000000000000",
   released_on: Date.new(2026, 9, 1),
+  published: true,
 )
 ```
 
-`product` 填产品树里的型号记录。芯片资料必须挂一个型号，不能挂在系列上。
+第二个版本是同一张卡片下的另一行，各有自己的描述、文件和发布日期：
+
+```ruby
+sdk_card.versions.create!(
+  version: "2.2.0",
+  description: "新增 T33 摄像头通路，工具链更新。",
+  platform: "Linux",
+  architecture: "x86_64",
+  file_url: "https://download.ingenic.com/t32pro/sdk-2.2.0-en.tar.gz",
+  file_size: "1.5 GB",
+  released_on: Date.new(2026, 10, 1),
+  published: true,
+)
+```
+
+`product` 填产品树里的型号记录。芯片资料必须挂一个型号，不能挂在系列上。版本号
+在同一张卡片内唯一，两张卡片可以各有一个 `1.0`；草稿版本允许不填版本号，此时选择器
+显示它的发布日期。
+
+访问规则、积分和申请都属于卡片：给某个账号批准 `T32Pro SDK`，就同时覆盖 2.1.0、
+2.2.0，以及之后新发布的版本。
 
 `family` 是下载目录的顶层归类：`chip`（默认，芯片资料）或 `algorithm`（算法）。
 算法面向多个芯片、不归属某一个型号，因此 `product` 留空：
@@ -229,15 +260,20 @@ IngenicDownload.create!(
 ```ruby
 algorithms = IngenicDownloadCategory.find_or_create_by!(name: "algorithm", locale: "en")
 
-IngenicDownload.create!(
+h264 = IngenicDownload.create!(
   family: "algorithm",
   category: algorithms,
-  version: "2.1",
   locale: "en",
   name: "智能 H.264 编码库",
-  platform: "Linux",
   access_level: "public_login",
+  published: true,
+)
+h264.versions.create!(
+  version: "2.1",
+  description: "带 T 系列码率控制补丁的编码库。",
+  platform: "Linux",
   file_url: "https://download.ingenic.com/algorithms/h264-2.1.tar.gz",
+  published: true,
 )
 ```
 
@@ -251,9 +287,10 @@ IngenicDownload.create!(
 并且已填写开发者信息）、`login_form_request`（登录、已填写开发者信息，并且申请
 已通过审核）。默认值是 `public_login`。
 
-无论级别是什么，`file_url` 都不会由列表接口发给浏览器——页面给出的是插件自己的
-接口地址，由接口决定是否放行。凡是需要管控的文件，建议改用上传：放在对象存储上
-的地址，任何拿到这个地址的人都能直接下载。
+无论级别是什么，版本的 `file_url` 都不会由列表接口发给浏览器——页面给出的是插件
+自己的接口地址，由接口决定是否放行。下载接口接受 `version_id`；不带时返回最新的
+已发布版本。凡是需要管控的文件，建议改用上传：放在对象存储上的地址，任何拿到这个
+地址的人都能直接下载。
 
 通过管理页面上传的文件会写到 `ingenic_download_storage_path`，并记录为
 `storage_path` 和 `original_filename`。如果要在控制台里做同样的事，需要走控制器
@@ -261,27 +298,42 @@ IngenicDownload.create!(
 
 ```ruby
 stored = Ingenic::DownloadStorage.store(uploaded_file)
-resource.update!(
+sdk_card.versions.create!(
+  version: "2.3.0",
   storage_path: stored[:path],
   original_filename: uploaded_file.original_filename,
   file_sha256: stored[:sha256],
   file_size: stored[:size],
   file_url: nil,
+  published: true,
 )
 ```
 
-### 申请与授权
+同一行不能同时带 `file_sha256` 和 `sha256`：前者是服务器在上传时算出的摘要，后者
+是随外部链接手填的校验值。
 
-一次申请是 `ingenic_download_requests` 中的一行；批准它会签发一行
-`ingenic_download_grants`。授权没有到期时间：申请通过后该账号可以一直下载这个
-资源。真正说明"文件被取走"的是下载日志，而不是授权记录。
+卡片图片同样是一个上传记录，通过引用而不是 URL 指定：
 
 ```ruby
-request = IngenicDownloadRequest.create!(user: someone, download: resource)
+sdk_card.update!(image_upload: Upload.find_by(id: upload_id))
+```
+
+卡片按固定 4:3 比例裁切显示；没有上传图片的卡片显示目录占位图。已发布但所有版本
+都未发布的卡片不会出现在列表中——它没有东西可以交付。
+
+### 申请与授权
+
+一次申请是 `ingenic_download_requests` 中的一行，挂在卡片上。批准它会在同一个事务
+里签发 `ingenic_download_grants`。授权没有到期时间：申请通过后该账号可以一直下载
+这个资源，包括之后新发布的版本。真正说明“文件被取走”的是下载日志，而不是授权记录。
+
+```ruby
+request = IngenicDownloadRequest.create!(user: someone, download: sdk_card)
 request.approve!(admin, note: "welcome")
 
-IngenicDownloadGrant.issue!(someone, resource, granted_by: admin)
-IngenicDownloadGrant.find_by(user: someone, download: resource).revoke!(admin)
+# 不经申请、直接授权，也是同一件事。
+IngenicDownloadGrant.issue!(someone, sdk_card, granted_by: admin)
+IngenicDownloadGrant.find_by(user: someone, download: sdk_card).revoke!(admin)
 ```
 
 同样的操作在 **Ingenic → Downloads → Applications** 和 **Grants** 中都有，谁在什么

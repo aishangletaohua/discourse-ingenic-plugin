@@ -14,7 +14,6 @@ describe Jobs::IngenicDownloadLogRetention do
       locale: "en",
       access_level: IngenicDownload::LOGIN_ONLY,
       family: IngenicDownload::FAMILY_ALGORITHM,
-      file_url: "https://example.com/sdk.tgz",
     )
   end
 
@@ -24,7 +23,7 @@ describe Jobs::IngenicDownloadLogRetention do
       username: user.username,
       download_id: download.id,
       resource_name: download.name,
-      version: download.version,
+      version: "1.0",
       ip_address: "203.0.113.9",
       user_agent: "Mozilla/5.0",
       locale: "en",

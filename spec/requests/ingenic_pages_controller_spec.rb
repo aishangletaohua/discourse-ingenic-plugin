@@ -22,14 +22,18 @@ describe "Ingenic pages" do
   end
 
   fab!(:download) do
-    IngenicDownload.create!(
-      product: chip,
-      category: category,
+    record =
+      IngenicDownload.create!(
+        product: chip,
+        category: category,
+        locale: "en",
+        name: "T32Pro SDK",
+      )
+    record.versions.create!(
       version: "2.1.0",
-      locale: "en",
-      name: "T32Pro SDK",
       file_url: "https://example.com/sdk.tar.gz",
     )
+    record
   end
 
   fab!(:board) do

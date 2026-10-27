@@ -121,8 +121,7 @@ describe Ingenic::PermissionResolver do
         name: "T33 SDK",
         family: IngenicDownload::FAMILY_CHIP,
         product: child,
-        access_level: IngenicDownload::LOGIN_ONLY,
-        file_url: "https://example.com/sdk.zip",
+        access_level: IngenicDownload::LOGIN_ONLY
       )
     end
 
@@ -207,8 +206,7 @@ describe Ingenic::PermissionResolver do
           name: "C SDK",
           family: IngenicDownload::FAMILY_CHIP,
           product: other_chip,
-          access_level: IngenicDownload::LOGIN_ONLY,
-          file_url: "https://example.com/c-sdk.zip",
+          access_level: IngenicDownload::LOGIN_ONLY
           )
       IngenicPermission.create!(
         user: user,

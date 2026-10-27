@@ -24,15 +24,17 @@ describe Ingenic::DownloadAccess do
   end
 
   def resource(level, name: "SDK", point_cost: 0)
-    IngenicDownload.create!(
-      name: name,
-      product: chip,
-      category: category,
-      locale: "en",
-      access_level: level,
-      point_cost: point_cost,
-      file_url: "https://example.com/sdk.tgz",
-    )
+    record =
+      IngenicDownload.create!(
+        name: name,
+        product: chip,
+        category: category,
+        locale: "en",
+        access_level: level,
+        point_cost: point_cost,
+      )
+    record.versions.create!(version: "1.0", file_url: "https://example.com/sdk.tgz")
+    record
   end
 
   # Points to spend. Every route into the ledger goes through the service, so

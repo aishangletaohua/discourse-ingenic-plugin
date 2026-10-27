@@ -73,8 +73,7 @@ describe IngenicDownloadCategory do
       name: "T33 SDK",
       product: chip,
       category: record,
-      locale: "en",
-      file_url: "https://example.com/sdk.tgz",
+      locale: "en"
     )
 
     expect(record.download_count).to eq(1)
@@ -87,8 +86,7 @@ describe IngenicDownloadCategory do
         name: "T33 SDK",
         product: chip,
         category: record,
-        locale: "en",
-        file_url: "https://example.com/sdk.tgz",
+        locale: "en"
       )
 
     record.destroy!

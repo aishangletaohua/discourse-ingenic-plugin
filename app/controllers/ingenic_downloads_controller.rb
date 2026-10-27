@@ -106,10 +106,13 @@ class IngenicDownloadsController < ::ApplicationController
     access = access_for(@download)
     return render_denied(access) unless access.allowed?
 
-    if @download.stored?
+    @version = requested_version
+    return render_unavailable if @version.nil?
+
+    if @version.stored?
       stream_stored_file
-    elsif @download.file_url.present?
-      deliver_external(@download.file_url)
+    elsif @version.file_url.present?
+      deliver_external(@version.file_url)
     else
       # Allowed, but there is nowhere to send them. A row like this should not
       # exist, and saying so is more useful than a redirect that looks like a
@@ -139,6 +142,22 @@ class IngenicDownloadsController < ::ApplicationController
   def find_download
     @download = IngenicDownload.find_by(id: params[:id])
     raise Discourse::NotFound if @download.nil?
+  end
+
+  # Which file under the card was asked for. A specific id must belong to this
+  # resource and be published: ids are cheap to guess, and a withdrawn version
+  # is not a file the team still offers. Without one the newest published
+  # version is served, which is what a bookmarked old link should get when the
+  # card has moved on.
+  def requested_version
+    if params[:version_id].present?
+      version = @download.versions.published.find_by(id: params[:version_id])
+      raise Discourse::NotFound if version.nil?
+
+      return version
+    end
+
+    @download.versions.published.ordered.first
   end
 
   def access_for(download)
@@ -192,10 +211,10 @@ class IngenicDownloadsController < ::ApplicationController
   end
 
   def stream_stored_file
-    relative = @download.storage_path
+    relative = @version.storage_path
     if !Ingenic::DownloadStorage.exist?(relative)
       Rails.logger.warn(
-        "Ingenic: download #{@download.id} is missing from storage at #{relative.inspect}",
+        "Ingenic: download #{@download.id} version #{@version.id} is missing from storage at #{relative.inspect}",
       )
       return render_unavailable
     end
@@ -210,7 +229,7 @@ class IngenicDownloadsController < ::ApplicationController
     response.headers["Content-Disposition"] =
       ActionDispatch::Http::ContentDisposition.format(
         disposition: "attachment",
-        filename: @download.original_filename.presence || "#{@download.name}",
+        filename: @version.original_filename.presence || "#{@download.name}",
       )
 
     # Streamed through the controller rather than handed to the web server: the
@@ -234,7 +253,9 @@ class IngenicDownloadsController < ::ApplicationController
   def deliver_external(url)
     local = url.start_with?("/")
     if !local && !url.match?(%r{\Ahttps?://}i)
-      Rails.logger.warn("Ingenic: download #{@download.id} has an unusable file URL")
+      Rails.logger.warn(
+        "Ingenic: download #{@download.id} version #{@version.id} has an unusable file URL",
+      )
       return render_unavailable
     end
 
@@ -262,7 +283,12 @@ class IngenicDownloadsController < ::ApplicationController
   # because a download somebody is entitled to must not fail over a row in a
   # log.
   def record_download
-    IngenicDownloadLog.record!(user: current_user, download: @download, request: request)
+    IngenicDownloadLog.record!(
+      user: current_user,
+      download: @download,
+      version: @version,
+      request: request,
+    )
   end
 
   # A resource is filed in exactly one language, and that is the language of
@@ -278,8 +304,16 @@ class IngenicDownloadsController < ::ApplicationController
         rows = rows.where(family: params[:family]) if params[:family].present?
         rows = rows.where(product_id: product_ids_for_params) if product_ids_for_params
         rows = rows.where(category_id: params[:category]) if params[:category].present?
-        rows = rows.where(version: params[:version]) if params[:version].present?
-        rows = rows.where(platform: params[:platform]) if params[:platform].present?
+
+        # A card with no published file is not a download. Every version being
+        # withdrawn hides the card without withdrawing the resource, which is
+        # what it means to pull one release before the next is ready.
+        rows =
+          rows
+            .joins(:versions)
+            .merge(IngenicDownloadVersion.published)
+            .distinct
+            .includes(:product, :image_upload, :versions)
 
         rows.ordered
       end
@@ -332,20 +366,33 @@ class IngenicDownloadsController < ::ApplicationController
       "product_name" => download.product&.name,
       "category_id" => download.category_id,
       "category_name" => download.category_name,
-      "version" => download.version,
-      "platform" => download.platform,
-      "architecture" => download.architecture,
       "name" => download.name,
-      "description" => download.description,
-      "file_size" => download.file_size,
-      "sha256" => download.file_sha256.presence || download.sha256,
-      "released_on" => download.released_on&.iso8601,
+      "image_url" => download.image_url,
       "access_level" => download.access_level,
       "access_state" => state.to_s,
-      "external" => download.external?,
-      # Where the browser should go for the bytes, whatever the state: the
-      # endpoint is what decides, and it is the only address the page needs.
-      "file_path" => "#{Discourse.base_path}/ingenic/downloads/#{download.id}/file",
+      # Newest first. The card selects the first and swaps its description and
+      # file when the visitor picks another; the access state above belongs to
+      # the resource, so switching versions never changes whether they may have
+      # it.
+      "versions" => download.published_versions.map { |version| version_json(download, version) },
+    }
+  end
+
+  def version_json(download, version)
+    {
+      "id" => version.id,
+      "version" => version.version,
+      "description" => version.description,
+      "platform" => version.platform,
+      "architecture" => version.architecture,
+      "file_size" => version.file_size,
+      "sha256" => version.checksum,
+      "released_on" => version.released_on&.iso8601,
+      "external" => version.external?,
+      # The endpoint decides whether these bytes may leave, for this version and
+      # this account. It is the only file address the page ever sees.
+      "file_path" =>
+        "#{Discourse.base_path}/ingenic/downloads/#{download.id}/file?version_id=#{version.id}",
     }
   end
 
@@ -370,8 +417,6 @@ class IngenicDownloadsController < ::ApplicationController
       series: product_tree[:series],
       chips: product_tree[:chips],
       categories: used_categories,
-      versions: all.distinct.order(version: :desc).pluck(:version).compact,
-      platforms: all.distinct.pluck(:platform).compact.sort,
     }
   end
 

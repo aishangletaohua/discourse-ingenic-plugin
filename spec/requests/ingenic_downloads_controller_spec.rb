@@ -20,17 +20,23 @@ describe IngenicDownloadsController do
 
   before { SiteSetting.ingenic_download_admin_email = "team@example.com" }
 
-  def resource(level, name: "SDK", **attrs)
-    IngenicDownload.create!(
-      {
-        name: name,
-        product: chip,
-        category: category,
-        locale: "en",
-        access_level: level,
-        file_url: "https://example.com/sdk.tgz",
-      }.merge(attrs),
-    )
+  # A card with one published file under it, which is the ordinary shape: the
+  # access rule is the resource's, and the file is a version's.
+  def resource(level, name: "SDK", versions: nil, **attrs)
+    record =
+      IngenicDownload.create!(
+        {
+          name: name,
+          product: chip,
+          category: category,
+          locale: "en",
+          access_level: level,
+        }.merge(attrs),
+      )
+    (versions || [{ version: "1.0", file_url: "https://example.com/sdk.tgz" }]).each do |version|
+      record.versions.create!(version)
+    end
+    record
   end
 
   def with_profile(owner = nil)
@@ -80,7 +86,63 @@ describe IngenicDownloadsController do
       get "/ingenic/downloads.json"
 
       expect(response.body).not_to include("example.com")
-      expect(response.parsed_body["downloads"].first["file_path"]).to end_with("/file")
+      file_path = response.parsed_body["downloads"].first["versions"].first["file_path"]
+      expect(file_path).to include("/ingenic/downloads/")
+      expect(file_path).to include("/file?version_id=")
+    end
+
+    it "lists every published version with the description the card shows" do
+      download = resource(IngenicDownload::LOGIN_ONLY)
+      download.versions.create!(
+        version: "2.0",
+        description: "Adds the new ISP.",
+        platform: "Linux",
+        file_size: "1.2 GB",
+        released_on: Date.new(2026, 6, 1),
+        position: 0,
+        file_url: "https://example.com/sdk-2.tgz",
+      )
+
+      get "/ingenic/downloads.json"
+
+      versions = response.parsed_body["downloads"].first["versions"]
+      expect(versions.map { |row| row["version"] }).to eq(%w[2.0 1.0])
+      expect(versions.first["description"]).to eq("Adds the new ISP.")
+      expect(versions.first["platform"]).to eq("Linux")
+      expect(versions.first["file_size"]).to eq("1.2 GB")
+      expect(versions.first["released_on"]).to eq("2026-06-01")
+      expect(versions.first["external"]).to eq(true)
+    end
+
+    it "leaves an unpublished version out of the listing" do
+      download = resource(IngenicDownload::LOGIN_ONLY)
+      download.versions.create!(
+        version: "2.0-beta",
+        published: false,
+        file_url: "https://example.com/beta.tgz",
+      )
+
+      get "/ingenic/downloads.json"
+
+      expect(response.parsed_body["downloads"].first["versions"].map { |row| row["version"] }).to eq(
+        ["1.0"],
+      )
+    end
+
+    it "does not list a resource with no published version" do
+      download =
+        IngenicDownload.create!(
+          name: "Empty",
+          product: chip,
+          category: category,
+          locale: "en",
+          access_level: IngenicDownload::LOGIN_ONLY,
+        )
+      download.versions.create!(version: "1.0", file_url: "https://example.com/a.tgz", published: false)
+
+      get "/ingenic/downloads.json"
+
+      expect(response.parsed_body["downloads"].map { |row| row["name"] }).not_to include("Empty")
     end
 
     it "reports a granted resource for the account that holds the grant" do
@@ -413,8 +475,74 @@ describe IngenicDownloadsController do
       expect(response.location).to eq("https://example.com/sdk.tgz")
     end
 
+    it "hands over the version the card asked for, not the newest" do
+      download =
+        resource(
+          IngenicDownload::LOGIN_ONLY,
+          versions: [
+            { version: "1.0", file_url: "https://example.com/old.tgz", position: 1 },
+            { version: "2.0", file_url: "https://example.com/new.tgz", position: 0 },
+          ],
+        )
+      sign_in(user)
+
+      get "/ingenic/downloads/#{download.id}/file?version_id=#{download.versions.first.id}"
+
+      expect(response.location).to eq("https://example.com/old.tgz")
+    end
+
+    it "serves the newest published version when none is named" do
+      download =
+        resource(
+          IngenicDownload::LOGIN_ONLY,
+          versions: [
+            { version: "1.0", file_url: "https://example.com/old.tgz", position: 1 },
+            { version: "2.0", file_url: "https://example.com/new.tgz", position: 0 },
+          ],
+        )
+      sign_in(user)
+
+      get "/ingenic/downloads/#{download.id}/file"
+
+      expect(response.location).to eq("https://example.com/new.tgz")
+    end
+
+    it "will not hand over a version of another resource" do
+      mine = resource(IngenicDownload::LOGIN_ONLY, name: "Mine")
+      theirs =
+        resource(
+          IngenicDownload::LOGIN_ONLY,
+          name: "Theirs",
+          versions: [{ version: "9.0", file_url: "https://example.com/theirs.tgz" }],
+        )
+      sign_in(user)
+
+      get "/ingenic/downloads/#{mine.id}/file.json?version_id=#{theirs.versions.first.id}"
+
+      expect(response.status).to eq(404)
+    end
+
+    it "will not hand over an unpublished version" do
+      download = resource(IngenicDownload::LOGIN_ONLY)
+      beta =
+        download.versions.create!(
+          version: "2.0-beta",
+          published: false,
+          file_url: "https://example.com/beta.tgz",
+        )
+      sign_in(user)
+
+      get "/ingenic/downloads/#{download.id}/file.json?version_id=#{beta.id}"
+
+      expect(response.status).to eq(404)
+    end
+
     it "does not send the browser to a value that is not a web address" do
-      download = resource(IngenicDownload::LOGIN_ONLY, file_url: "javascript:alert(1)")
+      download =
+        resource(
+          IngenicDownload::LOGIN_ONLY,
+          versions: [{ version: "1.0", file_url: "javascript:alert(1)" }],
+        )
       sign_in(user)
 
       get "/ingenic/downloads/#{download.id}/file"
@@ -439,9 +567,14 @@ describe IngenicDownloadsController do
       download =
         resource(
           IngenicDownload::APPROVAL_REQUIRED,
-          storage_path: stored[:path],
-          original_filename: "sdk.bin",
-          file_url: nil,
+          versions: [
+            {
+              version: "1.0",
+              storage_path: stored[:path],
+              original_filename: "sdk.bin",
+              file_url: nil,
+            },
+          ],
         )
 
       with_profile
@@ -477,9 +610,14 @@ describe IngenicDownloadsController do
       download =
         resource(
           IngenicDownload::LOGIN_ONLY,
-          storage_path: "aa/gone.bin",
-          original_filename: "gone.bin",
-          file_url: nil,
+          versions: [
+            {
+              version: "1.0",
+              storage_path: "aa/gone.bin",
+              original_filename: "gone.bin",
+              file_url: nil,
+            },
+          ],
         )
       sign_in(user)
 
@@ -597,10 +735,15 @@ describe IngenicDownloadsController do
       download =
         resource(
           IngenicDownload::LOGIN_ONLY,
-          storage_path: "aa/gone.bin",
-          original_filename: "gone.bin",
-          file_url: nil,
           point_cost: 5,
+          versions: [
+            {
+              version: "1.0",
+              storage_path: "aa/gone.bin",
+              original_filename: "gone.bin",
+              file_url: nil,
+            },
+          ],
         )
       earn(user)
       sign_in(user)
@@ -662,9 +805,14 @@ describe IngenicDownloadsController do
       download =
         resource(
           IngenicDownload::LOGIN_ONLY,
-          storage_path: "aa/gone.bin",
-          original_filename: "gone.bin",
-          file_url: nil,
+          versions: [
+            {
+              version: "1.0",
+              storage_path: "aa/gone.bin",
+              original_filename: "gone.bin",
+              file_url: nil,
+            },
+          ],
         )
       sign_in(user)
 

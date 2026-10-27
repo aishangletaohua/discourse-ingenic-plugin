@@ -1791,3 +1791,71 @@ button.ingenic-file-manager__entry {
     text-align: left;
   }
 }
+
+// Downloads: the picture, and the versions under a card -----------------------
+
+.ingenic-admin-image {
+  display: flex;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 0.75rem;
+
+  img {
+    width: 12rem;
+    aspect-ratio: 4 / 3;
+    border: 1px solid var(--primary-low);
+    border-radius: 8px;
+    object-fit: cover;
+  }
+}
+
+.ingenic-admin-list__resource {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ingenic-admin-list__thumb {
+  width: 4.5rem;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+// The versions of one card: a border above separates them from the card's own
+// form, and the header keeps the add button beside the explanation rather than
+// under it.
+.ingenic-download-versions {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--primary-low);
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+
+    h3 {
+      margin: 0;
+    }
+
+    .ingenic-admin-form__hint {
+      margin: 0.25rem 0 0;
+    }
+  }
+
+  .ingenic-admin-form {
+    margin-top: 1rem;
+    padding: 0.9rem;
+    border: 1px solid var(--primary-low);
+    border-radius: 8px;
+    background: var(--primary-very-low);
+
+    h4 {
+      flex: 1 1 100%;
+      margin: 0;
+    }
+  }
+}

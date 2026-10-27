@@ -280,19 +280,26 @@ The download centre has three filter rows:
 3. **Resource type** — SDK, firmware, manual, datasheet, toolchain, example,
    release notes or another type the team defined.
 
-Each resource row shows its version, platform, size, release date and SHA-256
-checksum. The filters are buttons, not drop-downs; the current choice is filled
-in, and choosing another button changes the list immediately.
+Each result is a horizontal card: the picture on the left, the selected
+version's description in the middle, and one **Download** button on the right.
+The filters are buttons, not drop-downs; the current choice is filled in, and
+choosing another button changes the list immediately.
+
+A card can carry several versions. The selector above the description lists
+them; choosing another version changes the description and the file the button
+hands over, without changing the card or the access already granted for it. The
+card shows the version's platform, size, release date and SHA-256 checksum, and
+a placeholder picture stands in when the team has not uploaded one.
 
 ### 6.2 The three access levels
 
-Every resource is published at one of three levels:
+Every card is published at one of three levels:
 
 | Level | What you see | What you do |
 | --- | --- | --- |
-| Anyone signed in | **Download** when signed in, **Sign in to download** otherwise | Sign in |
-| Signed in with developer information | **Add your details** the first time | Fill in the developer form once; it is reused for every gated download |
-| Signed in with information and approval | **Apply for access** | Fill in the form, send an application, wait for the team to approve |
+| Anyone signed in | **Download** after signing in; a sign-in link otherwise | Sign in |
+| Signed in with developer information | **Download**, with a prompt to add your details the first time | Fill in the developer form once; it is reused for every gated download |
+| Signed in with information and approval | **Download**, with a prompt to apply for that resource | Fill in the form, send an application, wait for the team to approve |
 
 The developer form first asks who you are — a company, a student or an
 individual developer — and then the questions that follow from it. Everyone
@@ -325,10 +332,16 @@ the balance shown on the downloads page and on the points page.
 
 ### 6.4 Downloading
 
+Choose the version first if the card offers more than one. **Download** then
+settles whatever that card asks for — sign in, developer details, an
+application, points — and the file starts as soon as the requirement is met; a
+form you submit does not send you back to press the button again.
+
 The file is streamed through the forum after the access check; it is not a
 public link that can be shared around the gate. The stored SHA-256 lets you
 confirm that the bytes arrived intact. If a file is missing from storage, the
-forum reports the resource as unavailable and does not charge points.
+forum reports the resource as unavailable and does not charge points. One
+approval covers every version of that card, including releases published later.
 
 ## 7. Development boards and samples
 
@@ -599,10 +612,20 @@ filters, and boards for each card's chip.
 
 The Downloads screen has up to five tabs:
 
-- **Resources** — add and edit a resource. Fields include name, catalogue
-  (`chip` or `algorithm`), product slug, category, version, locale, platform,
-  architecture, access level, point cost, file upload or URL, file size,
-  checksum, release date, order, description and published.
+- **Resources** — add and edit a card. Fields include name, catalogue (`chip`
+  or `algorithm`), product, category, picture, access level, point cost, order
+  and published. Saving the card opens its versions list, where each release
+  has a label, description, platform, architecture, file upload or URL, file
+  size, checksum, release date, order and published flag.
+
+The picture is uploaded from the card form and cropped to 4:3 on the card; a
+card without one shows a placeholder. Cards are horizontal — picture, selected
+version's description, one **Download** button — and the version selector
+changes the description and the file without changing the access rule. The
+version form is where a release's description is written, so SDK 1.0 and SDK 1.1
+can say different things under the same card.
+
+Deleting a version removes the file it kept as well.
 - **Applications** — the queue of access requests. Open one to read the
   applicant's developer information, add a note, then **Approve and grant** or
   **Decline**. An optional expiry can be set on the grant.

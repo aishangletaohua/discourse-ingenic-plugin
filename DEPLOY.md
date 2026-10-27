@@ -568,9 +568,11 @@ the chosen version has it (its own copy or an inherited one). A chip with no
 versions yet says so instead of showing an empty reader, and the bare
 `/ingenic/docs` lands on the first chip that actually has documentation.
 
-**Downloads** — five tabs. *Resources* is the catalogue: name, product, version,
-platform, classification, the file (uploaded, or a URL held elsewhere), release
-date and access level. *Applications* is the queue for restricted resources,
+**Downloads** — five tabs. *Resources* is the catalogue of cards: name, product,
+classification, picture, access level and price. A card's versions are edited
+beneath it, each with its own label, description, platform, file (uploaded, or
+a URL held elsewhere), size, checksum and release date. *Applications* is the
+queue for restricted resources,
 showing each applicant's developer information, with Approve and Reject.
 *Access* is who currently holds a grant, with Revoke. *Download record* is who
 downloaded what, and when. *Categories* is the editable list of classifications
@@ -833,7 +835,9 @@ Open these and check each one:
 - [ ] the page tree expands, and previous/next move through the pages in order
 - [ ] the version picker switches versions and stays on the same page where it exists
 - [ ] a page left unedited in a later version shows the earlier version's text, and the editor names the version it came from
-- [ ] `/ingenic/downloads` filters by series, chip, classification, version and platform
+- [ ] `/ingenic/downloads` filters by series, chip and classification
+- [ ] a card shows its picture (or a placeholder), and the version selector changes the description and the file behind the single **Download** button
+- [ ] a card with several versions downloads the chosen one, and one approval covers all of them
 - [ ] a `public_login` resource downloads after signing in; a `login_form_request` one asks for an application first
 - [ ] approving an application in the queue lets that account download, and **Ingenic → Downloads → Download record** names the account
 - [ ] a post written by a member moves their balance, and **Ingenic → Points → Recent movements** shows the entry
@@ -967,7 +971,7 @@ running server itself, over HTTP, rather than by reading the code:
 
 - the migrations ran, in the development database and in the test one, creating
   the tables, the foreign keys and the partial unique index the ledger relies on
-- the plugin's spec suite passes: 548 examples, 0 failures
+- the plugin's spec suite passes: 711 examples, 0 failures
 - `rake ingenic:seed_categories` ran against a real installation and built the
   three-level tree with the permissions it says it has — including moving an
   Open Source that an earlier version had placed under Technical Discussions

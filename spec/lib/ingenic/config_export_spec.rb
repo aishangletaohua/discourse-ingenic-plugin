@@ -199,6 +199,66 @@ describe Ingenic::ConfigExport do
       expect(report["doc_products"]).to eq("created" => 0, "updated" => 1)
       expect(IngenicProduct.find_by(slug: "t33").name).to eq("T33")
     end
+
+    it "carries each card's versions, and what each release says about itself" do
+      build_a_tree
+      download =
+        IngenicDownload.create!(
+          name: "T33 SDK",
+          family: IngenicDownload::FAMILY_ALGORITHM,
+          locale: "en",
+          access_level: IngenicDownload::LOGIN_ONLY,
+        )
+      download.versions.create!(
+        version: "1.0",
+        description: "The first release.",
+        file_url: "https://example.com/sdk-1.tgz",
+        position: 1,
+      )
+      download.versions.create!(
+        version: "2.0",
+        description: "Adds the new ISP.",
+        platform: "Linux",
+        file_url: "https://example.com/sdk-2.tgz",
+        position: 0,
+      )
+
+      described_class.export(path)
+      IngenicDownloadVersion.delete_all
+      IngenicDownload.delete_all
+
+      described_class.import(path)
+
+      restored = IngenicDownload.find_by(name: "T33 SDK")
+      expect(restored.versions.ordered.map(&:version)).to eq(%w[2.0 1.0])
+      expect(restored.versions.ordered.first.description).to eq("Adds the new ISP.")
+      expect(restored.versions.ordered.first.platform).to eq("Linux")
+    end
+
+    # Files exported before versions existed were one row per file. Such a file
+    # still names everything it used to, so it imports as a card with one
+    # version rather than failing on the shape it was written in.
+    it "reads a file written before cards had versions" do
+      File.write(
+        path,
+        <<~YAML,
+          version: 1
+          content:
+            downloads:
+              - name: "T33 SDK"
+                locale: "en"
+                access_level: "#{IngenicDownload::LOGIN_ONLY}"
+                version: "1.0"
+                description: "Old flat export."
+                file_url: "https://example.com/sdk.tgz"
+        YAML
+      )
+
+      described_class.import(path)
+
+      download = IngenicDownload.find_by(name: "T33 SDK")
+      expect(download.versions.map(&:description)).to eq(["Old flat export."])
+    end
   end
 
   describe "what it refuses" do
