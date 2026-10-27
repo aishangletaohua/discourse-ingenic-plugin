@@ -22,6 +22,7 @@ require_relative "lib/discourse_ingenic/app_shell"
 require_relative "lib/discourse_ingenic/guardian_extensions"
 require_relative "lib/discourse_ingenic/management_constraint"
 require_relative "lib/ingenic/locales"
+require_relative "lib/ingenic/assistant/search"
 require_relative "lib/ingenic/permission_resolver"
 require_relative "lib/ingenic/resolved_page"
 require_relative "lib/ingenic/documentation_resolver"
@@ -141,6 +142,26 @@ register_svg_icon "microchip"
 after_initialize do
   reloadable_patch do
     Guardian.prepend DiscourseIngenic::GuardianExtensions
+  end
+
+  # The assistant's knowledge of the developer centre.
+  #
+  # Discourse AI is a separate plugin and may not be installed at all, so
+  # everything here is conditional on it. Without the tool the assistant is
+  # exactly what it was: the floating robot still opens a conversation, it just
+  # answers from topics alone.
+  if defined?(DiscourseAi::Agents::Tools::Tool)
+    require_relative "lib/discourse_ai/agents/tools/search_ingenic"
+    require_relative "lib/ingenic/assistant/general_tools"
+
+    # Being in the tool catalogue is what makes the tool lookup-able by name
+    # and what the admin tool list draws; being in the agent's `tools` is what
+    # makes it available. The patch below does the second half.
+    register_modifier(:ai_agent_available_tools) do |tools|
+      tools | [DiscourseAi::Agents::Tools::SearchIngenic]
+    end
+
+    reloadable_patch { DiscourseAi::Agents::General.prepend Ingenic::Assistant::GeneralTools }
   end
 
   # The official identity badge.

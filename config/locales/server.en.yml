@@ -23,6 +23,28 @@ en:
     ingenic_popular_window_days: "How many days back the Popular posts card looks. Likes rank first, views break ties."
 
   ingenic:
+    # What the assistant's developer-centre tool says. Only `no_results` is
+    # addressed to the model rather than to a reader: it is the difference
+    # between an empty forum and an answer filed in a catalogue the model cannot
+    # see, and the model has to be told which one it is looking at.
+    assistant:
+      tool:
+        help: "Search the Ingenic documentation, download catalogue and development boards."
+        summary: "Search the Ingenic developer centre"
+        details: "Searching the developer centre for “%{query}”"
+        progress: "Reading the documentation"
+        no_results: "Nothing matched. Tell the reader so, and point them at the developer centre to browse: %{docs}, %{downloads} and %{boards}."
+        unavailable: "The developer centre is not available on this site."
+        kind:
+          documentation: "Documentation"
+          download: "Download"
+          board: "Development board"
+      download:
+        kind: "Download"
+        needs_sign_in: "needs sign-in"
+        needs_profile: "needs developer information"
+        needs_approval: "needs an approved application"
+        none_description: "Listed in the download centre."
     import:
       unsupported: "Only Markdown (.md, .markdown, .txt) and Word (.docx) files can be imported."
       too_large: "The file is larger than 5 MB."

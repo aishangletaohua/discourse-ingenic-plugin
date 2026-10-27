@@ -23,6 +23,24 @@ zh_CN:
     ingenic_high_like_threshold: "帖子所有正常回复的点赞数达到多少时获得「高赞」标签。默认 20；低于阈值的帖子会在下次执行时失去由系统打上的标签。"
 
   ingenic:
+    assistant:
+      tool:
+        help: "搜索君正在线文档、SDK 与固件下载以及开发板。"
+        summary: "搜索君正开发者资源"
+        details: "正在搜索开发者资源：%{query}"
+        progress: "正在阅读文档"
+        no_results: "没有匹配的内容。请如实告知读者，并引导他们到开发者资源页面浏览：%{docs}、%{downloads}、%{boards}。"
+        unavailable: "本站未启用开发者资源。"
+        kind:
+          documentation: "在线文档"
+          download: "下载资源"
+          board: "开发板"
+      download:
+        kind: "下载资源"
+        needs_sign_in: "需登录"
+        needs_profile: "需填写开发者资料"
+        needs_approval: "需审批的访问申请"
+        none_description: "见下载中心。"
     import:
       unsupported: "只能导入 Markdown（.md、.markdown、.txt）或 Word（.docx）文件。"
       too_large: "文件超过 5 MB。"
