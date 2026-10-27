@@ -62,7 +62,7 @@ edit to the card, not a second card — and because the approval is the card's,
 one approval covers every version of that resource, including releases published
 later.
 
-The card draws horizontally: the uploaded picture on the left, the selected
+The card draws horizontally: the picture on the left, the selected
 version's description in the middle, one **Download** button on the right. The
 version selector changes the description and the file behind the button. There
 is no second kind of button: what differs is only what the server asks for

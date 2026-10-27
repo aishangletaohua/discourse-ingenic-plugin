@@ -333,15 +333,17 @@ A row cannot carry `file_sha256` and `sha256` at once. The former is the digest
 the server computed while storing the upload; the latter is a checksum typed
 beside an external URL.
 
-The card's picture is an upload as well, and is set by reference rather than by
-URL:
+The card's picture is a link, filled in the same way a board's is. Upload the
+image once in the official file library (Admin → Ingenic → Official files) and
+paste back the address it shows:
 
 ```ruby
-sdk_210.update!(image_upload: Upload.find_by(id: upload_id))
+sdk_210.update!(image_url: "/ingenic/files/cards/t32pro-sdk.png")
 ```
 
-Cards are drawn at a fixed 4:3 ratio and cropped to fit; a card with no upload
-draws the catalogue placeholder. A published card whose versions are all
+A full `https://…` address works too; a bare filename does not. Cards are drawn
+at a fixed 4:3 ratio and cropped to fit; a card with no picture draws the
+catalogue placeholder. A published card whose versions are all
 unpublished is left out of the listing — it has nothing to hand over.
 
 ### Applications and grants

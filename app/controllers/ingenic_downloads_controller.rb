@@ -313,7 +313,7 @@ class IngenicDownloadsController < ::ApplicationController
             .joins(:versions)
             .merge(IngenicDownloadVersion.published)
             .distinct
-            .includes(:product, :image_upload, :versions)
+            .includes(:product, :versions)
 
         rows.ordered
       end

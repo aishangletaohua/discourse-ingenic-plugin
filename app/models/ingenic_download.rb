@@ -30,11 +30,9 @@ class IngenicDownload < ActiveRecord::Base
            foreign_key: :download_id,
            dependent: :destroy
 
-  # The picture on the card, uploaded from the management screen. A resource
-  # without one is drawn with the catalogue placeholder rather than with an
-  # empty box; an upload that is deleted elsewhere leaves the card in that same
-  # state instead of taking the resource with it.
-  belongs_to :image_upload, class_name: "Upload", optional: true
+  # The picture on the card is a link, copied out of the official-file library
+  # or given as an address — the same field a board has. A resource without one
+  # is drawn with the catalogue placeholder rather than with an empty box.
 
   has_many :requests,
            class_name: "IngenicDownloadRequest",
@@ -74,7 +72,7 @@ class IngenicDownload < ActiveRecord::Base
   validate :chip_has_a_product
   validate :product_is_a_chip
   validate :product_locale_matches
-  validate :image_is_an_image
+  validate :image_url_is_a_link
   # Not signed, for the same reason a point rule is not: a negative price is a
   # charge for arriving, and a member who cannot afford one would be refused a
   # file for having done nothing.
@@ -132,13 +130,6 @@ class IngenicDownload < ActiveRecord::Base
     published_versions.any?
   end
 
-  # The picture on the card. Read through the upload so a replacement at the
-  # same id is picked up without touching the resource; nil draws the
-  # placeholder.
-  def image_url
-    image_upload&.url
-  end
-
   private
 
   def chip_has_a_product
@@ -164,13 +155,15 @@ class IngenicDownload < ActiveRecord::Base
     errors.add(:locale, "must match the product's language")
   end
 
-  # The card's picture is drawn at a fixed ratio, and a PDF or an archive in
-  # that slot is a broken image on the catalogue. The uploader already knows
-  # what it accepted; this is the server saying so as well.
-  def image_is_an_image
-    return if image_upload.nil?
-    return if FileHelper.is_supported_image?("image.#{image_upload.extension}")
+  # The picture is drawn straight into an <img>, so what is stored has to be an
+  # address the browser may fetch: a full http(s) URL, or a path on this site
+  # such as the one the file library hands back. Anything else — a bare word, a
+  # javascript: URL — is refused here rather than rendered as a broken card.
+  def image_url_is_a_link
+    return if image_url.blank?
+    return if image_url.match?(%r{\Ahttps?://}i)
+    return if image_url.start_with?("/") && !image_url.start_with?("//")
 
-    errors.add(:image_upload, "must be an image")
+    errors.add(:image_url, "must be an http(s) address or a path beginning with /")
   end
 end

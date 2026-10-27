@@ -929,37 +929,36 @@ describe Admin::IngenicController do
       expect(version.reload.description).to be_nil
     end
 
-    it "puts an uploaded picture on the card" do
-      upload = Fabricate(:upload, extension: "png")
-
-      download = create_resource(image_upload_id: upload.id)
+    it "puts the link an operator pasted on the card" do
+      download = create_resource(image_url: "/ingenic/files/cards/t33-sdk.png")
 
       expect(response.status).to eq(200)
-      expect(download["image_upload_id"]).to eq(upload.id)
-      expect(download["image_url"]).to be_present
-      expect(download["image_url"]).to eq(upload.url)
+      expect(download["image_url"]).to eq("/ingenic/files/cards/t33-sdk.png")
     end
 
-    it "refuses a file that is not a picture" do
-      upload = Fabricate(:upload, extension: "zip")
+    it "keeps a full address as given, and trims the field" do
+      download = create_resource(image_url: "  https://ingenic.com/t33.png  ")
 
-      download = create_resource(image_upload_id: upload.id)
+      expect(response.status).to eq(200)
+      expect(download["image_url"]).to eq("https://ingenic.com/t33.png")
+    end
+
+    it "refuses a value that is not an address" do
+      create_resource(image_url: "t33-sdk.png")
 
       expect(response.status).to eq(422)
       expect(IngenicDownload.find_by(name: "T33 SDK")).to be_nil
     end
 
-    it "takes the picture off when the picker is cleared" do
-      upload = Fabricate(:upload, extension: "png")
-      download = create_resource(image_upload_id: upload.id)
+    it "takes the picture off when the field is cleared" do
+      download = create_resource(image_url: "/ingenic/files/cards/t33-sdk.png")
 
       put "/admin/plugins/discourse-ingenic/downloads/#{download["id"]}.json",
           params: {
-            image_upload_id: "",
+            image_url: "",
           }
 
       expect(response.status).to eq(200)
-      expect(response.parsed_body["download"]["image_upload_id"]).to be_nil
       expect(response.parsed_body["download"]["image_url"]).to be_nil
     end
   end

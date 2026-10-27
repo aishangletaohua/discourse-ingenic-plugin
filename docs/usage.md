@@ -289,7 +289,7 @@ A card can carry several versions. The selector above the description lists
 them; choosing another version changes the description and the file the button
 hands over, without changing the card or the access already granted for it. The
 card shows the version's platform, size, release date and SHA-256 checksum, and
-a placeholder picture stands in when the team has not uploaded one.
+a placeholder picture stands in when the team has not given the card a picture.
 
 ### 6.2 The three access levels
 
@@ -613,13 +613,15 @@ filters, and boards for each card's chip.
 The Downloads screen has up to five tabs:
 
 - **Resources** — add and edit a card. Fields include name, catalogue (`chip`
-  or `algorithm`), product, category, picture, access level, point cost, order
+  or `algorithm`), product, category, picture link, access level, point cost, order
   and published. Saving the card opens its versions list, where each release
   has a label, description, platform, architecture, file upload or URL, file
   size, checksum, release date, order and published flag.
 
-The picture is uploaded from the card form and cropped to 4:3 on the card; a
-card without one shows a placeholder. Cards are horizontal — picture, selected
+The picture is a link, filled in the same way a board's is: upload the image
+once in the official file library, copy the address it shows and paste it into
+the card's **Card image URL** field. It is cropped to 4:3 on the card; clearing
+the field leaves the card with the catalogue placeholder. Cards are horizontal — picture, selected
 version's description, one **Download** button — and the version selector
 changes the description and the file without changing the access rule. The
 version form is where a release's description is written, so SDK 1.0 and SDK 1.1

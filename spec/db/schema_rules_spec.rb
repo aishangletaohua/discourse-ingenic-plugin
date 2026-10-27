@@ -81,16 +81,6 @@ describe "The Ingenic schema" do
     expect(IngenicDownloadVersion.where(download_id: download.id).count).to eq(0)
   end
 
-  it "clears a card's picture when the upload is deleted" do
-    upload = Fabricate(:upload, extension: "png")
-    download = resource
-    download.update!(image_upload_id: upload.id)
-
-    DB.exec("DELETE FROM uploads WHERE id = :id", id: upload.id)
-
-    expect(download.reload.image_upload_id).to be_nil
-  end
-
   it "keeps the log, and the name of who took the file, when the account goes" do
     download = resource
     log = IngenicDownloadLog.record!(user: user, download: download)

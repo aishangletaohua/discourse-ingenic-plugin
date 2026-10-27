@@ -1499,7 +1499,7 @@ module Admin
           :product_id,
           :category_id,
           :name,
-          :image_upload_id,
+          :image_url,
           :published,
           :position,
           :access_level,
@@ -1516,10 +1516,10 @@ module Admin
         category_id = permitted[:category_id].to_s
         permitted[:category_id] = nil if category_id.empty? || category_id == "__NONE__"
       end
-      # "Remove the picture" arrives as an empty string; the foreign key wants
-      # null, and a key the client did not send must stay untouched.
-      if permitted.key?(:image_upload_id)
-        permitted[:image_upload_id] = permitted[:image_upload_id].presence
+      # "Remove the picture" arrives as an empty string, which is stored as
+      # null; a key the client did not send must stay untouched.
+      if permitted.key?(:image_url)
+        permitted[:image_url] = permitted[:image_url].to_s.strip.presence
       end
       permitted
     end
@@ -1760,7 +1760,7 @@ module Admin
           "category_id",
           "locale",
           "name",
-          "image_upload_id",
+          "image_url",
           "published",
           "position",
           "access_level",
@@ -1773,7 +1773,6 @@ module Admin
           "category_name" => download.category_name,
           "product_slug" => download.product&.slug,
           "product_name" => download.product&.name,
-          "image_url" => download.image_url,
           "pending_requests" => pending,
           "active_grants" => granted,
           # Every version, published or not: the manager is editing the card,

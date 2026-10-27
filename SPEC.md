@@ -200,7 +200,7 @@ reader.
 ### Downloads
 
 A resource is a card and its files are versions. `ingenic_downloads` holds what
-the visitor sees before choosing a file — name, uploaded picture, chip,
+the visitor sees before choosing a file — name, picture link, chip,
 category, publish flag and one access rule. `ingenic_download_versions` holds
 the releases: label, description, platform, architecture, size, checksum,
 release date and source (an uploaded file or an external URL). A card with no
@@ -251,9 +251,11 @@ then streams the file with an explicit `Content-Type`, `Content-Length` and
 
 Metadata is recorded per version — label, description, platform, architecture,
 size, SHA-256 and release date — while the category is the card's. The admin
-creates the card first (picture included) and adds versions beneath it; the
-picture is an ordinary Discourse upload, kept by `image_upload_id` and cleared
-when the upload is deleted.
+creates the card first (picture included) and adds versions beneath it. The
+picture is `image_url`, the same kind of field a board has: the operator uploads
+it once in the official file library and pastes the link that screen hands back.
+It accepts an http(s) address or a path beginning with a single `/`; an emptied
+field means no picture, and the card is drawn with the catalogue placeholder.
 
 A resource may also carry `point_cost`, 0 by default. The price is asked after
 the access level rather than instead of it, so a `login_form_request` resource

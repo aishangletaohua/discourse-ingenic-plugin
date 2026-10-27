@@ -62,18 +62,20 @@ class CreateIngenicDownloadVersions < ActiveRecord::Migration[7.2]
       FROM ingenic_downloads
     SQL
 
-    add_column :ingenic_downloads, :image_upload_id, :bigint
-    add_index :ingenic_downloads, :image_upload_id
-    add_foreign_key :ingenic_downloads,
-                    :uploads,
-                    column: :image_upload_id,
-                    on_delete: :nullify
+    # The picture on the card is a link, the same way a board's picture is: the
+    # plugin already has one upload screen (the official-file library) and it
+    # hands back an address. Holding an Upload id here made the operator upload
+    # the same picture a second time through a different picker, and left the
+    # catalogue pointing at a file the library screen could not see.
+    add_column :ingenic_downloads, :image_url, :string
+    execute <<~SQL
+      COMMENT ON COLUMN ingenic_downloads.image_url IS
+        'Picture on the catalogue card, copied from the official-file library or given as an address.';
+    SQL
   end
 
   def down
-    remove_foreign_key :ingenic_downloads, column: :image_upload_id
-    remove_index :ingenic_downloads, :image_upload_id
-    remove_column :ingenic_downloads, :image_upload_id
+    remove_column :ingenic_downloads, :image_url
     drop_table :ingenic_download_versions
   end
 end

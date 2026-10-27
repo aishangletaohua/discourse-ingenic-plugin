@@ -23,8 +23,7 @@ const BLANK = {
   product_id: "",
   category_id: "",
   name: "",
-  image_upload_id: "",
-  image_url: null,
+  image_url: "",
   access_level: "public_login",
   point_cost: 0,
   position: 0,
@@ -67,10 +66,6 @@ export default class IngenicDownloadManager extends Component {
   @tracked busy = false;
   @tracked message = null;
   @tracked error = null;
-
-  // The picture is uploaded on its own, through core's image endpoint, and
-  // only its id is saved with the card.
-  @tracked imageBusy = false;
 
   // The version being edited. Null when the version form is closed.
   @tracked versionDraft = null;
@@ -166,8 +161,7 @@ export default class IngenicDownloadManager extends Component {
       ...record,
       product_id: record.product_id ?? "",
       category_id: record.category_id ?? "",
-      image_upload_id: record.image_upload_id ?? "",
-      image_url: record.image_url ?? null,
+      image_url: record.image_url ?? "",
       versions: record.versions ?? [],
     };
     this.#resetVersionForm();
@@ -221,58 +215,21 @@ export default class IngenicDownloadManager extends Component {
   field(event) {
     const { name, type, value, checked } = event.target;
 
-    // The selects keep the draft in step in their own handlers, and a file
-    // input's value is a fake path rather than a filename.
-    if (!name || type === "file" || type.startsWith("select")) {
+    // The selects keep the draft in step in their own handlers.
+    if (!name || type.startsWith("select")) {
       return;
     }
 
     this.draft[name] = type === "checkbox" ? checked : value;
   }
 
-  // The card's picture. Core's image endpoint validates the extension and
-  // stores the upload; the card only remembers its id, so a replacement can
-  // be a different file without the resource knowing anything about it.
+  // The card's picture is an address, not a file. The operator uploads it once
+  // in the official-file library and pastes the link it returns — the same way
+  // a board gets its picture — so the preview has to follow the field as it is
+  // typed rather than wait for the save.
   @action
-  async pickImage(event) {
-    const file = event.target.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    this.imageBusy = true;
-    this.error = null;
-
-    const data = new FormData();
-    data.append("upload_type", "composer");
-    data.append("files[]", file);
-
-    try {
-      const upload = await ajax("/uploads.json", {
-        type: "POST",
-        data,
-        processData: false,
-        contentType: false,
-      });
-
-      if (upload?.id) {
-        this.draft = {
-          ...this.draft,
-          image_upload_id: upload.id,
-          image_url: upload.url,
-        };
-      }
-    } catch (failure) {
-      this.error = this.#errorMessage(failure);
-    } finally {
-      this.imageBusy = false;
-    }
-  }
-
-  @action
-  removeImage() {
-    this.draft = { ...this.draft, image_upload_id: "", image_url: null };
+  setImageUrl(event) {
+    this.draft = { ...this.draft, image_url: event.target.value };
   }
 
   @action
@@ -286,9 +243,8 @@ export default class IngenicDownloadManager extends Component {
     // Checkboxes are absent from FormData when unchecked, which the server reads
     // as "leave it alone" — the opposite of what unchecking means here.
     form.set("published", String(event.target.elements.published.checked));
-    // The picture travels as an upload id, and clearing it has to arrive as an
-    // empty value rather than as a missing key.
-    form.set("image_upload_id", this.draft.image_upload_id ?? "");
+    // The picture's field is in the form like any other text field; an emptied
+    // one arrives as "", which the server stores as no picture at all.
 
     const id = this.draft.id;
 
@@ -735,36 +691,23 @@ export default class IngenicDownloadManager extends Component {
             {{i18n "ingenic.downloads.fields.point_cost_hint"}}
           </p>
 
-          <label class="ingenic-admin-upload">
-            <span>{{i18n "ingenic.downloads.fields.image"}}</span>
+          <label>
+            <span>{{i18n "ingenic.downloads.fields.image_url"}}</span>
             <input
-              class="ingenic-admin-upload__input"
-              type="file"
-              accept="image/*"
-              name="image"
-              {{on "change" this.pickImage}}
+              name="image_url"
+              type="text"
+              value={{this.draft.image_url}}
+              {{on "input" this.setImageUrl}}
             />
-            <span class="ingenic-admin-upload__button">
-              {{i18n "ingenic.downloads.fields.choose_image"}}
-            </span>
           </label>
 
           <p class="ingenic-admin-form__hint">
             {{i18n "ingenic.downloads.fields.image_hint"}}
           </p>
 
-          {{#if this.imageBusy}}
-            <p class="ingenic-admin-form__hint">
-              {{i18n "ingenic.downloads.fields.image_uploading"}}
-            </p>
-          {{/if}}
-
           {{#if this.draft.image_url}}
             <div class="ingenic-admin-image">
               <img src={{this.draft.image_url}} alt="" />
-              <button class="btn btn-small" type="button" {{on "click" this.removeImage}}>
-                {{i18n "ingenic.downloads.fields.remove_image"}}
-              </button>
             </div>
           {{/if}}
 

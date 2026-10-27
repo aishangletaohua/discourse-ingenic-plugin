@@ -49,6 +49,41 @@ describe IngenicDownload do
     expect(record.product).to be_nil
   end
 
+  # The picture is drawn straight into an <img>, so the stored value has to be
+  # something a browser may fetch: the link the file library returns, or a full
+  # address. A bare filename would draw a broken card with no hint why.
+  describe "the card's picture link" do
+    it "takes the address the file library hands back" do
+      expect(download(image_url: "/ingenic/files/cards/t33-sdk.png")).to be_valid
+    end
+
+    it "takes a full address" do
+      expect(download(image_url: "https://ingenic.com/t33.png")).to be_valid
+    end
+
+    it "is optional" do
+      expect(download(image_url: nil)).to be_valid
+      expect(download(image_url: "")).to be_valid
+    end
+
+    it "refuses a bare name" do
+      record = download(image_url: "t33-sdk.png")
+
+      expect(record).not_to be_valid
+      expect(record.errors[:image_url]).to be_present
+    end
+
+    it "refuses a protocol that is not http(s)" do
+      expect(download(image_url: "javascript:alert(1)")).not_to be_valid
+    end
+
+    # "//example.com/x.png" is an off-site address wearing a path's clothes;
+    # only a single leading slash means this site.
+    it "refuses a protocol-relative address" do
+      expect(download(image_url: "//example.com/x.png")).not_to be_valid
+    end
+  end
+
   # The card exists before its first file does: an admin names the resource and
   # uploads a picture, then adds versions. Nothing is listed until one of them
   # is published, because a card with nothing behind it is not a download.
