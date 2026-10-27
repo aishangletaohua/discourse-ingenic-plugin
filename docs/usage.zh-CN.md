@@ -337,6 +337,28 @@ Discourse 自带的**标签**与**聊天**分组在此站点不显示。标签�
 
 该工具在 AI 机器人的工具列表里名为 **search_ingenic**。由于 Discourse AI 的系统智能体把工具列表写在代码里而不是数据库里，插件自动把它加进了 Forum Helper；自建智能体也可以手动选用。未安装 discourse-ai 时这一段不会加载，助手行为与之前相同。
 
+### 10.3 让外部工具读取开发者资源
+
+已获授权的 MCP 客户端也可以通过同一个 `/mcp` 端点读取开发者资源。插件注册了五个只读工具：
+
+| 工具 | 参数 | 返回内容 |
+| --- | --- | --- |
+| `ingenic_search` | `query`、`scope`、`limit`、`locale` | 排好序的文档页面、下载和开发板，每条都带地址和摘要 |
+| `ingenic_list_documentation` | `series`、`chip`、`version`、`locale` | 产品树；指定芯片时返回该芯片的版本列表与目录 |
+| `ingenic_read_documentation_page` | `chip`、`page`、`series`、`version`、`locale` | 以 Markdown 返回一个页面，以及前后两页 |
+| `ingenic_list_downloads` | `locale` | SDK 与固件条目，含版本、访问级别、积分价格、大小与校验值 |
+| `ingenic_list_boards` | `locale` | 开发板与样片卡片，含芯片、简介、规格与申请/购买链接 |
+
+默认按客户端账号的语言作答，调用时也可以指定语言。它们与公开页面遵守同一套规则：未发布的系列、芯片、页面和下载不会出现，下架的目录会连同其文章一起隐藏，继承的页面按当前展示它的版本来读。下载工具只返回卡片和访问级别，绝不返回文件地址——外部集成不能绕过下载中心要求的登录、开发者资料或审批。
+
+注册不等于可用。管理员需要：
+
+1. 在 **管理 → 设置 → MCP** 打开 MCP 服务器；
+2. 在 **管理 → MCP → Capabilities** 启用五个 **Ingenic** 工具；
+3. 在 **管理 → MCP → Access** 把 **`mcp:developer-centre:read`** 授予可以读取开发者资源的分组。这个范围与 `mcp:content:read` 分开是刻意的：能读文档的客户端不应该顺带读到论坛帖子，反之亦然。
+
+之后客户端按 §10.1 的方式连接即可，不涉及插件专用的端点。
+
 ## 11. 管理员指南
 
 ### 11.1 界面在哪里

@@ -23,6 +23,9 @@ require_relative "lib/discourse_ingenic/guardian_extensions"
 require_relative "lib/discourse_ingenic/management_constraint"
 require_relative "lib/ingenic/locales"
 require_relative "lib/ingenic/assistant/search"
+require_relative "lib/ingenic/mcp/base"
+require_relative "lib/ingenic/mcp/catalog"
+require_relative "lib/ingenic/mcp/tools/support"
 require_relative "lib/ingenic/permission_resolver"
 require_relative "lib/ingenic/resolved_page"
 require_relative "lib/ingenic/documentation_resolver"
@@ -162,6 +165,25 @@ after_initialize do
     end
 
     reloadable_patch { DiscourseAi::Agents::General.prepend Ingenic::Assistant::GeneralTools }
+  end
+
+  # The developer centre as an MCP surface.
+  #
+  # Core owns the endpoint, the OAuth flow and the permission model; what this
+  # adds is five read-only tools over the same catalogues the public pages
+  # draw. Being registered is not the same as being reachable: an administrator
+  # still enables each primitive under Admin → MCP → Capabilities and grants
+  # `mcp:developer-centre:read` under Access. A forum on a core without MCP
+  # simply does not register them.
+  if defined?(DiscourseMcp::Registry)
+    require_relative "lib/ingenic/mcp/tools/search"
+    require_relative "lib/ingenic/mcp/tools/list_documentation"
+    require_relative "lib/ingenic/mcp/tools/read_documentation_page"
+    require_relative "lib/ingenic/mcp/tools/list_downloads"
+    require_relative "lib/ingenic/mcp/tools/list_boards"
+    require_relative "lib/ingenic/mcp/exposure"
+
+    Ingenic::Mcp::Exposure.register!(self)
   end
 
   # The official identity badge.

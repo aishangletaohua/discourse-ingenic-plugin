@@ -534,6 +534,39 @@ list in code rather than in the database; a custom agent can be given the same
 tool by hand. If discourse-ai is not installed, nothing here is loaded and the
 assistant behaves as it did before.
 
+### 10.3 Reading the developer centre from outside
+
+An approved MCP client can also read the developer centre itself, through the
+same `/mcp` endpoint. The plugin registers five read-only tools:
+
+| Tool | Arguments | What it returns |
+| --- | --- | --- |
+| `ingenic_search` | `query`, `scope`, `limit`, `locale` | Ranked documentation pages, downloads and boards, each with its address and an excerpt |
+| `ingenic_list_documentation` | `series`, `chip`, `version`, `locale` | The product tree; with a chip, that chip's versions and its table of contents |
+| `ingenic_read_documentation_page` | `chip`, `page`, `series`, `version`, `locale` | One page as Markdown, plus the pages either side of it |
+| `ingenic_list_downloads` | `locale` | SDK and firmware entries with their releases, access rule, price in points, size and checksum |
+| `ingenic_list_boards` | `locale` | Board and sample cards with their chip, description, specifications and apply/buy links |
+
+They answer in the client's account language unless the call names a locale,
+and they apply the same rules as the public pages: unpublished series, chips,
+versions' pages and downloads do not appear, a withdrawn folder takes its
+articles with it, and an inherited page is read at the version currently showing
+it. The download tool deliberately returns the card and its access rule, never
+the file address — an integration cannot skip the sign-in, developer
+information or approval the download centre asks for.
+
+A registered tool is not a reachable one. An administrator has to:
+
+1. turn the MCP server on under **Admin → Settings → MCP**;
+2. enable the five **Ingenic** tools under **Admin → MCP → Capabilities**;
+3. grant **`mcp:developer-centre:read`** to the group whose members may read the
+   developer centre under **Admin → MCP → Access**. This scope is separate from
+   `mcp:content:read` on purpose: a client allowed to read the documentation has
+   no business reading the forum's posts, and vice versa.
+
+Clients then connect exactly as described in §10.1; no plugin-specific endpoint
+is involved.
+
 ## 11. Administrator guide
 
 ### 11.1 Where the screens are

@@ -45,6 +45,15 @@ en:
         needs_profile: "needs developer information"
         needs_approval: "needs an approved application"
         none_description: "Listed in the download centre."
+    # What an external MCP client is told when a name in its arguments does not
+    # resolve. The message is read by a model relaying to a person, so it says
+    # what was missing rather than that something failed.
+    mcp:
+      errors:
+        query_too_short: "The query needs at least two characters."
+        chip_not_found: "No published Ingenic chip named %{chip} was found."
+        version_not_found: "No documentation has been published for %{chip} yet."
+        page_not_found: "No published page named %{page} was found in this version."
     import:
       unsupported: "Only Markdown (.md, .markdown, .txt) and Word (.docx) files can be imported."
       too_large: "The file is larger than 5 MB."

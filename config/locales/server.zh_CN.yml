@@ -41,6 +41,12 @@ zh_CN:
         needs_profile: "需填写开发者资料"
         needs_approval: "需审批的访问申请"
         none_description: "见下载中心。"
+    mcp:
+      errors:
+        query_too_short: "搜索词至少需要两个字符。"
+        chip_not_found: "未找到名为 %{chip} 的已发布君正芯片。"
+        version_not_found: "该芯片尚未发布在线文档。"
+        page_not_found: "该版本中没有名为 %{page} 的已发布页面。"
     import:
       unsupported: "只能导入 Markdown（.md、.markdown、.txt）或 Word（.docx）文件。"
       too_large: "文件超过 5 MB。"
